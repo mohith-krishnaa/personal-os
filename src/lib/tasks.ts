@@ -1,22 +1,16 @@
 import { createClient } from '@/lib/supabase/server'
+import type { Task, TaskPriority, TaskStatus } from '@/types/task'
 
-export type Task = {
-  id: string
-  title: string
-  description: string | null
-  status: 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
-  priority: 'LOW' | 'MEDIUM' | 'HIGH'
-  due_at: string | null
-  estimated_minutes: number | null
-  actual_minutes: number | null
-  completed_at: string | null
-  created_at: string
-  updated_at: string
+export async function getCurrentUser() {
+  const supabase = await createClient()
+  const { data, error } = await supabase.auth.getUser()
+  if (error) throw error
+  return data.user
 }
 
-export async function getTasks() {
+export async function listTasks(): Promise<Task[]> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getCurrentUser()
   if (!user) throw new Error('Unauthorized')
 
   const { data, error } = await supabase
@@ -26,18 +20,32 @@ export async function getTasks() {
     .order('created_at', { ascending: false })
 
   if (error) throw error
-  return data as Task[]
+  return (data ?? []) as Task[]
 }
 
-export async function createTask(input: Pick<Task, 'title'> & Partial<Pick<Task, 'description' | 'priority' | 'due_at' | 'estimated_minutes'>>) {
+export async function createTask(input: {
+  title: string
+  priority?: TaskPriority
+  estimated_minutes?: number | null
+  due_at?: string | null
+}) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getCurrentUser()
   if (!user) throw new Error('Unauthorized')
+
+  const title = input.title.trim()
+  if (!title) throw new Error('Task title is required.')
 
   const { data, error } = await supabase
     .from('tasks')
-    .insert({ ...input, user_id: user.id })
-    .select()
+    .insert({
+      user_id: user.id,
+      title,
+      priority: input.priority ?? 'MEDIUM',
+      estimated_minutes: input.estimated_minutes ?? null,
+      due_at: input.due_at ?? null,
+    })
+    .select('*')
     .single()
 
   if (error) throw error
@@ -47,7 +55,37 @@ export async function createTask(input: Pick<Task, 'title'> & Partial<Pick<Task,
     event_type: 'TASK_CREATED',
     entity_type: 'TASK',
     entity_id: data.id,
-    metadata: { priority: data.priority },
+    metadata: { source: 'dashboard' },
+  })
+
+  return data as Task
+}
+
+export async function setTaskStatus(id: string, status: TaskStatus) {
+  const supabase = await createClient()
+  const user = await getCurrentUser()
+  if (!user) throw new Error('Unauthorized')
+
+  const { data, error } = await supabase
+    .from('tasks')
+    .update({
+      status,
+      completed_at: status === 'COMPLETED' ? new Date().toISOString() : null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+    .eq('user_id', user.id)
+    .select('*')
+    .single()
+
+  if (error) throw error
+
+  await supabase.from('activity_events').insert({
+    user_id: user.id,
+    event_type: status === 'COMPLETED' ? 'TASK_COMPLETED' : 'TASK_STATUS_CHANGED',
+    entity_type: 'TASK',
+    entity_id: id,
+    metadata: { status },
   })
 
   return data as Task
