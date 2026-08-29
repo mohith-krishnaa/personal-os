@@ -18,7 +18,8 @@ export async function createClient() {
               cookieStore.set(name, value, options)
             )
           } catch {
-            // Server Components cannot always mutate cookies.
+            // Server Components cannot always mutate cookies. Middleware
+            // refreshes the session when a response can set them.
           }
         },
       },
