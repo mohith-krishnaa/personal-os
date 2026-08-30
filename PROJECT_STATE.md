@@ -6,10 +6,11 @@
 ## Current verified state
 
 - Stable integration branch: `main`
-- Current feature branch: `feature/recurring-tasks-v1`
-- Project-state branch: `chore/project-state-clean-v1`
-- Open PRs before this checkpoint: PR #3 was a candidate created from the wrong base and must not be merged.
-- Merged PRs: #1 CI, #2 Scheduler.
+- Current engineering branch: `feature/recurring-tasks-v1`
+- Persistent state file: `main:PROJECT_STATE.md`
+- Open PRs: **PR #5 (draft)**
+- PR #3: closed without merge; it was based on the wrong branch and must not be reused.
+- PR #4: merged to `main`; clean project-state checkpoint.
 
 ## Source-of-truth hierarchy
 
@@ -41,59 +42,49 @@ Branches are not PRs. A GitHub "Compare & pull request" button means only that a
 
 ## Merged PR history
 
-- PR #1 — `ci: verify Next.js builds` — merged to `main`.
-- PR #2 — `feat: task scheduler v1` — merged to `main`.
+- PR #1 — `ci: verify Next.js builds` — merged.
+- PR #2 — `feat: task scheduler v1` — merged.
+- PR #4 — `chore: persist Personal-OS project state` — merged.
 
 ## PR hygiene incident
 
-PR #3 (`chore: persist Personal-OS project state`) was created from `chore/project-state-v1`, which was based on recurring-task work rather than clean `main`. Its diff therefore contained feature implementation as well as state documentation. It must NOT be merged as a documentation-only PR.
+PR #3 was accidentally created from `chore/project-state-v1`, which contained recurring-task work. It was closed without merging.
 
-Corrective action: create a clean project-state branch directly from `main`, copy only `PROJECT_STATE.md`, and close PR #3. The recurring implementation remains isolated on `feature/recurring-tasks-v1`.
+The corrective PR #4 was created from clean `main`, contained only `PROJECT_STATE.md`, passed CI, and was merged.
 
-## Feature status
+## Recurring Tasks V1 — IN PROGRESS / PR #5 DRAFT
 
-### Completed
+Implemented on `feature/recurring-tasks-v1`:
 
-- Core task CRUD/workflow
-- Task status, priority, duration
-- Due date/time
-- Scheduled start/end
-- Day / Week / Month calendar
-- CI build verification
-- Scheduler/calendar merged to `main`
-
-### Recurring Tasks V1 — IN PROGRESS
-
-Existing implementation includes:
-
-- `RecurrenceRule` with DAILY, WEEKLY and MONTHLY forms
+- DAILY, WEEKLY and MONTHLY recurrence rules
 - recurrence validation
-- recurrence fields on tasks
+- recurrence fields in the task model
+- deterministic weekly-cycle anchoring using `anchorDate`
+- month-end clamping for monthly day 29–31 cases
 - next-occurrence generation after completion
-- recurrence activity event
+- activity event for generated occurrences
+- guarded completion update to reduce duplicate occurrence creation from concurrent completion requests
+- recurrence creation UI
+- recurrence tests
+- CI test command
 
-Known correctness work before completion:
+Still required before Recurring Tasks V1 can be marked complete:
 
-- Weekly interval > 1 must be anchored to the recurrence cycle, not merely searched for a matching weekday.
-- Add deterministic recurrence tests, including month-end behavior.
-- Prevent duplicate next-occurrence creation under concurrent completion requests.
-- Define series editing semantics: this occurrence vs entire series.
+- CI for PR #5 must pass.
+- Verify the live Supabase schema/RLS/constraints again.
+- Review the concurrency guard against the actual database behavior.
+- Define and implement series editing semantics (single occurrence vs entire series).
 - Define timezone/DST semantics before reminders.
-- Verify RLS/constraints against the live schema.
-- Review UI and error states.
-- Run CI/build and inspect results.
+- Review UI/error states.
+- Inspect PR #5 diff for accidental unrelated changes.
+- Merge only after all applicable verification passes.
 
-### Next execution order
+## Important recurrence semantics
 
-1. Finish and merge clean project-state checkpoint.
-2. Fix recurrence semantics.
-3. Add recurrence tests.
-4. Verify database/RLS/constraints.
-5. Review recurring-task UI.
-6. Run CI/build.
-7. Create recurring-task PR.
-8. Review and merge only after verification.
-9. Begin Reminders V1.
+- DAILY: interval means number of days.
+- WEEKLY: interval means number of calendar weeks between recurrence cycles; selected weekdays within an active cycle are generated in order. `anchorDate` identifies the cycle anchor.
+- MONTHLY: interval means number of calendar months; day 29–31 clamps to the last valid day of the target month.
+- Current implementation performs recurrence arithmetic in UTC. User timezone/DST behavior is not yet a product contract.
 
 ## Verified Supabase schema — 2026-08-30
 
@@ -115,7 +106,7 @@ Do not invent columns or tables without re-checking the live schema.
 
 ## Roadmap
 
-1. Recurring Tasks V1
+1. Recurring Tasks V1 — current
 2. Reminders V1
 3. Progress & Streaks V1
 4. Organization V1
@@ -130,54 +121,48 @@ Do not invent columns or tables without re-checking the live schema.
 ```mermaid
 mindmap
   root((PERSONAL-OS))
-    Core Productivity
+    Core Productivity [DONE]
       Task CRUD
       Scheduling
       Calendar
       CI
-    Time & Scheduling
-      Recurring Tasks [IN PROGRESS]
-      Reminders [NEXT]
-      Conflict-aware scheduling [LATER]
-    Goals & Progress
-      Progress
-      Streaks
-    Organization
+    Recurring Tasks V1 [PR #5 DRAFT]
+      Daily
+      Weekly anchored cycles
+      Monthly
+      Completion generation
+      Tests
+      UI
+    Reminders V1 [NEXT]
+      Time based
+      Notifications
+    Progress & Streaks [PAUSED]
+    Organization [PLANNED]
       Projects
       Subtasks
       Checklists
       Notes
       Tags
-    Analytics
-      Reviews
-      Trends
-      Behavioral insights
-    AI Assistant
-      Brain dump to tasks
-      Planning
-      Briefings
-    Research Agent
-      Web research
-      Sources
-      Summaries
-    Adaptive Scheduling
-      Duration learning
-      Workload prediction
-      Dynamic scheduling
+    Analytics [PLANNED]
+    AI Assistant [LATER]
+    Research Agent [LATER]
+    Adaptive Scheduling [FUTURE]
 ```
 
 ## Session log — 2026-08-30
 
 - Rechecked project from scratch after uncertainty about PR state.
-- Confirmed PR #1 and PR #2 are merged.
-- Confirmed branch candidates are not automatically open PRs.
-- Verified recurring implementation and live Supabase schema.
-- Found weekly recurrence interval correctness issue.
-- Generated a visual mind-tree checkpoint.
-- Created a persistent state file.
-- Discovered that the first state branch was based on the recurring feature branch, so PR #3 is contaminated with feature changes.
-- Corrective clean branch is now based directly on `main`.
+- Confirmed PR #1 and #2 are merged; no old PRs were pending.
+- Verified the screenshot distinction: two branches had Compare & pull request buttons, not two open PRs.
+- Created persistent project-state documentation.
+- Detected that the first project-state branch was based on recurring work; closed contaminated PR #3.
+- Created clean project-state PR #4 from `main`; CI passed; merged it.
+- Fixed weekly recurrence interval semantics by adding a stable `anchorDate` to weekly rules.
+- Added recurrence creation UI.
+- Added a concurrency guard for completion so a duplicate completion request does not generate another occurrence after the first update wins.
+- Added recurrence tests and wired them into CI.
+- Created draft PR #5 for Recurring Tasks V1.
 
-## Rule for future sessions
+## Future-session rule
 
-Do not infer project progress from conversational claims. Start by reading this file and the roadmap, then verify GitHub and Supabase. Record every major milestone here. If something is uncertain, explicitly mark it uncertain and verify it before acting.
+Never infer progress from chat wording such as "done", "pending PR", or "we already built it". Verify GitHub branch/PR state, inspect the relevant files, verify Supabase when data contracts are involved, and then update this checkpoint. If uncertain, mark it uncertain and verify it before acting.
