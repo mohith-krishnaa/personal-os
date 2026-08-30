@@ -60,9 +60,20 @@ export async function setTaskStatus(id: string, status: TaskStatus) {
   const supabase = await createClient(); const user = await getCurrentUser(); if (!user) throw new Error('Unauthorized')
   const { data: task, error: taskError } = await supabase.from('tasks').select('*').eq('id', id).eq('user_id', user.id).single()
   if (taskError) throw taskError
+
   const now = new Date().toISOString()
-  const { data, error } = await supabase.from('tasks').update({ status, completed_at: status === 'COMPLETED' ? now : null, updated_at: now }).eq('id', id).eq('user_id', user.id).select('*').single()
+  const updateQuery = supabase.from('tasks').update({ status, completed_at: status === 'COMPLETED' ? now : null, updated_at: now }).eq('id', id).eq('user_id', user.id)
+  const guardedQuery = status === 'COMPLETED' ? updateQuery.neq('status', 'COMPLETED') : updateQuery
+  const { data, error } = await guardedQuery.select('*').maybeSingle()
   if (error) throw error
+
+  // A second concurrent completion sees no row here. Return the already-completed task
+  // instead of generating another recurrence occurrence.
+  if (!data) {
+    const { data: current, error: currentError } = await supabase.from('tasks').select('*').eq('id', id).eq('user_id', user.id).single()
+    if (currentError) throw currentError
+    return current as Task
+  }
 
   if (status === 'COMPLETED' && task.recurrence_rule && task.due_at) {
     const nextDue = nextOccurrence(new Date(task.due_at), task.recurrence_rule as RecurrenceRule)
