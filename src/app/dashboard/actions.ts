@@ -2,10 +2,10 @@
 
 import { revalidatePath } from 'next/cache'
 import { createTask, setTaskStatus } from '@/lib/tasks'
-import type { TaskStatus } from '@/types/task'
+import type { TaskPriority, TaskStatus } from '@/types/task'
 
-export async function addTaskAction(title: string) {
-  const task = await createTask({ title })
+export async function addTaskAction(input: { title: string; priority?: TaskPriority; estimated_minutes?: number | null; due_at?: string | null }) {
+  const task = await createTask(input)
   revalidatePath('/dashboard')
   return task
 }
