@@ -21,6 +21,21 @@ async function deliver(request: Request) {
 
   let delivered = 0
   for (const reminder of due ?? []) {
+    // The notification is durable and uniquely keyed by reminder_id. If the
+    // worker crashes after this insert but before marking the reminder, a retry
+    // is idempotent and will not create a second notification.
+    const { error: notificationError } = await supabase
+      .from('notifications')
+      .upsert({
+        user_id: reminder.user_id,
+        reminder_id: reminder.id,
+        task_id: reminder.task_id,
+        title: 'Reminder',
+        body: `Task reminder scheduled for ${reminder.remind_at}`,
+      }, { onConflict: 'reminder_id', ignoreDuplicates: true })
+
+    if (notificationError) return NextResponse.json({ error: notificationError.message }, { status: 500 })
+
     const { data: claimed, error: claimError } = await supabase
       .from('reminders')
       .update({ delivered_at: now, updated_at: now })
