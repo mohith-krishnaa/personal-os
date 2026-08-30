@@ -24,7 +24,7 @@ PERSONAL OS
 │   ├── Due date/time [DONE]
 │   ├── Scheduled start/end [DONE]
 │   ├── Day / Week / Month calendar [DONE]
-│   ├── Recurring tasks [NEXT]
+│   ├── Recurring tasks [IN PROGRESS — PR #5]
 │   ├── Reminders [NEXT]
 │   └── Conflict-aware scheduling [LATER]
 │
@@ -61,6 +61,16 @@ PERSONAL OS
     ├── Detect overload/procrastination patterns
     ├── Predict workload
     └── Adapt schedules from behavior
+
+## CROSS-CUTTING QUALITY [EVERY FEATURE]
+    ├── Security / RLS / authorization
+    ├── Unit + integration + regression tests
+    ├── Stable data contracts / types
+    ├── CI / build verification
+    ├── Database migrations + rollback discipline
+    ├── Observability / error tracking
+    ├── Backups / recovery
+    └── Project-state checkpoint updates
 ```
 
 ## Execution order
@@ -75,6 +85,20 @@ PERSONAL OS
 8. **Adaptive Scheduling** — only after sufficient activity data exists.
 9. **Production hardening** — migrations, RLS/security, tests, deployment, observability, backups.
 
+## Definition of done — every feature
+
+A feature is not complete merely because the UI works. Where applicable, verify:
+
+1. Data model/schema
+2. Authorization/RLS
+3. Backend/application logic
+4. Edge cases and failure states
+5. Unit/integration/regression tests
+6. UI/UX
+7. CI/build
+8. Migration/recovery implications
+9. Documentation + `PROJECT_STATE.md`
+
 ## Rules
 
 - Check this file before starting a feature.
@@ -85,6 +109,7 @@ PERSONAL OS
 - Preserve activity history for analytics and adaptive scheduling.
 - AI must use validated application tools, not direct database writes.
 - Prefer small branches/PRs and merge only after CI is green.
+- Security/performance warnings must be investigated and either fixed or explicitly tracked before production hardening is declared complete.
 
 ## Branch map
 
@@ -97,3 +122,4 @@ PERSONAL OS
 - **2026-08-30:** Scheduler/calendar merged to `main` as PR #2.
 - **2026-08-30:** Progress/streaks accepted as a generic core system, not book-only.
 - **2026-08-30:** Recurring Tasks stays ahead of Progress UI in execution order.
+- **2026-08-30:** Added cross-cutting quality requirements instead of making security/testing/observability separate roadmap stages.
