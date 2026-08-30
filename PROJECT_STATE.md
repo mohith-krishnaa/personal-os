@@ -1,17 +1,16 @@
 # Personal-OS — Persistent Project State
 
 > Canonical recovery checkpoint. Read this before making project claims or changes.
-> Last verified: 2026-08-30 16:10 IST.
+> Last verified: 2026-08-30 17:10 IST.
 
 ## Current verified state
 
 - Stable integration branch: `main`
-- Current engineering branch: `feature/recurring-tasks-v1`
-- Persistent state file: `main:PROJECT_STATE.md`
-- Open PRs: **PR #5 (draft)**
+- Current engineering branch: `feature/reminders-v1`
+- Open PRs: **PR #7 (draft)**
+- PR #5 — Recurring Tasks V1 — **merged** to `main` as commit `fd87fa4478f02f083d10aec71b0f5f1fc1327eaa`.
 - PR #3: closed without merge; it was based on the wrong branch and must not be reused.
 - PR #4: merged to `main`; clean project-state checkpoint.
-- Latest recurring-task branch commits include monthly anchor preservation, shared type correction, and database-idempotency handling.
 
 ## Source-of-truth hierarchy
 
@@ -33,7 +32,7 @@ Before every substantial change:
 4. Verify live Supabase schema for DB changes.
 5. Make the smallest safe change.
 6. Run CI/tests/build where applicable.
-7. Re-read the changed files and verify the result.
+7. Re-read changed files and verify the result.
 8. Update this checkpoint after milestones.
 9. Never report a change as verified until the authoritative system confirms it.
 
@@ -44,10 +43,11 @@ Branches are not PRs. A "Compare & pull request" button only means a branch has 
 - PR #1 — CI/build foundation — merged.
 - PR #2 — Task Scheduler V1 — merged.
 - PR #4 — persistent project state — merged.
+- PR #5 — Recurring Tasks V1 — merged 2026-08-30 after CI #35 passed.
 
-## Recurring Tasks V1 — IN PROGRESS / PR #5 DRAFT
+## Recurring Tasks V1 — COMPLETE
 
-Implemented:
+Implemented and merged:
 - Daily, weekly and monthly recurrence rules.
 - Weekly cycle anchoring.
 - Monthly day 29–31 clamping with preserved anchor day.
@@ -57,31 +57,44 @@ Implemented:
 - Guarded completion update.
 - Shared TypeScript recurrence types.
 - Regression tests in CI.
-
-Database correctness:
-- A Supabase partial unique index named `tasks_recurring_occurrence_unique` has now been applied to `(user_id, recurrence_parent_id, due_at)` for recurring occurrences.
-- Application code handles PostgreSQL unique-violation `23505` by reusing the existing occurrence.
-- A matching migration file has been added to `feature/recurring-tasks-v1` so the database change is reproducible.
-
-Series editing decision:
-- V1 edits are **occurrence-only**. The current edit UI does not expose recurrence-rule editing, preventing accidental mutation of the entire series.
-- Series-wide editing is deferred until a dedicated UX/API contract exists.
-
-Timezone decision:
-- Recurrence arithmetic remains UTC in V1.
-- User timezone/DST behavior is intentionally deferred to the Reminders/time semantics work; do not pretend local-time recurrence is solved.
+- Supabase partial unique index `tasks_recurring_occurrence_unique` on `(user_id, recurrence_parent_id, due_at)` for recurring occurrences.
+- Application handling of PostgreSQL unique violation `23505` for concurrent generation.
+- Reproducible migration committed in repository.
+- V1 edit semantics: occurrence-only; series-wide editing deferred.
+- Recurrence arithmetic remains UTC; timezone/DST product semantics deferred to reminder/time work.
 
 Verification:
-- CI run #33 passed tests and production build for the earlier corrected head.
-- The database uniqueness migration has been applied successfully to live Supabase.
-- A fresh CI run is still required for the latest idempotency/migration commits before PR #5 can be merged.
+- CI #35 passed tests and production build on PR #5 latest head.
+- PR #5 was marked ready and squash-merged successfully.
+- `main` now points to merge commit `fd87fa4478f02f083d10aec71b0f5f1fc1327eaa`.
+- Live Supabase idempotency index was applied and repository migration exists.
 
-Remaining before merge:
-1. Fresh CI green on latest head.
-2. Inspect final PR diff for unrelated changes.
-3. Review UI/error states.
-4. Confirm migration is represented in repository history.
-5. Mark PR ready and merge only after all applicable checks pass.
+## Reminders V1 — IN PROGRESS / PR #7 DRAFT
+
+Branch: `feature/reminders-v1`
+PR: #7
+
+Implemented so far:
+- `public.reminders` table in Supabase.
+- Owner-scoped RLS policies for select/insert/update/delete.
+- `task_id` foreign key with cascade delete.
+- `remind_at` timestamp.
+- Explicit `timezone` field, default UTC.
+- `channel` contract currently restricted to `IN_APP`.
+- `enabled` and `delivered_at` state.
+- User/task ownership validation before reminder creation.
+- Upcoming-reminder query.
+- Server action boundary.
+- Shared reminder domain types.
+
+Live Supabase migration `create_reminders` was successfully applied to project `gujzvkyytxsnervovvrt`.
+
+Important design rule:
+- Do not claim timezone/DST delivery is solved merely because a timezone column exists.
+- Delivery worker, notification UI, idempotent delivery, and timezone semantics still require implementation and tests.
+
+Latest PR #7 head: `2920899c7ab578e739435ea970bc447b141f6ae7`.
+Fresh CI was not yet visible at the last verification; do not call PR #7 verified until CI confirms it.
 
 ## Verified Supabase state
 
@@ -89,14 +102,15 @@ Project: `gujzvkyytxsnervovvrt`.
 - PostgreSQL 17.
 - `tasks` includes recurrence fields: `recurrence_rule`, `recurrence_until`, `recurrence_parent_id`.
 - RLS is enabled; authenticated owner access uses `auth.uid() = user_id`.
-- `tasks_recurring_occurrence_unique` now exists as the database idempotency boundary.
+- `tasks_recurring_occurrence_unique` exists as the recurrence idempotency boundary.
+- `reminders` now exists with owner RLS and task foreign key.
 - Security advisor finding concerning `public.rls_auto_enable()` remains tracked as issue #6; do not alter it blindly.
 - Foreign-key indexing/performance findings remain tracked for later hardening.
 
 ## Roadmap
 
-1. Recurring Tasks V1 — current
-2. Reminders V1
+1. Recurring Tasks V1 — DONE
+2. Reminders V1 — CURRENT
 3. Progress & Streaks V1
 4. Organization V1
 5. Analytics V1
@@ -119,7 +133,7 @@ mindmap
       Scheduler
       Calendar
       CI
-    Recurring Tasks V1 [PR #5]
+    Recurring Tasks V1 [DONE — PR #5]
       Daily
       Weekly anchored
       Monthly anchored
@@ -128,11 +142,15 @@ mindmap
       Tests
       Creation UI
       Occurrence-only edits
-      Final CI/review
-    Reminders V1 [NEXT]
-      Notification model
-      Delivery
-      Timezone/DST
+    Reminders V1 [PR #7 DRAFT]
+      Reminder model
+      Owner RLS
+      Server boundary
+      IN_APP channel
+      Delivery worker [NEXT]
+      Notification UI [NEXT]
+      Timezone/DST [NEXT]
+      Delivery idempotency [NEXT]
     Progress & Streaks [PAUSED]
     Organization [PLANNED]
     Analytics [PLANNED]
@@ -157,12 +175,15 @@ mindmap
 - Added recurrence creation UI and tests.
 - Fixed monthly anchor-day drift.
 - Fixed shared TypeScript monthly recurrence type.
-- Verified CI #33 green on corrected head.
-- Applied live Supabase unique index for recurring-occurrence idempotency.
-- Added reproducible migration file to recurring branch.
-- Updated application logic to treat database unique violation as an idempotent concurrent winner/loser path.
+- Applied live Supabase unique index for recurrence idempotency.
+- Added reproducible recurrence migration and application handling for `23505`.
 - Defined V1 recurrence editing as occurrence-only.
-- Latest remaining gate is fresh CI on the newest branch head, then final PR review/merge.
+- CI #35 passed latest Recurring Tasks head.
+- PR #5 marked ready and squash-merged.
+- Created `feature/reminders-v1` from the new `main`.
+- Applied the Reminders V1 Supabase migration.
+- Added reminder types, server library, and server action.
+- Created draft PR #7.
 
 ## Future-session rule
 
