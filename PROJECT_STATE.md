@@ -1,7 +1,7 @@
 # Personal-OS — Persistent Project State
 
 > Canonical recovery checkpoint. Read this before making project claims or changes.
-> Last verified: 2026-08-30.
+> Last verified: 2026-08-30 16:10 IST.
 
 ## Current verified state
 
@@ -11,7 +11,7 @@
 - Open PRs: **PR #5 (draft)**
 - PR #3: closed without merge; it was based on the wrong branch and must not be reused.
 - PR #4: merged to `main`; clean project-state checkpoint.
-- Latest recurring-task branch commits add a monthly recurrence anchor-day fix and regression coverage.
+- Latest recurring-task branch commits include monthly anchor preservation, shared type correction, and database-idempotency handling.
 
 ## Source-of-truth hierarchy
 
@@ -27,98 +27,71 @@ If sources disagree, verify the higher-priority source. Never guess.
 ## Anti-confusion protocol
 
 Before every substantial change:
+1. Read roadmap and project state.
+2. Verify active branch and PR state.
+3. Inspect relevant code.
+4. Verify live Supabase schema for DB changes.
+5. Make the smallest safe change.
+6. Run CI/tests/build where applicable.
+7. Re-read the changed files and verify the result.
+8. Update this checkpoint after milestones.
+9. Never report a change as verified until the authoritative system confirms it.
 
-1. Read `PROJECT_ROADMAP.md`.
-2. Read `PROJECT_STATE.md`.
-3. Verify the active branch and repository tree.
-4. Verify the relevant live Supabase schema.
-5. Inspect the existing implementation before changing it.
-6. Write a short implementation plan.
-7. Make small atomic commits.
-8. Run tests/build/CI where applicable.
-9. Update project state after each milestone.
-10. Only call a feature complete after code, schema, UI, tests, and CI are verified as applicable.
-
-Branches are not PRs. A GitHub "Compare & pull request" button means only that a branch has changes relative to its base.
+Branches are not PRs. A "Compare & pull request" button only means a branch has changes relative to its base.
 
 ## Merged PR history
 
-- PR #1 — `ci: verify Next.js builds` — merged.
-- PR #2 — `feat: task scheduler v1` — merged.
-- PR #4 — `chore: persist Personal-OS project state` — merged.
-
-## PR hygiene incident
-
-PR #3 was accidentally created from `chore/project-state-v1`, which contained recurring-task work. It was closed without merging.
-
-The corrective PR #4 was created from clean `main`, contained only `PROJECT_STATE.md`, passed CI, and was merged.
+- PR #1 — CI/build foundation — merged.
+- PR #2 — Task Scheduler V1 — merged.
+- PR #4 — persistent project state — merged.
 
 ## Recurring Tasks V1 — IN PROGRESS / PR #5 DRAFT
 
-Implemented on `feature/recurring-tasks-v1`:
+Implemented:
+- Daily, weekly and monthly recurrence rules.
+- Weekly cycle anchoring.
+- Monthly day 29–31 clamping with preserved anchor day.
+- Recurrence validation and creation UI.
+- Next-occurrence generation after completion.
+- Activity events for generated occurrences.
+- Guarded completion update.
+- Shared TypeScript recurrence types.
+- Regression tests in CI.
 
-- DAILY, WEEKLY and MONTHLY recurrence rules
-- recurrence validation
-- recurrence fields in the task model
-- deterministic weekly-cycle anchoring using `anchorDate`
-- month-end clamping for monthly day 29–31 cases
-- stable monthly `anchorDayOfMonth` so a Jan 31 → Feb 28 occurrence continues to Mar 31 rather than drifting to Mar 28
-- next-occurrence generation after completion
-- activity event for generated occurrences
-- guarded completion update to reduce duplicate occurrence creation from concurrent completion requests
-- recurrence creation UI
-- recurrence tests, including monthly anchor regression coverage
-- CI test command
+Database correctness:
+- A Supabase partial unique index named `tasks_recurring_occurrence_unique` has now been applied to `(user_id, recurrence_parent_id, due_at)` for recurring occurrences.
+- Application code handles PostgreSQL unique-violation `23505` by reusing the existing occurrence.
+- A matching migration file has been added to `feature/recurring-tasks-v1` so the database change is reproducible.
 
-Verification status:
+Series editing decision:
+- V1 edits are **occurrence-only**. The current edit UI does not expose recurrence-rule editing, preventing accidental mutation of the entire series.
+- Series-wide editing is deferred until a dedicated UX/API contract exists.
 
-- CI run #25 passed for the earlier PR head; the latest monthly-anchor commits require a fresh CI run before merge.
-- Local execution was not possible in this environment because outbound GitHub/network access is unavailable; CI is the execution authority.
-- Live Supabase `tasks` schema and RLS were rechecked on 2026-08-30. RLS is enabled and the owner policy restricts authenticated access to `auth.uid() = user_id`.
+Timezone decision:
+- Recurrence arithmetic remains UTC in V1.
+- User timezone/DST behavior is intentionally deferred to the Reminders/time semantics work; do not pretend local-time recurrence is solved.
 
-Still required before Recurring Tasks V1 can be marked complete:
+Verification:
+- CI run #33 passed tests and production build for the earlier corrected head.
+- The database uniqueness migration has been applied successfully to live Supabase.
+- A fresh CI run is still required for the latest idempotency/migration commits before PR #5 can be merged.
 
-- Fresh CI pass for the latest branch head.
-- Review the concurrency guard against actual database behavior; the current application-level guard is not a database transaction/unique constraint.
-- Define/implement clear series-editing semantics, or explicitly defer series editing from V1.
-- Define timezone/DST semantics before reminders.
-- Review UI/error states.
-- Inspect PR #5 diff for accidental unrelated changes.
-- Mark PR ready only after the remaining review is complete.
-- Merge only after all applicable verification passes.
+Remaining before merge:
+1. Fresh CI green on latest head.
+2. Inspect final PR diff for unrelated changes.
+3. Review UI/error states.
+4. Confirm migration is represented in repository history.
+5. Mark PR ready and merge only after all applicable checks pass.
 
-## Important recurrence semantics
+## Verified Supabase state
 
-- DAILY: interval means number of days.
-- WEEKLY: interval means number of calendar weeks between recurrence cycles; selected weekdays within an active cycle are generated in order. `anchorDate` identifies the cycle anchor.
-- MONTHLY: interval means number of calendar months; day 29–31 clamps to the last valid day of the target month while `anchorDayOfMonth` preserves the original requested day across shorter months.
-- Current implementation performs recurrence arithmetic in UTC. User timezone/DST behavior is not yet a product contract.
-
-## Verified Supabase schema — 2026-08-30
-
-Project is active/healthy on PostgreSQL 17.
-
-`tasks` currently contains:
-- id, user_id, project_id, parent_task_id
-- title, description, status, priority
-- due_at, scheduled_start, scheduled_end
-- estimated_minutes, actual_minutes, completed_at
-- created_at, updated_at
-- recurrence_rule, recurrence_until, recurrence_parent_id
-
-`activity_events` currently contains:
-- id, user_id, event_type, entity_type, entity_id
-- occurred_at, metadata, created_at
-
-Security advisor follow-up:
-- Supabase reports `public.rls_auto_enable()` is SECURITY DEFINER and executable by both `anon` and `authenticated` through RPC.
-- Tracked as GitHub issue #6; inspect intended use before changing privileges.
-
-Performance advisor follow-up:
-- `tasks.parent_task_id`, `tasks.project_id`, and `projects.goal_id` foreign keys lack covering indexes.
-- Several indexes are currently reported unused; do not remove them solely from this snapshot without workload evidence.
-
-Do not invent columns or tables without re-checking the live schema.
+Project: `gujzvkyytxsnervovvrt`.
+- PostgreSQL 17.
+- `tasks` includes recurrence fields: `recurrence_rule`, `recurrence_until`, `recurrence_parent_id`.
+- RLS is enabled; authenticated owner access uses `auth.uid() = user_id`.
+- `tasks_recurring_occurrence_unique` now exists as the database idempotency boundary.
+- Security advisor finding concerning `public.rls_auto_enable()` remains tracked as issue #6; do not alter it blindly.
+- Foreign-key indexing/performance findings remain tracked for later hardening.
 
 ## Roadmap
 
@@ -132,9 +105,9 @@ Do not invent columns or tables without re-checking the live schema.
 8. Adaptive Scheduling
 9. Production hardening
 
-## Cross-cutting quality
+## Cross-cutting quality gates
 
-Every feature must satisfy the applicable quality gates: security/RLS, authorization, data contracts, tests, CI/build, migration/recovery discipline, observability, backups, and project-state documentation. These are gates across the roadmap, not extra feature stages.
+Every feature must address applicable security/RLS, authorization, data contracts, tests, CI/build, migration/recovery discipline, observability, backups, and project-state documentation.
 
 ## Mind tree
 
@@ -142,37 +115,34 @@ Every feature must satisfy the applicable quality gates: security/RLS, authoriza
 mindmap
   root((PERSONAL-OS))
     Core Productivity [DONE]
-      Task CRUD
-      Scheduling
+      Tasks
+      Scheduler
       Calendar
       CI
-    Recurring Tasks V1 [PR #5 DRAFT]
+    Recurring Tasks V1 [PR #5]
       Daily
-      Weekly anchored cycles
-      Monthly anchored day
+      Weekly anchored
+      Monthly anchored
       Completion generation
+      DB idempotency
       Tests
-      UI
-      Verification gates
+      Creation UI
+      Occurrence-only edits
+      Final CI/review
     Reminders V1 [NEXT]
-      Time based
-      Notifications
-      Timezone/DST contract
+      Notification model
+      Delivery
+      Timezone/DST
     Progress & Streaks [PAUSED]
     Organization [PLANNED]
-      Projects
-      Subtasks
-      Checklists
-      Notes
-      Tags
     Analytics [PLANNED]
     AI Assistant [LATER]
     Research Agent [LATER]
     Adaptive Scheduling [FUTURE]
     Quality Gates [EVERY FEATURE]
-      Security / RLS
-      Tests / CI
-      Data contracts
+      Security
+      Tests
+      CI
       Migrations
       Observability
       Backups
@@ -180,22 +150,20 @@ mindmap
 
 ## Session log — 2026-08-30
 
-- Rechecked project from scratch after uncertainty about PR state.
-- Confirmed PR #1 and #2 are merged; no old PRs were pending.
-- Verified the screenshot distinction: two branches had Compare & pull request buttons, not two open PRs.
-- Created persistent project-state documentation.
-- Detected that the first project-state branch was based on the recurring feature; closed contaminated PR #3.
-- Created clean project-state PR #4 from `main`; CI passed; merged it.
-- Fixed weekly recurrence interval semantics with a stable `anchorDate`.
-- Added recurrence creation UI.
-- Added a concurrency guard against duplicate completion-generated occurrences.
-- Added recurrence tests and wired them into CI.
-- Created draft PR #5 for Recurring Tasks V1.
-- CI run #25 passed for the earlier PR #5 head.
-- Rechecked live Supabase tables and RLS policies.
-- Added monthly recurrence anchor-day preservation and regression coverage on the recurring branch.
-- Added cross-cutting quality gates to the roadmap.
+- Rechecked project from scratch and established source-of-truth hierarchy.
+- Confirmed PR #1/#2 merged and distinguished branches from PRs.
+- Created and merged clean persistent project-state PR #4.
+- Fixed weekly recurrence interval anchoring.
+- Added recurrence creation UI and tests.
+- Fixed monthly anchor-day drift.
+- Fixed shared TypeScript monthly recurrence type.
+- Verified CI #33 green on corrected head.
+- Applied live Supabase unique index for recurring-occurrence idempotency.
+- Added reproducible migration file to recurring branch.
+- Updated application logic to treat database unique violation as an idempotent concurrent winner/loser path.
+- Defined V1 recurrence editing as occurrence-only.
+- Latest remaining gate is fresh CI on the newest branch head, then final PR review/merge.
 
 ## Future-session rule
 
-Never infer progress from chat wording such as "done", "pending PR", or "we already built it". Verify GitHub branch/PR state, inspect the relevant files, verify Supabase when data contracts are involved, and then update this checkpoint. If uncertain, mark it uncertain and verify it before acting.
+Never infer progress from chat wording. Verify GitHub branch/PR state, inspect relevant files, verify Supabase for data changes, verify CI, and update this checkpoint. If uncertain, mark it uncertain and continue verification rather than guessing.
