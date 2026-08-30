@@ -27,13 +27,12 @@ test('weekly interval is anchored to the recurrence cycle', () => {
   assert.equal(next.toISOString(), '2026-01-19T09:00:00.000Z')
 })
 
-test('monthly recurrence clamps day 31 to shorter months', () => {
-  const next = nextOccurrence(new Date('2026-01-31T09:00:00Z'), {
-    frequency: 'MONTHLY',
-    interval: 1,
-    dayOfMonth: 31,
-  })
-  assert.equal(next.toISOString(), '2026-02-28T09:00:00.000Z')
+test('monthly recurrence clamps day 31 to shorter months without losing the anchor', () => {
+  const rule = { frequency: 'MONTHLY' as const, interval: 1, dayOfMonth: 31, anchorDayOfMonth: 31 }
+  const february = nextOccurrence(new Date('2026-01-31T09:00:00Z'), rule)
+  const march = nextOccurrence(february, rule)
+  assert.equal(february.toISOString(), '2026-02-28T09:00:00.000Z')
+  assert.equal(march.toISOString(), '2026-03-31T09:00:00.000Z')
 })
 
 test('invalid weekly rules are rejected', () => {
