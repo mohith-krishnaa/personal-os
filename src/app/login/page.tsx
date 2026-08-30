@@ -4,7 +4,6 @@ import { FormEvent, useState } from 'react'
 import { createClient } from '@/lib/supabase/browser'
 
 export default function LoginPage() {
-  const supabase = createClient()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [mode, setMode] = useState<'login' | 'signup'>('login')
@@ -16,15 +15,20 @@ export default function LoginPage() {
     setLoading(true)
     setMessage('')
 
-    const result = mode === 'login'
-      ? await supabase.auth.signInWithPassword({ email, password })
-      : await supabase.auth.signUp({ email, password })
+    try {
+      const supabase = createClient()
+      const result = mode === 'login'
+        ? await supabase.auth.signInWithPassword({ email, password })
+        : await supabase.auth.signUp({ email, password })
 
-    if (result.error) setMessage(result.error.message)
-    else if (mode === 'signup') setMessage('Account created. Check your email if confirmation is enabled.')
-    else window.location.href = '/dashboard'
-
-    setLoading(false)
+      if (result.error) setMessage(result.error.message)
+      else if (mode === 'signup') setMessage('Account created. Check your email if confirmation is enabled.')
+      else window.location.href = '/dashboard'
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to connect to Supabase.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
