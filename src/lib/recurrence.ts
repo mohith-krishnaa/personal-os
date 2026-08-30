@@ -1,7 +1,7 @@
 export type RecurrenceRule =
   | { frequency: 'DAILY'; interval: number }
   | { frequency: 'WEEKLY'; interval: number; weekdays: number[]; anchorDate: string }
-  | { frequency: 'MONTHLY'; interval: number; dayOfMonth: number }
+  | { frequency: 'MONTHLY'; interval: number; dayOfMonth: number; anchorDayOfMonth?: number }
 
 function daysInMonth(year: number, month: number) {
   return new Date(Date.UTC(year, month + 1, 0)).getUTCDate()
@@ -38,7 +38,8 @@ export function nextOccurrence(from: Date, rule: RecurrenceRule): Date {
       date.getUTCSeconds(),
       date.getUTCMilliseconds(),
     ))
-    target.setUTCDate(Math.min(rule.dayOfMonth, daysInMonth(target.getUTCFullYear(), target.getUTCMonth())))
+    const anchorDay = rule.anchorDayOfMonth ?? rule.dayOfMonth
+    target.setUTCDate(Math.min(anchorDay, daysInMonth(target.getUTCFullYear(), target.getUTCMonth())))
     return target
   }
 
@@ -71,7 +72,12 @@ export function validateRecurrence(rule: RecurrenceRule) {
     }
   }
 
-  if (rule.frequency === 'MONTHLY' && (!Number.isInteger(rule.dayOfMonth) || rule.dayOfMonth < 1 || rule.dayOfMonth > 31)) {
-    throw new Error('Monthly recurrence needs a day from 1 to 31.')
+  if (rule.frequency === 'MONTHLY') {
+    if (!Number.isInteger(rule.dayOfMonth) || rule.dayOfMonth < 1 || rule.dayOfMonth > 31) {
+      throw new Error('Monthly recurrence needs a day from 1 to 31.')
+    }
+    if (rule.anchorDayOfMonth != null && (!Number.isInteger(rule.anchorDayOfMonth) || rule.anchorDayOfMonth < 1 || rule.anchorDayOfMonth > 31)) {
+      throw new Error('Monthly recurrence anchor day must be from 1 to 31.')
+    }
   }
 }
