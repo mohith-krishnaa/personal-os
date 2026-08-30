@@ -34,7 +34,7 @@ export default function TaskEditor() {
     if (frequency === 'DAILY') return { frequency: 'DAILY', interval: parsedInterval }
     if (frequency === 'MONTHLY') {
       const day = Number(monthDay || dueAt.slice(8, 10))
-      return { frequency: 'MONTHLY', interval: parsedInterval, dayOfMonth: day }
+      return { frequency: 'MONTHLY', interval: parsedInterval, dayOfMonth: day, anchorDayOfMonth: day }
     }
 
     const selected = weekdays.length ? weekdays : [new Date(dueAt).getDay()]
