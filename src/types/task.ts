@@ -10,7 +10,7 @@ export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH'
 export type RecurrenceRule =
   | { frequency: 'DAILY'; interval: number }
   | { frequency: 'WEEKLY'; interval: number; weekdays: number[]; anchorDate: string }
-  | { frequency: 'MONTHLY'; interval: number; dayOfMonth: number }
+  | { frequency: 'MONTHLY'; interval: number; dayOfMonth: number; anchorDayOfMonth?: number }
 
 export type Task = {
   id: string
