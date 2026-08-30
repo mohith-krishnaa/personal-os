@@ -2,11 +2,12 @@ import { createClient } from '@/lib/supabase/server'
 import type { CreateReminderInput, Reminder } from '@/types/reminder'
 import { getCurrentUser } from '@/lib/tasks'
 
-function validateReminderInput(input: CreateReminderInput) {
+export function validateReminderInput(input: CreateReminderInput) {
   if (!input.task_id) throw new Error('Task is required.')
   if (Number.isNaN(Date.parse(input.remind_at))) throw new Error('Reminder time is invalid.')
-  if (input.remind_at && new Date(input.remind_at).getTime() <= Date.now()) throw new Error('Reminder time must be in the future.')
+  if (new Date(input.remind_at).getTime() <= Date.now()) throw new Error('Reminder time must be in the future.')
   if (input.timezone && input.timezone.trim().length > 100) throw new Error('Timezone is invalid.')
+  if (input.channel && input.channel !== 'IN_APP') throw new Error('Unsupported reminder channel.')
 }
 
 export async function createReminder(input: CreateReminderInput): Promise<Reminder> {
@@ -50,6 +51,7 @@ export async function listUpcomingReminders(): Promise<Reminder[]> {
     .is('delivered_at', null)
     .gte('remind_at', new Date().toISOString())
     .order('remind_at', { ascending: true })
+    .limit(100)
   if (error) throw error
   return (data ?? []) as Reminder[]
 }
