@@ -2,15 +2,26 @@
 
 import { revalidatePath } from 'next/cache'
 import { createTask, setTaskStatus, updateTask } from '@/lib/tasks'
-import type { TaskPriority, TaskStatus } from '@/types/task'
+import type { RecurrenceRule, TaskPriority, TaskStatus } from '@/types/task'
 
-export async function addTaskAction(input: { title: string; priority?: TaskPriority; estimated_minutes?: number | null; due_at?: string | null; scheduled_start?: string | null; scheduled_end?: string | null }) {
+type TaskInput = {
+  title: string
+  priority?: TaskPriority
+  estimated_minutes?: number | null
+  due_at?: string | null
+  scheduled_start?: string | null
+  scheduled_end?: string | null
+  recurrence_rule?: RecurrenceRule | null
+  recurrence_until?: string | null
+}
+
+export async function addTaskAction(input: TaskInput) {
   const task = await createTask(input)
   revalidatePath('/dashboard')
   return task
 }
 
-export async function updateTaskAction(id: string, input: { title: string; priority: TaskPriority; estimated_minutes: number | null; due_at: string | null; scheduled_start: string | null; scheduled_end: string | null }) {
+export async function updateTaskAction(id: string, input: TaskInput & { priority: TaskPriority; estimated_minutes: number | null; due_at: string | null; scheduled_start: string | null; scheduled_end: string | null }) {
   const task = await updateTask(id, input)
   revalidatePath('/dashboard')
   return task
