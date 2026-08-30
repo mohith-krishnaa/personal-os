@@ -68,15 +68,20 @@ Implemented on `feature/recurring-tasks-v1`:
 - recurrence tests
 - CI test command
 
+Verification status:
+
+- CI run #25 for the current PR head passed.
+- Local execution was not possible in this environment because outbound GitHub/network access is unavailable; CI is therefore the execution authority.
+
 Still required before Recurring Tasks V1 can be marked complete:
 
-- CI for PR #5 must pass.
 - Verify the live Supabase schema/RLS/constraints again.
-- Review the concurrency guard against the actual database behavior.
-- Define and implement series editing semantics (single occurrence vs entire series).
+- Review the concurrency guard against actual database behavior.
+- Define/implement clear series-editing semantics, or explicitly defer them from V1.
 - Define timezone/DST semantics before reminders.
 - Review UI/error states.
 - Inspect PR #5 diff for accidental unrelated changes.
+- Mark PR ready only after the remaining review is complete.
 - Merge only after all applicable verification passes.
 
 ## Important recurrence semantics
@@ -101,6 +106,14 @@ Project is active/healthy on PostgreSQL 17.
 `activity_events` currently contains:
 - id, user_id, event_type, entity_type, entity_id
 - occurred_at, metadata, created_at
+
+Security advisor follow-up:
+- Supabase reports `public.rls_auto_enable()` is SECURITY DEFINER and executable by both `anon` and `authenticated` through RPC.
+- Tracked as GitHub issue #6; inspect intended use before changing privileges.
+
+Performance advisor follow-up:
+- `tasks.parent_task_id`, `tasks.project_id`, and `projects.goal_id` foreign keys lack covering indexes.
+- Several indexes are currently reported unused; do not remove them solely from this snapshot without workload evidence.
 
 Do not invent columns or tables without re-checking the live schema.
 
@@ -155,13 +168,15 @@ mindmap
 - Confirmed PR #1 and #2 are merged; no old PRs were pending.
 - Verified the screenshot distinction: two branches had Compare & pull request buttons, not two open PRs.
 - Created persistent project-state documentation.
-- Detected that the first project-state branch was based on recurring work; closed contaminated PR #3.
+- Detected that the first project-state branch was based on the recurring feature; closed contaminated PR #3.
 - Created clean project-state PR #4 from `main`; CI passed; merged it.
-- Fixed weekly recurrence interval semantics by adding a stable `anchorDate` to weekly rules.
+- Fixed weekly recurrence interval semantics with a stable `anchorDate`.
 - Added recurrence creation UI.
-- Added a concurrency guard for completion so a duplicate completion request does not generate another occurrence after the first update wins.
+- Added a concurrency guard against duplicate completion-generated occurrences.
 - Added recurrence tests and wired them into CI.
 - Created draft PR #5 for Recurring Tasks V1.
+- CI run #25 passed for PR #5 head.
+- Supabase security/performance advisors were checked; security issue #6 was recorded for follow-up.
 
 ## Future-session rule
 
