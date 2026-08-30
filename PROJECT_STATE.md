@@ -1,16 +1,17 @@
 # Personal-OS — Persistent Project State
 
 > Canonical recovery checkpoint. Read this before making project claims or changes.
-> Last verified: 2026-08-30 17:10 IST.
+> Last verified: 2026-08-30.
 
 ## Current verified state
 
 - Stable integration branch: `main`
-- Current engineering branch: `feature/reminders-v1`
-- Open PRs: **PR #7 (draft)**
-- PR #5 — Recurring Tasks V1 — **merged** to `main` as commit `fd87fa4478f02f083d10aec71b0f5f1fc1327eaa`.
-- PR #3: closed without merge; it was based on the wrong branch and must not be reused.
-- PR #4: merged to `main`; clean project-state checkpoint.
+- Current engineering branch: `feature/progress-streaks-v1`
+- PR #5 — Recurring Tasks V1 — **merged** to `main`.
+- PR #7 — Reminders V1 — **merged** to `main` as commit `f12259978670a516dd6f9dda5704715dad7cd4fcc`.
+- `feature/progress-streaks-v1` already exists and contains reusable progress/streak groundwork.
+- PR #3: closed without merge; wrong branch, do not reuse.
+- PR #4: merged; persistent project-state checkpoint.
 
 ## Source-of-truth hierarchy
 
@@ -36,14 +37,15 @@ Before every substantial change:
 8. Update this checkpoint after milestones.
 9. Never report a change as verified until the authoritative system confirms it.
 
-Branches are not PRs. A "Compare & pull request" button only means a branch has changes relative to its base.
+Branches are not PRs. A Compare & pull request button only means a branch has changes relative to its base.
 
 ## Merged PR history
 
 - PR #1 — CI/build foundation — merged.
 - PR #2 — Task Scheduler V1 — merged.
 - PR #4 — persistent project state — merged.
-- PR #5 — Recurring Tasks V1 — merged 2026-08-30 after CI #35 passed.
+- PR #5 — Recurring Tasks V1 — merged.
+- PR #7 — Reminders V1 — merged after CI #52 passed.
 
 ## Recurring Tasks V1 — COMPLETE
 
@@ -57,61 +59,53 @@ Implemented and merged:
 - Guarded completion update.
 - Shared TypeScript recurrence types.
 - Regression tests in CI.
-- Supabase partial unique index `tasks_recurring_occurrence_unique` on `(user_id, recurrence_parent_id, due_at)` for recurring occurrences.
-- Application handling of PostgreSQL unique violation `23505` for concurrent generation.
+- Supabase partial unique index for recurring occurrence idempotency.
+- Application handling of PostgreSQL unique violation `23505`.
 - Reproducible migration committed in repository.
 - V1 edit semantics: occurrence-only; series-wide editing deferred.
 - Recurrence arithmetic remains UTC; timezone/DST product semantics deferred to reminder/time work.
 
-Verification:
-- CI #35 passed tests and production build on PR #5 latest head.
-- PR #5 was marked ready and squash-merged successfully.
-- `main` now points to merge commit `fd87fa4478f02f083d10aec71b0f5f1fc1327eaa`.
-- Live Supabase idempotency index was applied and repository migration exists.
+## Reminders V1 — COMPLETE
 
-## Reminders V1 — IN PROGRESS / PR #7 DRAFT
+Merged to `main` as PR #7.
 
-Branch: `feature/reminders-v1`
-PR: #7
-
-Implemented so far:
-- `public.reminders` table in Supabase.
-- Owner-scoped RLS policies for select/insert/update/delete.
-- `task_id` foreign key with cascade delete.
-- `remind_at` timestamp.
-- Explicit `timezone` field, default UTC.
-- `channel` contract currently restricted to `IN_APP`.
-- `enabled` and `delivered_at` state.
-- User/task ownership validation before reminder creation.
+Implemented:
+- `public.reminders` with owner-scoped RLS.
+- Task ownership validation.
+- Scheduled timestamp and explicit timezone field.
+- `IN_APP` channel contract.
+- Enabled/delivered state.
 - Upcoming-reminder query.
 - Server action boundary.
-- Shared reminder domain types.
+- Authenticated cron delivery endpoint.
+- Durable `notifications` table with unique `reminder_id`.
+- Notification RLS.
+- Reminder delivery activity events.
+- Dashboard scheduling UI and upcoming-reminders UI.
+- Reminder validation tests.
+- Cron configuration.
+- CI verification.
 
-Live Supabase migration `create_reminders` was successfully applied to project `gujzvkyytxsnervovvrt`.
-
-Important design rule:
-- Do not claim timezone/DST delivery is solved merely because a timezone column exists.
-- Delivery worker, notification UI, idempotent delivery, and timezone semantics still require implementation and tests.
-
-Latest PR #7 head: `2920899c7ab578e739435ea970bc447b141f6ae7`.
-Fresh CI was not yet visible at the last verification; do not call PR #7 verified until CI confirms it.
+Important limitation:
+- A timezone column exists, but full user-local timezone/DST scheduling semantics remain a future hardening item. Do not claim arbitrary timezone/DST behavior is solved.
 
 ## Verified Supabase state
 
 Project: `gujzvkyytxsnervovvrt`.
 - PostgreSQL 17.
-- `tasks` includes recurrence fields: `recurrence_rule`, `recurrence_until`, `recurrence_parent_id`.
+- `tasks` includes recurrence fields.
 - RLS is enabled; authenticated owner access uses `auth.uid() = user_id`.
-- `tasks_recurring_occurrence_unique` exists as the recurrence idempotency boundary.
-- `reminders` now exists with owner RLS and task foreign key.
+- Recurrence idempotency index exists.
+- `reminders` exists with owner RLS and task foreign key.
+- `notifications` exists with unique `reminder_id` and owner RLS.
 - Security advisor finding concerning `public.rls_auto_enable()` remains tracked as issue #6; do not alter it blindly.
 - Foreign-key indexing/performance findings remain tracked for later hardening.
 
 ## Roadmap
 
 1. Recurring Tasks V1 — DONE
-2. Reminders V1 — CURRENT
-3. Progress & Streaks V1
+2. Reminders V1 — DONE
+3. Progress & Streaks V1 — CURRENT
 4. Organization V1
 5. Analytics V1
 6. AI Assistant V1
@@ -142,16 +136,21 @@ mindmap
       Tests
       Creation UI
       Occurrence-only edits
-    Reminders V1 [PR #7 DRAFT]
+    Reminders V1 [DONE — PR #7]
       Reminder model
       Owner RLS
       Server boundary
       IN_APP channel
-      Delivery worker [NEXT]
-      Notification UI [NEXT]
-      Timezone/DST [NEXT]
-      Delivery idempotency [NEXT]
-    Progress & Streaks [PAUSED]
+      Cron worker
+      Notifications
+      Delivery idempotency
+      Timezone/DST hardening [LATER]
+    Progress & Streaks V1 [CURRENT]
+      Generic measurable goals
+      Progress logs
+      Current + longest streaks
+      Dashboard
+      Tests + RLS
     Organization [PLANNED]
     Analytics [PLANNED]
     AI Assistant [LATER]
@@ -169,21 +168,13 @@ mindmap
 ## Session log — 2026-08-30
 
 - Rechecked project from scratch and established source-of-truth hierarchy.
-- Confirmed PR #1/#2 merged and distinguished branches from PRs.
-- Created and merged clean persistent project-state PR #4.
-- Fixed weekly recurrence interval anchoring.
-- Added recurrence creation UI and tests.
-- Fixed monthly anchor-day drift.
-- Fixed shared TypeScript monthly recurrence type.
-- Applied live Supabase unique index for recurrence idempotency.
-- Added reproducible recurrence migration and application handling for `23505`.
-- Defined V1 recurrence editing as occurrence-only.
-- CI #35 passed latest Recurring Tasks head.
-- PR #5 marked ready and squash-merged.
-- Created `feature/reminders-v1` from the new `main`.
-- Applied the Reminders V1 Supabase migration.
-- Added reminder types, server library, and server action.
-- Created draft PR #7.
+- Created and merged persistent project-state PR #4.
+- Completed Recurring Tasks V1 and merged PR #5.
+- Completed Reminders V1 and merged PR #7.
+- Verified Reminders CI #52 passed tests and production build.
+- Started Progress & Streaks from the existing feature branch instead of rebuilding its generic streak engine.
+- Confirmed `calculateStreak` and `progressPercent` groundwork exists on `feature/progress-streaks-v1`.
+- Corrected this checkpoint so roadmap status matches actual merged PR state.
 
 ## Future-session rule
 
