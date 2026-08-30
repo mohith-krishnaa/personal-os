@@ -10,11 +10,12 @@ export default function TaskActions({ mode, task }: { mode: 'add' | 'toggle'; ta
   const [error, setError] = useState('')
 
   async function addTask() {
-    if (!title.trim()) return
+    const value = title.trim()
+    if (!value) return
     setLoading(true)
     setError('')
     try {
-      await addTaskAction(title)
+      await addTaskAction({ title: value })
       setTitle('')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not add task.')
@@ -39,7 +40,7 @@ export default function TaskActions({ mode, task }: { mode: 'add' | 'toggle'; ta
   if (mode === 'toggle') return (
     <div>
       <button aria-label={task?.status === 'COMPLETED' ? 'Mark incomplete' : 'Mark complete'} disabled={loading} onClick={() => void toggleTask()} style={{ width: 30, height: 30, borderRadius: 9, border: '1px solid #3a404a', background: 'transparent', color: '#f4f4f5' }}>
-        {task?.status === 'COMPLETED' ? '✓' : '○'}
+        {loading ? '…' : task?.status === 'COMPLETED' ? '✓' : '○'}
       </button>
       {error && <span role="alert" style={{ display: 'block', color: '#ff7b72', fontSize: 12 }}>{error}</span>}
     </div>
