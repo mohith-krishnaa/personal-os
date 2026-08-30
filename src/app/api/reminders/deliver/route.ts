@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
-export async function POST(request: Request) {
-  const expected = process.env.REMINDER_WORKER_SECRET
+async function deliver(request: Request) {
+  const expected = process.env.REMINDER_WORKER_SECRET || process.env.CRON_SECRET
   const supplied = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '')
   if (!expected || supplied !== expected) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const now = new Date().toISOString()
   const { data: due, error } = await supabase
     .from('reminders')
@@ -14,6 +14,7 @@ export async function POST(request: Request) {
     .eq('enabled', true)
     .is('delivered_at', null)
     .lte('remind_at', now)
+    .order('remind_at', { ascending: true })
     .limit(100)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -46,6 +47,5 @@ export async function POST(request: Request) {
   return NextResponse.json({ delivered, checked: due?.length ?? 0 })
 }
 
-export async function GET(request: Request) {
-  return POST(request)
-}
+export async function GET(request: Request) { return deliver(request) }
+export async function POST(request: Request) { return deliver(request) }
