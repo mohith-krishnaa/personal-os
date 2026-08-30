@@ -52,8 +52,14 @@ export async function updateTask(id: string, input: { title: string; priority: T
   if (input.recurrence_rule && !input.due_at) throw new Error('Recurring tasks need a due date/time to calculate the next occurrence.')
   const { data, error } = await supabase.from('tasks').update({ ...input, title, updated_at: new Date().toISOString() }).eq('id', id).eq('user_id', user.id).select('*').single()
   if (error) throw error
-  await supabase.from('activity_events').insert({ user_id: user.id, event_type: 'TASK_UPDATED', entity_type: 'TASK', entity_id: id, metadata: { source: 'dashboard' } })
+  await supabase.from('activity_events').insert({ user_id: user.id, event_type: 'TASK_UPDATED', entity_type: 'TASK', entity_id: id, metadata: { source: 'dashboard', recurrence_scope: 'occurrence_only' } })
   return data as Task
+}
+
+async function getExistingOccurrence(supabase: Awaited<ReturnType<typeof createClient>>, userId: string, parentId: string, dueAt: string) {
+  const { data, error } = await supabase.from('tasks').select('*').eq('user_id', userId).eq('recurrence_parent_id', parentId).eq('due_at', dueAt).limit(1).maybeSingle()
+  if (error) throw error
+  return data as Task | null
 }
 
 export async function setTaskStatus(id: string, status: TaskStatus) {
@@ -67,8 +73,6 @@ export async function setTaskStatus(id: string, status: TaskStatus) {
   const { data, error } = await guardedQuery.select('*').maybeSingle()
   if (error) throw error
 
-  // A second concurrent completion sees no row here. Return the already-completed task
-  // instead of generating another recurrence occurrence.
   if (!data) {
     const { data: current, error: currentError } = await supabase.from('tasks').select('*').eq('id', id).eq('user_id', user.id).single()
     if (currentError) throw currentError
@@ -81,9 +85,18 @@ export async function setTaskStatus(id: string, status: TaskStatus) {
       const duration = task.scheduled_start && task.scheduled_end ? new Date(task.scheduled_end).getTime() - new Date(task.scheduled_start).getTime() : null
       const nextStart = task.scheduled_start ? nextOccurrence(new Date(task.scheduled_start), task.recurrence_rule as RecurrenceRule) : null
       const nextEnd = nextStart && duration != null ? new Date(nextStart.getTime() + duration).toISOString() : null
-      const { data: occurrence, error: occurrenceError } = await supabase.from('tasks').insert({ user_id: user.id, project_id: task.project_id, parent_task_id: task.parent_task_id, title: task.title, description: task.description, priority: task.priority, estimated_minutes: task.estimated_minutes, due_at: nextDue.toISOString(), scheduled_start: nextStart?.toISOString() ?? null, scheduled_end: nextEnd, recurrence_rule: task.recurrence_rule, recurrence_until: task.recurrence_until, recurrence_parent_id: task.recurrence_parent_id ?? task.id }).select('*').single()
-      if (occurrenceError) throw occurrenceError
-      await supabase.from('activity_events').insert({ user_id: user.id, event_type: 'TASK_RECURRENCE_GENERATED', entity_type: 'TASK', entity_id: occurrence.id, metadata: { source_task_id: task.id } })
+      const nextParentId = task.recurrence_parent_id ?? task.id
+      const { data: occurrence, error: occurrenceError } = await supabase.from('tasks').insert({ user_id: user.id, project_id: task.project_id, parent_task_id: task.parent_task_id, title: task.title, description: task.description, priority: task.priority, estimated_minutes: task.estimated_minutes, due_at: nextDue.toISOString(), scheduled_start: nextStart?.toISOString() ?? null, scheduled_end: nextEnd, recurrence_rule: task.recurrence_rule, recurrence_until: task.recurrence_until, recurrence_parent_id: nextParentId }).select('*').single()
+
+      if (occurrenceError) {
+        // The database unique index is the final idempotency boundary. A concurrent
+        // completion may win the insert; in that case reuse the existing occurrence.
+        if (occurrenceError.code !== '23505') throw occurrenceError
+        const existing = await getExistingOccurrence(supabase, user.id, nextParentId, nextDue.toISOString())
+        if (!existing) throw occurrenceError
+      } else {
+        await supabase.from('activity_events').insert({ user_id: user.id, event_type: 'TASK_RECURRENCE_GENERATED', entity_type: 'TASK', entity_id: occurrence.id, metadata: { source_task_id: task.id } })
+      }
     }
   }
 
