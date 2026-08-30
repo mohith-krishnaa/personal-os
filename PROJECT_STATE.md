@@ -11,6 +11,7 @@
 - Open PRs: **PR #5 (draft)**
 - PR #3: closed without merge; it was based on the wrong branch and must not be reused.
 - PR #4: merged to `main`; clean project-state checkpoint.
+- Latest recurring-task branch commits add a monthly recurrence anchor-day fix and regression coverage.
 
 ## Source-of-truth hierarchy
 
@@ -61,23 +62,25 @@ Implemented on `feature/recurring-tasks-v1`:
 - recurrence fields in the task model
 - deterministic weekly-cycle anchoring using `anchorDate`
 - month-end clamping for monthly day 29–31 cases
+- stable monthly `anchorDayOfMonth` so a Jan 31 → Feb 28 occurrence continues to Mar 31 rather than drifting to Mar 28
 - next-occurrence generation after completion
 - activity event for generated occurrences
 - guarded completion update to reduce duplicate occurrence creation from concurrent completion requests
 - recurrence creation UI
-- recurrence tests
+- recurrence tests, including monthly anchor regression coverage
 - CI test command
 
 Verification status:
 
-- CI run #25 for the current PR head passed.
-- Local execution was not possible in this environment because outbound GitHub/network access is unavailable; CI is therefore the execution authority.
+- CI run #25 passed for the earlier PR head; the latest monthly-anchor commits require a fresh CI run before merge.
+- Local execution was not possible in this environment because outbound GitHub/network access is unavailable; CI is the execution authority.
+- Live Supabase `tasks` schema and RLS were rechecked on 2026-08-30. RLS is enabled and the owner policy restricts authenticated access to `auth.uid() = user_id`.
 
 Still required before Recurring Tasks V1 can be marked complete:
 
-- Verify the live Supabase schema/RLS/constraints again.
-- Review the concurrency guard against actual database behavior.
-- Define/implement clear series-editing semantics, or explicitly defer them from V1.
+- Fresh CI pass for the latest branch head.
+- Review the concurrency guard against actual database behavior; the current application-level guard is not a database transaction/unique constraint.
+- Define/implement clear series-editing semantics, or explicitly defer series editing from V1.
 - Define timezone/DST semantics before reminders.
 - Review UI/error states.
 - Inspect PR #5 diff for accidental unrelated changes.
@@ -88,7 +91,7 @@ Still required before Recurring Tasks V1 can be marked complete:
 
 - DAILY: interval means number of days.
 - WEEKLY: interval means number of calendar weeks between recurrence cycles; selected weekdays within an active cycle are generated in order. `anchorDate` identifies the cycle anchor.
-- MONTHLY: interval means number of calendar months; day 29–31 clamps to the last valid day of the target month.
+- MONTHLY: interval means number of calendar months; day 29–31 clamps to the last valid day of the target month while `anchorDayOfMonth` preserves the original requested day across shorter months.
 - Current implementation performs recurrence arithmetic in UTC. User timezone/DST behavior is not yet a product contract.
 
 ## Verified Supabase schema — 2026-08-30
@@ -129,6 +132,10 @@ Do not invent columns or tables without re-checking the live schema.
 8. Adaptive Scheduling
 9. Production hardening
 
+## Cross-cutting quality
+
+Every feature must satisfy the applicable quality gates: security/RLS, authorization, data contracts, tests, CI/build, migration/recovery discipline, observability, backups, and project-state documentation. These are gates across the roadmap, not extra feature stages.
+
 ## Mind tree
 
 ```mermaid
@@ -142,13 +149,15 @@ mindmap
     Recurring Tasks V1 [PR #5 DRAFT]
       Daily
       Weekly anchored cycles
-      Monthly
+      Monthly anchored day
       Completion generation
       Tests
       UI
+      Verification gates
     Reminders V1 [NEXT]
       Time based
       Notifications
+      Timezone/DST contract
     Progress & Streaks [PAUSED]
     Organization [PLANNED]
       Projects
@@ -160,6 +169,13 @@ mindmap
     AI Assistant [LATER]
     Research Agent [LATER]
     Adaptive Scheduling [FUTURE]
+    Quality Gates [EVERY FEATURE]
+      Security / RLS
+      Tests / CI
+      Data contracts
+      Migrations
+      Observability
+      Backups
 ```
 
 ## Session log — 2026-08-30
@@ -175,8 +191,10 @@ mindmap
 - Added a concurrency guard against duplicate completion-generated occurrences.
 - Added recurrence tests and wired them into CI.
 - Created draft PR #5 for Recurring Tasks V1.
-- CI run #25 passed for PR #5 head.
-- Supabase security/performance advisors were checked; security issue #6 was recorded for follow-up.
+- CI run #25 passed for the earlier PR #5 head.
+- Rechecked live Supabase tables and RLS policies.
+- Added monthly recurrence anchor-day preservation and regression coverage on the recurring branch.
+- Added cross-cutting quality gates to the roadmap.
 
 ## Future-session rule
 
