@@ -1,15 +1,8 @@
-export type ProgressEntry = {
-  value: number
-  occurred_on: string
-}
+import type { ProgressEntry, Streak } from '@/types/progress'
 
-export type Streak = {
-  current: number
-  longest: number
-  last_active_on: string | null
-}
+export type { ProgressEntry, Streak } from '@/types/progress'
 
-export function calculateStreak(entries: ProgressEntry[], today = new Date()): Streak {
+export function calculateStreak(entries: Pick<ProgressEntry, 'value' | 'occurred_on'>[], today = new Date()): Streak {
   const days = new Set(entries.map((entry) => entry.occurred_on.slice(0, 10)))
   const date = new Date(today)
   const todayKey = date.toISOString().slice(0, 10)
