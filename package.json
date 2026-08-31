@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test": "tsx --test src/lib/recurrence.test.ts src/lib/reminders.test.ts src/lib/progress.test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "latest",
@@ -15,9 +16,10 @@
     "react-dom": "latest"
   },
   "devDependencies": {
-    "typescript": "latest",
     "@types/node": "latest",
     "@types/react": "latest",
-    "@types/react-dom": "latest"
+    "@types/react-dom": "latest",
+    "tsx": "latest",
+    "typescript": "latest"
   }
 }
