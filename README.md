@@ -51,9 +51,29 @@ Behavior modeling, workload prediction, intelligent scheduling, and continuous i
 - User approval for consequential external or bulk actions
 - Privacy and data isolation designed from the beginning
 
-## Status
+## Verified status
 
-🚧 Early development — architecture and foundation are being built.
+The current verified baseline on `main` includes the core productivity foundation, **Recurring Tasks V1**, and **Reminders V1**. Progress & Streaks V1 is the current engineering focus. The project-state checkpoint documents the merged work, CI verification, ownership boundaries, and remaining timezone/DST limitations.
+
+The V1 recurrence implementation includes daily, weekly, and monthly rules, next-occurrence generation, validation, activity events, and idempotency protection. Reminders include owner-scoped data access, upcoming-reminder queries, an in-app channel contract, authenticated delivery, durable notifications, and dashboard UI.
+
+> Timezone and daylight-saving behavior is not fully solved yet. Do not treat the presence of a timezone field as complete arbitrary timezone scheduling.
+
+## Local development
+
+The repository uses Next.js and includes scripts for development, production builds, and focused recurrence/reminder tests:
+
+```bash
+npm install
+npm run dev
+npm run test
+npm run build
+```
+
+## Project-state references
+
+- `PROJECT_STATE.md` is the canonical verified checkpoint for current implementation status.
+- `PROJECT_ROADMAP.md` describes longer-term direction and may lag behind merged work; verify it against the actual repository and CI before making claims.
 
 ## License
 
