@@ -2,16 +2,16 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { calculateStreak, progressPercent } from './progress'
 import type { Goal, ProgressEntry, Streak } from '@/types/progress'
 
-export async function createGoal(supabase: SupabaseClient, input: { title: string; unit: string; target: number }) {
-  if (!input.title.trim() || !input.unit.trim() || !Number.isFinite(input.target) || input.target <= 0) throw new Error('Invalid goal')
-  const { data, error } = await supabase.from('goals').insert(input).select('*').single()
+export async function createGoal(supabase: SupabaseClient, userId: string, input: { title: string; unit: string; target: number }) {
+  if (!userId || !input.title.trim() || !input.unit.trim() || !Number.isFinite(input.target) || input.target <= 0) throw new Error('Invalid goal')
+  const { data, error } = await supabase.from('goals').insert({ ...input, user_id: userId }).select('*').single()
   if (error) throw error
   return data as Goal
 }
 
-export async function logProgress(supabase: SupabaseClient, input: { goalId: string; value: number; occurredOn: string }) {
-  if (!input.goalId || !Number.isFinite(input.value) || input.value <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(input.occurredOn)) throw new Error('Invalid progress entry')
-  const { data, error } = await supabase.from('progress_entries').insert({ goal_id: input.goalId, value: input.value, occurred_on: input.occurredOn }).select('*').single()
+export async function logProgress(supabase: SupabaseClient, userId: string, input: { goalId: string; value: number; occurredOn: string }) {
+  if (!userId || !input.goalId || !Number.isFinite(input.value) || input.value <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(input.occurredOn)) throw new Error('Invalid progress entry')
+  const { data, error } = await supabase.from('progress_entries').insert({ goal_id: input.goalId, user_id: userId, value: input.value, occurred_on: input.occurredOn }).select('*').single()
   if (error) throw error
   return data as ProgressEntry
 }
