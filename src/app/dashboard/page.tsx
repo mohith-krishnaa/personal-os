@@ -12,9 +12,12 @@ import ReminderEditor from './reminder-editor'
 import ReminderList from './reminder-list'
 import { GoalForm, ProgressForm } from './progress-actions'
 
+export const dynamic = 'force-dynamic'
+
 function formatDate(value: string | null) { if (!value) return 'No due date'; return new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) }
 
 export default async function DashboardPage() {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) redirect('/login')
   const supabase = await createClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user) redirect('/login')
   const tasks = await listTasks(); const reminders = await listUpcomingReminders(); const completed = tasks.filter(t => t.status === 'COMPLETED').length; const overdue = tasks.filter(t => t.status !== 'COMPLETED' && t.due_at && new Date(t.due_at) < new Date()).length; const progress = tasks.length ? Math.round(completed / tasks.length * 100) : 0
   const goalCards = await getGoalsWithProgress(supabase)
