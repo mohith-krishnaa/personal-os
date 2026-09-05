@@ -1,14 +1,13 @@
 # Personal OS — Project Roadmap & Mind Map
 
-> Single source of truth for project direction. Update this file whenever a major feature is started, completed, deferred, or redesigned.
+> Single source of truth for project direction. Verify GitHub/Supabase/CI before making claims.
+> Last reconciled: 2026-09-05.
 
 ## Current position
 
-**Completed:** Core task creation, scheduling fields, editing/rescheduling, Day/Week/Month calendar, Recurring Tasks V1, and Reminders V1.
+**Completed:** Core productivity, Recurring Tasks V1, Reminders V1, and Progress & Streaks V1.
 
-**Current work:** Progress & Streaks V1 on `feature/progress-streaks-v1` / PR #8.
-
-**Verified branch scope:** Generic measurable goals, positive progress logs, current/longest streak calculations, dashboard UI, progress tests, and the goals/progress RLS migration are present. The branch still requires a green production build before merge; local tests pass, while the current CI-style build fails in Next.js prerendering with a global-error `useContext` failure.
+**Next:** Organization V1 — improve task structure before adding analytics/AI.
 
 ## Mind map
 
@@ -18,26 +17,29 @@ PERSONAL OS
 ├── CORE PRODUCTIVITY [DONE]
 │   ├── Authentication / Dashboard / Tasks
 │   ├── Status / Priority / Duration
-│   └── Activity events
+│   ├── Activity events
+│   └── Day / Week / Month calendar
 │
 ├── TIME & SCHEDULING [PARTIAL]
 │   ├── Due date/time [DONE]
 │   ├── Scheduled start/end [DONE]
-│   ├── Day / Week / Month calendar [DONE]
 │   ├── Recurring tasks [DONE — PR #5]
 │   ├── Reminders [DONE — PR #7]
 │   └── Conflict-aware scheduling [LATER]
 │
-├── ORGANIZATION [PLANNED]
-│   ├── Projects / Subtasks / Checklists
-│   ├── Notes / Tags / Attachments
-│
-├── GOALS & PROGRESS [CURRENT — PR #8]
+├── GOALS & PROGRESS [DONE — PR #8]
 │   ├── Generic measurable goals
-│   ├── Custom units: pages, km, problems, minutes, etc.
-│   ├── Progress logs / history
+│   ├── Custom units
+│   ├── Progress history
 │   ├── Current + longest streaks
-│   └── Goal motivation
+│   └── Batched dashboard loading
+│
+├── ORGANIZATION [NEXT]
+│   ├── Projects
+│   ├── Subtasks
+│   ├── Checklists
+│   ├── Notes
+│   └── Tags
 │
 ├── ANALYTICS [PLANNED]
 │   ├── Daily / Weekly / Monthly reviews
@@ -47,81 +49,84 @@ PERSONAL OS
 │
 ├── AI ASSISTANT [LATER]
 │   ├── Brain dump → tasks
-│   ├── Task breakdown / planning
+│   ├── Task breakdown
 │   ├── Daily briefing / review
 │   └── Validated tool-based actions
 │
 ├── RESEARCH AGENT [LATER]
-│   ├── Web research / source extraction
-│   ├── Ranking / summarization
-│   └── Optional resource/task generation
+│   ├── Web research
+│   ├── Source extraction
+│   └── Source-backed resources
 │
 └── ADAPTIVE PERSONAL OS [FUTURE]
     ├── Learn actual duration
-    ├── Detect overload/procrastination patterns
+    ├── Detect overload/procrastination
     ├── Predict workload
     └── Adapt schedules from behavior
-
-## CROSS-CUTTING QUALITY [EVERY FEATURE]
-    ├── Security / RLS / authorization
-    ├── Unit + integration + regression tests
-    ├── Stable data contracts / types
-    ├── CI / build verification
-    ├── Database migrations + rollback discipline
-    ├── Observability / error tracking
-    ├── Backups / recovery
-    └── Project-state checkpoint updates
 ```
 
 ## Execution order
 
-1. **Recurring Tasks V1** — rule model + occurrence generation/completion semantics.
-2. **Reminders V1** — reminder records + notification abstraction.
-3. **Progress & Streaks V1** — measurable goals + progress logs + streak dashboard.
-4. **Organization V1** — subtasks, checklists, notes, tags.
-5. **Analytics V1** — daily/weekly/monthly behavioral insights.
-6. **AI Assistant V1** — planning, reviews, briefings through validated tools.
-7. **Research Agent V1** — web research and source-backed resources.
-8. **Adaptive Scheduling** — only after sufficient activity data exists.
-9. **Production hardening** — migrations, RLS/security, tests, deployment, observability, backups.
+1. Recurring Tasks V1 — DONE
+2. Reminders V1 — DONE
+3. Progress & Streaks V1 — DONE
+4. **Organization V1 — NEXT**
+5. Analytics V1
+6. AI Assistant V1
+7. Research Agent V1
+8. Adaptive Scheduling
+9. Production hardening
 
 ## Definition of done — every feature
-
-A feature is not complete merely because the UI works. Where applicable, verify:
 
 1. Data model/schema
 2. Authorization/RLS
 3. Backend/application logic
-4. Edge cases and failure states
+4. Edge cases/failure states
 5. Unit/integration/regression tests
 6. UI/UX
 7. CI/build
 8. Migration/recovery implications
 9. Documentation + `PROJECT_STATE.md`
 
-## Rules
+## Quality rules
 
-- Check this file before starting a feature.
-- Do not silently reorder roadmap items.
-- Do not call a feature complete until code, data model, UI, and CI are verified where applicable.
-- Never invent database columns without a verified schema/backend contract.
-- PostgreSQL/Supabase remains the source of truth.
-- Preserve activity history for analytics and adaptive scheduling.
-- AI must use validated application tools, not direct database writes.
-- Prefer small branches/PRs and merge only after CI is green.
-- Security/performance warnings must be investigated and either fixed or explicitly tracked before production hardening is declared complete.
+- PostgreSQL/Supabase is the source of truth for persisted data.
+- Never invent schema or authorization behavior.
+- Preserve activity history for future analytics/adaptive scheduling.
+- AI uses validated application tools rather than direct database writes.
+- Merge only after CI is green.
+- Security/performance findings are fixed or explicitly tracked.
+- Project state must be reconciled after each milestone.
+
+## Current engineering priorities
+
+### P0 — Product correctness
+- Keep `main` green.
+- Verify authentication and owner isolation.
+- Maintain regression coverage for task, recurrence, reminder and progress flows.
+
+### P1 — Organization V1
+- Add a minimal project model.
+- Add task → project association with owner-scoped RLS.
+- Add subtasks/checklists without breaking existing task behavior.
+- Add tests and dashboard/task UI incrementally.
+
+### P2 — Production hardening
+- Review foreign-key indexes and query performance.
+- Complete timezone/DST semantics for reminders when scheduling requirements are defined.
+- Add observability and recovery documentation.
 
 ## Branch map
 
 - `main` — stable integrated product.
-- `feature/recurring-tasks-v1` — historical feature branch; merged through PR #5.
-- `feature/progress-streaks-v1` — current engineering branch; PR #8 open and awaiting a green build.
+- Historical feature branches remain for traceability; do not treat them as current work unless GitHub confirms an active PR.
 
 ## Decision log
 
-- **2026-08-30:** Scheduler/calendar merged to `main` as PR #2.
-- **2026-08-30:** Progress/streaks accepted as a generic core system, not book-only.
-- **2026-08-30:** Recurring Tasks stays ahead of Progress UI in execution order.
-- **2026-08-30:** Added cross-cutting quality requirements instead of making security/testing/observability separate roadmap stages.
-- **2026-09-05:** Reconciled roadmap against GitHub: Recurring Tasks and Reminders are merged; Progress & Streaks is the active PR #8 branch.
-- **2026-09-05:** Fixed progress inserts to include the authenticated `user_id` required by RLS and converted the progress suite to the repository’s configured Node test runner. Local tests pass; production build failure remains explicitly tracked.
+- 2026-08-30: Established persistent project-state hierarchy and mind tree.
+- 2026-08-30: Scheduler/calendar integrated.
+- 2026-08-30: Progress/streaks designed as a generic system rather than book-specific logic.
+- 2026-09-05: Recurring Tasks V1, Reminders V1 and Progress & Streaks V1 verified as merged.
+- 2026-09-05: Security issue #6 remediated and closed; security verification reported 0 lints.
+- 2026-09-05: Organization V1 promoted to the next roadmap milestone.
