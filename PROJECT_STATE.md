@@ -1,7 +1,7 @@
 # Personal-OS — Persistent Project State
 
 > Canonical recovery checkpoint. Read this before making project claims or changes.
-> Last verified: 2026-08-30.
+> Last verified: 2026-09-05.
 
 ## Current verified state
 
@@ -9,7 +9,10 @@
 - Current engineering branch: `feature/progress-streaks-v1`
 - PR #5 — Recurring Tasks V1 — **merged** to `main`.
 - PR #7 — Reminders V1 — **merged** to `main` as commit `f12259978670a516dd6f9dda5704715dad7cd4fcc`.
-- `feature/progress-streaks-v1` already exists and contains reusable progress/streak groundwork.
+- `feature/progress-streaks-v1` is the active engineering branch and PR #8 is open for Progress & Streaks V1.
+- The branch includes goals/progress schema, RLS policies, dashboard UI, progress actions, batched loading, streak calculations, and tests.
+- Progress goal and entry inserts now include the authenticated `user_id`, matching the RLS contract.
+- The progress test suite now uses the repository’s configured `tsx --test` runner.
 - PR #3: closed without merge; wrong branch, do not reuse.
 - PR #4: merged; persistent project-state checkpoint.
 
@@ -88,6 +91,23 @@ Implemented:
 
 Important limitation:
 - A timezone column exists, but full user-local timezone/DST scheduling semantics remain a future hardening item. Do not claim arbitrary timezone/DST behavior is solved.
+
+## Progress & Streaks V1 — CURRENT / PR #8
+
+Verified on the active branch:
+- Generic measurable goals with positive targets.
+- Positive progress entries with date validation.
+- Current and longest streak calculations, with duplicate entries on one day treated as one streak day.
+- Dashboard goal cards, progress logging form, percentage summary, and streak display.
+- Goals and progress entries migration with owner-scoped RLS and positive-value constraints.
+- Progress unit tests pass under `npm run test`.
+
+Important implementation note:
+- Goal and progress inserts must include the authenticated user ID; the branch now enforces this at the service boundary and passes it from authenticated server actions.
+
+Current verification blocker:
+- `npm run test` passes all 13 tests.
+- `npm run build` compiles TypeScript but currently fails during Next.js prerendering with a global-error `useContext` failure in the local CI-style environment. Do not mark PR #8 merge-ready until CI/build is green.
 
 ## Verified Supabase state
 

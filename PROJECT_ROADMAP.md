@@ -4,11 +4,11 @@
 
 ## Current position
 
-**Completed:** Core task creation, scheduling fields, editing/rescheduling, and Day/Week/Month calendar.
+**Completed:** Core task creation, scheduling fields, editing/rescheduling, Day/Week/Month calendar, Recurring Tasks V1, and Reminders V1.
 
-**Current work:** Recurring Tasks V1.
+**Current work:** Progress & Streaks V1 on `feature/progress-streaks-v1` / PR #8.
 
-**Paused groundwork:** Generic progress + streak calculations exist on `feature/progress-streaks-v1`; the UI waits until recurrence and reminders are complete.
+**Verified branch scope:** Generic measurable goals, positive progress logs, current/longest streak calculations, dashboard UI, progress tests, and the goals/progress RLS migration are present. The branch still requires a green production build before merge; local tests pass, while the current CI-style build fails in Next.js prerendering with a global-error `useContext` failure.
 
 ## Mind map
 
@@ -24,15 +24,15 @@ PERSONAL OS
 │   ├── Due date/time [DONE]
 │   ├── Scheduled start/end [DONE]
 │   ├── Day / Week / Month calendar [DONE]
-│   ├── Recurring tasks [IN PROGRESS — PR #5]
-│   ├── Reminders [NEXT]
+│   ├── Recurring tasks [DONE — PR #5]
+│   ├── Reminders [DONE — PR #7]
 │   └── Conflict-aware scheduling [LATER]
 │
 ├── ORGANIZATION [PLANNED]
 │   ├── Projects / Subtasks / Checklists
 │   ├── Notes / Tags / Attachments
 │
-├── GOALS & PROGRESS [AFTER SCHEDULING]
+├── GOALS & PROGRESS [CURRENT — PR #8]
 │   ├── Generic measurable goals
 │   ├── Custom units: pages, km, problems, minutes, etc.
 │   ├── Progress logs / history
@@ -114,8 +114,8 @@ A feature is not complete merely because the UI works. Where applicable, verify:
 ## Branch map
 
 - `main` — stable integrated product.
-- `feature/recurring-tasks-v1` — current work.
-- `feature/progress-streaks-v1` — paused groundwork; resume after reminders.
+- `feature/recurring-tasks-v1` — historical feature branch; merged through PR #5.
+- `feature/progress-streaks-v1` — current engineering branch; PR #8 open and awaiting a green build.
 
 ## Decision log
 
@@ -123,3 +123,5 @@ A feature is not complete merely because the UI works. Where applicable, verify:
 - **2026-08-30:** Progress/streaks accepted as a generic core system, not book-only.
 - **2026-08-30:** Recurring Tasks stays ahead of Progress UI in execution order.
 - **2026-08-30:** Added cross-cutting quality requirements instead of making security/testing/observability separate roadmap stages.
+- **2026-09-05:** Reconciled roadmap against GitHub: Recurring Tasks and Reminders are merged; Progress & Streaks is the active PR #8 branch.
+- **2026-09-05:** Fixed progress inserts to include the authenticated `user_id` required by RLS and converted the progress suite to the repository’s configured Node test runner. Local tests pass; production build failure remains explicitly tracked.
