@@ -1,10 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { createSubtask } from '@/lib/subtasks'
+import { addSubtaskAction } from './subtask-actions'
 import type { Task } from '@/types/task'
 
-export default function SubtaskManager({ task, userId }: { task: Task; userId: string }) {
+export default function SubtaskManager({ task }: { task: Task }) {
   const [title, setTitle] = useState('')
   const [open, setOpen] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -13,9 +13,7 @@ export default function SubtaskManager({ task, userId }: { task: Task; userId: s
   async function add() {
     setSaving(true); setError('')
     try {
-      const { createClient } = await import('@/lib/supabase/browser')
-      const supabase = createClient()
-      await createSubtask(supabase, userId, task.id, { title, project_id: task.project_id })
+      await addSubtaskAction(task.id, { title, project_id: task.project_id })
       setTitle(''); setOpen(false)
     } catch (err) { setError(err instanceof Error ? err.message : 'Could not create subtask.') }
     finally { setSaving(false) }
