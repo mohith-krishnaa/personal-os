@@ -36,7 +36,7 @@ begin
 end $$;
 create index if not exists tasks_project_id_idx on public.tasks(project_id) where project_id is not null;
 
--- Self-reference for subtasks. Application services additionally enforce owner and hierarchy rules.
+-- Self-reference for subtasks.
 do $$
 begin
   if exists (select 1 from information_schema.columns where table_schema='public' and table_name='tasks' and column_name='parent_task_id')
@@ -48,6 +48,46 @@ begin
   end if;
 end $$;
 create index if not exists tasks_parent_task_id_idx on public.tasks(parent_task_id) where parent_task_id is not null;
+
+-- Enforce hierarchy ownership and prevent self-parenting even for direct database writes.
+create or replace function public.validate_task_organization_links()
+returns trigger
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  parent_user uuid;
+  parent_project uuid;
+  project_user uuid;
+begin
+  if new.parent_task_id is not null then
+    if new.parent_task_id = new.id then
+      raise exception 'A task cannot be its own parent.' using errcode = '23514';
+    end if;
+    select user_id, project_id into parent_user, parent_project
+      from public.tasks where id = new.parent_task_id;
+    if parent_user is null or parent_user <> new.user_id then
+      raise exception 'Parent task must belong to the same user.' using errcode = '42501';
+    end if;
+    if new.project_id is distinct from parent_project then
+      raise exception 'Subtask must belong to the same project as its parent.' using errcode = '23514';
+    end if;
+  end if;
+  if new.project_id is not null then
+    select user_id into project_user from public.projects where id = new.project_id;
+    if project_user is null or project_user <> new.user_id then
+      raise exception 'Project must belong to the same user as the task.' using errcode = '42501';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists validate_task_organization_links on public.tasks;
+create trigger validate_task_organization_links
+before insert or update of user_id, project_id, parent_task_id on public.tasks
+for each row execute function public.validate_task_organization_links();
 
 create table if not exists public.checklist_items (
   id uuid primary key default gen_random_uuid(),
