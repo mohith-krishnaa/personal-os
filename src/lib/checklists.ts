@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ChecklistItem } from '@/types/checklist'
 
+const TABLE = 'checklist_items'
+
 function validateTitle(title: string) {
   const value = title.trim()
   if (!value) throw new Error('Checklist item title is required.')
@@ -15,7 +17,7 @@ async function assertTaskOwnership(supabase: SupabaseClient, userId: string, tas
 
 export async function listChecklistItems(supabase: SupabaseClient, userId: string, taskId: string) {
   await assertTaskOwnership(supabase, userId, taskId)
-  const { data, error } = await supabase.from('task_checklist_items').select('*').eq('user_id', userId).eq('task_id', taskId).order('position', { ascending: true }).order('created_at', { ascending: true })
+  const { data, error } = await supabase.from(TABLE).select('*').eq('user_id', userId).eq('task_id', taskId).order('position', { ascending: true }).order('created_at', { ascending: true })
   if (error) throw error
   return (data ?? []) as ChecklistItem[]
 }
@@ -24,18 +26,18 @@ export async function createChecklistItem(supabase: SupabaseClient, userId: stri
   await assertTaskOwnership(supabase, userId, taskId)
   const value = validateTitle(title)
   if (!Number.isInteger(position) || position < 0) throw new Error('Checklist position must be a non-negative integer.')
-  const { data, error } = await supabase.from('task_checklist_items').insert({ user_id: userId, task_id: taskId, title: value, position }).select('*').single()
+  const { data, error } = await supabase.from(TABLE).insert({ user_id: userId, task_id: taskId, title: value, position }).select('*').single()
   if (error) throw error
   return data as ChecklistItem
 }
 
 export async function setChecklistItemCompleted(supabase: SupabaseClient, userId: string, id: string, isCompleted: boolean) {
-  const { data, error } = await supabase.from('task_checklist_items').update({ is_completed: isCompleted, updated_at: new Date().toISOString() }).eq('id', id).eq('user_id', userId).select('*').single()
+  const { data, error } = await supabase.from(TABLE).update({ is_completed: isCompleted, updated_at: new Date().toISOString() }).eq('id', id).eq('user_id', userId).select('*').single()
   if (error) throw error
   return data as ChecklistItem
 }
 
 export async function deleteChecklistItem(supabase: SupabaseClient, userId: string, id: string) {
-  const { error } = await supabase.from('task_checklist_items').delete().eq('id', id).eq('user_id', userId)
+  const { error } = await supabase.from(TABLE).delete().eq('id', id).eq('user_id', userId)
   if (error) throw error
 }
