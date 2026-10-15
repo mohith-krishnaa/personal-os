@@ -35,3 +35,37 @@ test('rejects non-positive estimated minutes before database access', async () =
     )
   }
 })
+
+test('rejects a project that differs from the parent project before insert', async () => {
+  const supabase = {
+    from(table: string) {
+      if (table !== 'tasks') throw new Error('project lookup should not be reached')
+      return {
+        select() {
+          return {
+            eq() {
+              return {
+                eq() {
+                  return {
+                    single: async () => ({
+                      data: { id: 'parent', user_id: 'user', project_id: 'parent-project' },
+                      error: null,
+                    }),
+                  }
+                },
+              }
+            },
+          }
+        },
+        insert() {
+          throw new Error('task insert should not be reached')
+        },
+      }
+    },
+  } as any
+
+  await assert.rejects(
+    () => createSubtask(supabase, 'user', 'parent', { title: 'Valid title', project_id: 'other-project' }),
+    /same project as its parent/,
+  )
+})
