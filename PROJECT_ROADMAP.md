@@ -130,3 +130,12 @@ PERSONAL OS
 - 2026-09-05: Recurring Tasks V1, Reminders V1 and Progress & Streaks V1 verified as merged.
 - 2026-09-05: Security issue #6 remediated and closed; security verification reported 0 lints.
 - 2026-09-05: Organization V1 promoted to the next roadmap milestone.
+
+
+## Current checkpoint — 2026-10-15
+
+- Organization V1 implementation is under review in PR #11 (`feature/organization-v1`), not yet merged.
+- Automated CI passed on the latest reviewed implementation commit: dependency install, tests, and production build.
+- Live database verification is blocked because both connected Supabase projects report INACTIVE and direct migration/schema inspection fails (timeout / database password authentication failure).
+- Next steps: recover access to the intended Supabase project; inspect applied migration history and actual schema; apply/verify migrations; run Supabase security and performance advisors; then exercise authenticated owner-isolation and CRUD flows. Only after that should Organization V1 be considered fully verified.
+- Scope after Organization V1: Analytics V1, AI Assistant V1, Research Agent V1, Adaptive Scheduling, and production hardening. Each milestone needs schema/RLS, application logic, edge-case tests, UI, CI, and recovery documentation.
