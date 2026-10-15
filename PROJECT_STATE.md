@@ -167,3 +167,13 @@ A feature is not complete merely because the UI works. Where applicable, verify:
 ## Future-session rule
 
 Never infer progress from chat wording. Verify GitHub branch/PR state, inspect relevant files, verify Supabase for data changes, verify CI, and update this checkpoint. If uncertain, mark it uncertain and continue verification rather than guessing.
+
+
+## Organization V1 — current checkpoint (2026-10-15)
+
+- Active implementation is in PR #11, `feature/organization-v1`; PR remains open and unmerged.
+- Implemented in this branch: owner-scoped projects, project/task associations, task subtasks, checklist UI and server actions, database-level ownership/link validation, checklist ownership hardening, legacy checklist reconciliation, cycle prevention, and input validation tests.
+- Latest verified GitHub Actions run for commit `1bdf6b4810ce761d8b500704ab2faed1af938a6d` passed `npm install`, `npm run test`, and `npm run build` (run #77).
+- Live Supabase verification is currently blocked: connected projects `yojantra` and `puttamohithkrishnaa@gmail.com's Project` are both reported INACTIVE; database calls time out for one and fail password authentication for the other. Do not claim the migrations are applied to a live database until access is restored and the migration ledger/schema are inspected.
+- Before merge: restore/confirm the intended Supabase project, compare applied migration history with repository migrations, apply pending migrations safely, run security/performance advisors, and test owner isolation plus project/subtask/checklist CRUD with authenticated users.
+- Do not merge PR #11 until CI is green and live database compatibility has been resolved or explicitly accepted as a documented deployment prerequisite.
