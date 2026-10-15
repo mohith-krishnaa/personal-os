@@ -35,6 +35,9 @@ export async function createSubtask(supabase: SupabaseClient, userId: string, pa
 
   const parent = await assertParentOwnership(supabase, userId, parentTaskId)
   const projectId = input.project_id ?? parent.project_id
+  if (projectId !== parent.project_id) {
+    throw new Error('Subtask must use the same project as its parent.')
+  }
   await assertProjectOwnership(supabase, userId, projectId)
 
   const { data, error } = await supabase.from('tasks').insert({
