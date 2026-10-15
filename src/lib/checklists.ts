@@ -23,9 +23,9 @@ export async function listChecklistItems(supabase: SupabaseClient, userId: strin
 }
 
 export async function createChecklistItem(supabase: SupabaseClient, userId: string, taskId: string, title: string, position = 0) {
-  await assertTaskOwnership(supabase, userId, taskId)
   const value = validateTitle(title)
   if (!Number.isInteger(position) || position < 0) throw new Error('Checklist position must be a non-negative integer.')
+  await assertTaskOwnership(supabase, userId, taskId)
   const { data, error } = await supabase.from(TABLE).insert({ user_id: userId, task_id: taskId, title: value, position }).select('*').single()
   if (error) throw error
   return data as ChecklistItem
