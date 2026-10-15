@@ -29,10 +29,15 @@ export async function updateProject(supabase: SupabaseClient, id: string, input:
   const patch: Record<string, unknown> = {}
   if (input.name !== undefined) patch.name = input.name.trim()
   if (input.description !== undefined) patch.description = input.description?.trim() || null
-  if (input.status !== undefined) patch.status = input.status
+  if (input.status !== undefined) {
+    if (input.status !== 'ACTIVE' && input.status !== 'ARCHIVED') throw new Error('Project status is invalid')
+    patch.status = input.status
+  }
   if (!Object.keys(patch).length) throw new Error('No project changes supplied')
+  const { data: userData, error: userError } = await supabase.auth.getUser()
+  if (userError || !userData.user) throw new Error('Authentication required')
   patch.updated_at = new Date().toISOString()
-  const { data, error } = await supabase.from('projects').update(patch).eq('id', id).select('*').single()
+  const { data, error } = await supabase.from('projects').update(patch).eq('id', id).eq('user_id', userData.user.id).select('*').single()
   if (error) throw error
   return data as Project
 }
