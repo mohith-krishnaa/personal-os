@@ -21,7 +21,7 @@ function formatDate(value: string | null) { if (!value) return 'No due date'; re
 export default async function DashboardPage() {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) redirect('/login')
   const supabase = await createClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user) redirect('/login')
-  const [tasks, projects, reminders, goalCards] = await Promise.all([listTasks(), listProjects(), listUpcomingReminders(), getGoalsWithProgress(supabase)])
+  const [tasks, projects, reminders, goalCards] = await Promise.all([listTasks(), listProjects(supabase), listUpcomingReminders(), getGoalsWithProgress(supabase)])
   const projectById = new Map(projects.map(project => [project.id, project]))
   const completed = tasks.filter(t => t.status === 'COMPLETED').length; const overdue = tasks.filter(t => t.status !== 'COMPLETED' && t.due_at && new Date(t.due_at) < new Date()).length; const progress = tasks.length ? Math.round(completed / tasks.length * 100) : 0
   return <main style={{ maxWidth: 1100, margin: '0 auto', padding: '40px 20px' }}>
