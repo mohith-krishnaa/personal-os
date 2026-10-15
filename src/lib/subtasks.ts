@@ -12,6 +12,7 @@ export type SubtaskInput = {
 function assertValidTitle(title: string) {
   const value = title.trim()
   if (!value) throw new Error('Subtask title is required.')
+  if (value.length > 240) throw new Error('Subtask title must be 240 characters or fewer.')
   return value
 }
 
@@ -29,11 +30,12 @@ async function assertProjectOwnership(supabase: SupabaseClient, userId: string, 
 
 export async function createSubtask(supabase: SupabaseClient, userId: string, parentTaskId: string, input: SubtaskInput) {
   if (!parentTaskId) throw new Error('Parent task is required.')
+  const title = assertValidTitle(input.title)
+  if (input.estimated_minutes != null && (!Number.isFinite(input.estimated_minutes) || input.estimated_minutes <= 0)) throw new Error('Estimated minutes must be greater than zero.')
+
   const parent = await assertParentOwnership(supabase, userId, parentTaskId)
   const projectId = input.project_id ?? parent.project_id
   await assertProjectOwnership(supabase, userId, projectId)
-  const title = assertValidTitle(input.title)
-  if (input.estimated_minutes != null && (!Number.isFinite(input.estimated_minutes) || input.estimated_minutes <= 0)) throw new Error('Estimated minutes must be greater than zero.')
 
   const { data, error } = await supabase.from('tasks').insert({
     user_id: userId,
