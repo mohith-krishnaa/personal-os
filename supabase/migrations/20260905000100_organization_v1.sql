@@ -21,10 +21,10 @@ drop policy if exists projects_select_own on public.projects;
 drop policy if exists projects_insert_own on public.projects;
 drop policy if exists projects_update_own on public.projects;
 drop policy if exists projects_delete_own on public.projects;
-create policy projects_select_own on public.projects for select to authenticated using (user_id = auth.uid());
-create policy projects_insert_own on public.projects for insert to authenticated with check (user_id = auth.uid());
-create policy projects_update_own on public.projects for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
-create policy projects_delete_own on public.projects for delete to authenticated using (user_id = auth.uid());
+create policy projects_select_own on public.projects for select to authenticated using (user_id = (select auth.uid()));
+create policy projects_insert_own on public.projects for insert to authenticated with check (user_id = (select auth.uid()));
+create policy projects_update_own on public.projects for update to authenticated using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+create policy projects_delete_own on public.projects for delete to authenticated using (user_id = (select auth.uid()));
 
 -- Existing task.project_id is retained as the application contract.
 do $$
@@ -111,7 +111,7 @@ drop policy if exists checklist_items_select_own on public.checklist_items;
 drop policy if exists checklist_items_insert_own on public.checklist_items;
 drop policy if exists checklist_items_update_own on public.checklist_items;
 drop policy if exists checklist_items_delete_own on public.checklist_items;
-create policy checklist_items_select_own on public.checklist_items for select to authenticated using (user_id = auth.uid());
-create policy checklist_items_insert_own on public.checklist_items for insert to authenticated with check (user_id = auth.uid());
-create policy checklist_items_update_own on public.checklist_items for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
-create policy checklist_items_delete_own on public.checklist_items for delete to authenticated using (user_id = auth.uid());
+create policy checklist_items_select_own on public.checklist_items for select to authenticated using (user_id = (select auth.uid()));
+create policy checklist_items_insert_own on public.checklist_items for insert to authenticated with check (user_id = (select auth.uid()));
+create policy checklist_items_update_own on public.checklist_items for update to authenticated using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+create policy checklist_items_delete_own on public.checklist_items for delete to authenticated using (user_id = (select auth.uid()));
