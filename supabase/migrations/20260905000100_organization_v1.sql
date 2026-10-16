@@ -14,6 +14,9 @@ create table if not exists public.projects (
 create index if not exists projects_user_id_idx on public.projects(user_id);
 alter table public.projects enable row level security;
 
+-- Remove the legacy catch-all policy before installing command-specific policies.
+-- Keeping both would create duplicate permissive RLS policies for authenticated users.
+drop policy if exists projects_owner on public.projects;
 drop policy if exists projects_select_own on public.projects;
 drop policy if exists projects_insert_own on public.projects;
 drop policy if exists projects_update_own on public.projects;
