@@ -18,25 +18,25 @@ create index if not exists task_checklist_items_user_idx
 alter table public.task_checklist_items enable row level security;
 
 create policy task_checklist_items_select_own on public.task_checklist_items
-  for select to authenticated using (user_id = auth.uid());
+  for select to authenticated using (user_id = (select auth.uid()));
 create policy task_checklist_items_insert_own on public.task_checklist_items
   for insert to authenticated
   with check (
-    user_id = auth.uid()
+    user_id = (select auth.uid())
     and exists (
       select 1 from public.tasks t
-      where t.id = task_id and t.user_id = auth.uid()
+      where t.id = task_id and t.user_id = (select auth.uid())
     )
   );
 create policy task_checklist_items_update_own on public.task_checklist_items
   for update to authenticated
-  using (user_id = auth.uid())
+  using (user_id = (select auth.uid()))
   with check (
-    user_id = auth.uid()
+    user_id = (select auth.uid())
     and exists (
       select 1 from public.tasks t
-      where t.id = task_id and t.user_id = auth.uid()
+      where t.id = task_id and t.user_id = (select auth.uid())
     )
   );
 create policy task_checklist_items_delete_own on public.task_checklist_items
-  for delete to authenticated using (user_id = auth.uid());
+  for delete to authenticated using (user_id = (select auth.uid()));
