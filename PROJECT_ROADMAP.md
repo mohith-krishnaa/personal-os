@@ -132,7 +132,7 @@ PERSONAL OS
 - 2026-09-05: Organization V1 promoted to the next roadmap milestone.
 
 
-## Current checkpoint — 2026-10-15
+## Current checkpoint — 2026-10-16
 
 - Organization V1 implementation is under review in PR #11 (`feature/organization-v1`), not yet merged.
 - Automated CI passed on integrated implementation commit `54d3c35404c47e7bec64f4eea1b5802c207acfe7` (run #82). A documentation-only update then passed CI in run #83. RLS policies in Organization V1 migrations now use `(select auth.uid())` to avoid repeated per-row auth evaluation; compatibility migration conditionally indexes legacy `projects.goal_id` when present.
