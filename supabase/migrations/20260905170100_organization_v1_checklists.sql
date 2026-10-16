@@ -17,6 +17,12 @@ create index if not exists task_checklist_items_user_idx
 
 alter table public.task_checklist_items enable row level security;
 
+-- Make this migration safe when the legacy table/policies already exist.
+drop policy if exists task_checklist_items_select_own on public.task_checklist_items;
+drop policy if exists task_checklist_items_insert_own on public.task_checklist_items;
+drop policy if exists task_checklist_items_update_own on public.task_checklist_items;
+drop policy if exists task_checklist_items_delete_own on public.task_checklist_items;
+
 create policy task_checklist_items_select_own on public.task_checklist_items
   for select to authenticated using (user_id = (select auth.uid()));
 create policy task_checklist_items_insert_own on public.task_checklist_items
