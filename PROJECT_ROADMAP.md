@@ -7,7 +7,7 @@
 
 **Completed:** Core productivity, Recurring Tasks V1, Reminders V1, and Progress & Streaks V1.
 
-**In progress:** Organization V1 — implementation is in PR #11 and CI is green; live database migrations and authenticated end-to-end verification remain pending.
+**In progress:** Organization V1 — implementation is in PR #11; live database migrations, final-head CI, and authenticated end-to-end verification remain pending.
 
 ## Mind map
 
@@ -135,7 +135,7 @@ PERSONAL OS
 ## Current checkpoint — 2026-10-16
 
 - Organization V1 implementation is under review in PR #11 (`feature/organization-v1`), not yet merged.
-- Automated CI passed on integrated implementation commit `54d3c35404c47e7bec64f4eea1b5802c207acfe7` (run #82). A documentation-only update then passed CI in run #83. RLS policies in Organization V1 migrations now use `(select auth.uid())` to avoid repeated per-row auth evaluation; compatibility migration conditionally indexes legacy `projects.goal_id` when present.
+- CI run #82 passed on implementation commit `54d3c35404c47e7bec64f4eea1b5802c207acfe7`, and run #83 passed on a subsequent documentation update. Later migration/policy edits do not yet have a reported workflow run; re-verify CI on the final head. Organization RLS policies now use `(select auth.uid())`; compatibility migration conditionally indexes legacy `projects.goal_id` when present.
 - Live database access is restored for the intended Supabase project `gujzvkyytxsnervovvrt` (`puttamohithkrishnaa@gmail.com's Project`, ACTIVE_HEALTHY). The live ledger does not yet include Organization V1 migrations; `projects` has legacy `title` and supports `COMPLETED` status.
 - Next steps: finish migration review; plan a safe rollout with recovery checks; apply/verify migrations only after preflight; run Supabase security/performance advisors; then exercise authenticated owner-isolation and CRUD flows. Do not mark Organization V1 complete until these checks pass.
 - Scope after Organization V1: Analytics V1, AI Assistant V1, Research Agent V1, Adaptive Scheduling, and production hardening. Each milestone needs schema/RLS, application logic, edge-case tests, UI, CI, and recovery documentation.
