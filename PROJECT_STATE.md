@@ -1,7 +1,7 @@
 # Personal-OS — Persistent Project State
 
 > Canonical recovery checkpoint. Read this before making project claims or changes.
-> Last verified: 2026-09-05.
+> Last verified: 2026-10-16 (Organization V1 branch checkpoint; live database and CI rechecked).
 
 ## Current verified state
 
@@ -167,3 +167,13 @@ A feature is not complete merely because the UI works. Where applicable, verify:
 ## Future-session rule
 
 Never infer progress from chat wording. Verify GitHub branch/PR state, inspect relevant files, verify Supabase for data changes, verify CI, and update this checkpoint. If uncertain, mark it uncertain and continue verification rather than guessing.
+
+
+## Organization V1 — current checkpoint (2026-10-16)
+
+- Active implementation is in PR #11, `feature/organization-v1`; PR remains open and unmerged. The project-schema compatibility migration is included on this branch. Organization migration filenames were moved to `20260905170000` and `20260905170100` so they sort after the latest already-applied remote migration (`20260905162251`) and before the October hardening migrations. PR #12 contains the same migration on a child branch and is redundant; do not merge it separately.
+- Implemented in this branch: owner-scoped projects, project/task associations, task subtasks, checklist UI and server actions, database-level ownership/link validation, checklist ownership hardening, legacy checklist reconciliation, cycle prevention, and input validation tests.
+- GitHub Actions run #95 passed after the checklist migration was made repeat-safe by dropping its four named policies before recreating them (run ID `38873897532`). Run #96 also passed `npm install`, `npm run test`, and `npm run build` on docs commit `04b185b0afc744a61b0a20ad5a7b169874952dd1` (https://github.com/mohith-krishnaa/personal-os/actions/runs/38873921256). The verified run confirms tests and production build pass on that commit; re-check CI against the current PR head before merge. Database rollout and authenticated end-to-end CRUD/isolation checks remain pending.
+- Live Supabase verification has been restored for the intended project `gujzvkyytxsnervovvrt` (`puttamohithkrishnaa@gmail.com's Project`, ACTIVE_HEALTHY). The unrelated `yojantra` project is not the target. The live migration ledger currently contains only the core, recurrence, reminders, RLS hardening, and goals migrations; Organization V1 migrations are NOT applied. Live `projects` uses legacy `title`, has existing status values including `COMPLETED`, and currently has no rows. Existing task project/parent columns and foreign keys are already present.
+- Before merge/deployment: review migration order and compatibility; apply Organization V1 migrations to the intended Supabase project only after preflight and backup/recovery checks; run security/performance advisors; then test owner isolation plus project/subtask/checklist CRUD with authenticated users. The compatibility migration is included on this branch to bridge legacy `projects.title` to app-facing `projects.name` without dropping the old column or removing `COMPLETED` status support. Organization migration versions now sort after the existing remote ledger; this avoids requiring an out-of-order migration push.
+- CI passed on earlier integrated commits, but final migration/policy edits still need a fresh CI run. Do not merge PR #11 until the final head passes CI, migration review and live database rollout plan are accepted, and authenticated end-to-end CRUD verification is complete.

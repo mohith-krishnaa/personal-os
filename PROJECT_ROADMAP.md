@@ -1,13 +1,13 @@
 # Personal OS — Project Roadmap & Mind Map
 
 > Single source of truth for project direction. Verify GitHub/Supabase/CI before making claims.
-> Last reconciled: 2026-09-05.
+> Last reconciled: 2026-10-16.
 
 ## Current position
 
 **Completed:** Core productivity, Recurring Tasks V1, Reminders V1, and Progress & Streaks V1.
 
-**Next:** Organization V1 — improve task structure before adding analytics/AI.
+**In progress:** Organization V1 — implementation is in PR #11; live database migrations, final-head CI, and authenticated end-to-end verification remain pending.
 
 ## Mind map
 
@@ -70,7 +70,7 @@ PERSONAL OS
 1. Recurring Tasks V1 — DONE
 2. Reminders V1 — DONE
 3. Progress & Streaks V1 — DONE
-4. **Organization V1 — NEXT**
+4. **Organization V1 — IN PROGRESS (PR #11; database rollout pending)**
 5. Analytics V1
 6. AI Assistant V1
 7. Research Agent V1
@@ -130,3 +130,12 @@ PERSONAL OS
 - 2026-09-05: Recurring Tasks V1, Reminders V1 and Progress & Streaks V1 verified as merged.
 - 2026-09-05: Security issue #6 remediated and closed; security verification reported 0 lints.
 - 2026-09-05: Organization V1 promoted to the next roadmap milestone.
+
+
+## Current checkpoint — 2026-10-16
+
+- Organization V1 implementation is under review in PR #11 (`feature/organization-v1`), not yet merged.
+- GitHub Actions run #95 passed after the checklist migration was made repeat-safe, and run #96 passed `npm install`, `npm run test`, and `npm run build` on docs commit `04b185b0afc744a61b0a20ad5a7b169874952dd1` (https://github.com/mohith-krishnaa/personal-os/actions/runs/38873921256). Re-check CI against the current PR head before merge. Organization RLS policies use `(select auth.uid())`; the compatibility migration conditionally indexes legacy `projects.goal_id` when present. Live database rollout and authenticated end-to-end CRUD/isolation checks remain pending.
+- Live database access is restored for the intended Supabase project `gujzvkyytxsnervovvrt` (`puttamohithkrishnaa@gmail.com's Project`, ACTIVE_HEALTHY). The live ledger does not yet include Organization V1 migrations; `projects` has legacy `title` and supports `COMPLETED` status.
+- Next steps: finish migration review; plan a safe rollout with recovery checks; apply/verify migrations only after preflight; run Supabase security/performance advisors; then exercise authenticated owner-isolation and CRUD flows. Do not mark Organization V1 complete until these checks pass.
+- Scope after Organization V1: Analytics V1, AI Assistant V1, Research Agent V1, Adaptive Scheduling, and production hardening. Each milestone needs schema/RLS, application logic, edge-case tests, UI, CI, and recovery documentation.

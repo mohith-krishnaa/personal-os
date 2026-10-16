@@ -11,6 +11,8 @@ type TaskInput = {
   due_at?: string | null
   scheduled_start?: string | null
   scheduled_end?: string | null
+  project_id?: string | null
+  parent_task_id?: string | null
   recurrence_rule?: RecurrenceRule | null
   recurrence_until?: string | null
 }
