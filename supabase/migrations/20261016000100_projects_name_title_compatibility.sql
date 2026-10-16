@@ -39,7 +39,7 @@ create index if not exists projects_user_id_idx
   on public.projects(user_id);
 
 -- Older installations may include goal_id on projects; index it when present.
-do $
+do $$
 begin
   if exists (
     select 1 from information_schema.columns
@@ -47,7 +47,7 @@ begin
   ) then
     execute 'create index if not exists projects_goal_id_idx on public.projects(goal_id)';
   end if;
-end $;
+end $$;
 
 -- Install the dual-write trigger only where the legacy title column exists.
 do $$
