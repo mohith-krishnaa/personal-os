@@ -3,34 +3,58 @@
 import { useState } from 'react'
 import type { ChecklistItem } from '@/types/checklist'
 import { addChecklistItemAction, listChecklistItemsAction, removeChecklistItemAction, toggleChecklistItemAction } from './checklist-actions'
+import { afterChecklistItemCreated } from '@/lib/checklist-state'
 
 export default function ChecklistManager({ taskId }: { taskId: string }) {
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState<ChecklistItem[]>([])
   const [title, setTitle] = useState('')
+  const [loaded, setLoaded] = useState(false)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  async function toggleOpen() {
-    if (open) { setOpen(false); return }
-    setOpen(true)
+  async function loadItems() {
     setLoading(true)
+    setLoaded(false)
     setError('')
-    try { setItems(await listChecklistItemsAction(taskId)) }
-    catch (err) { setError(err instanceof Error ? err.message : 'Could not load checklist.') }
-    finally { setLoading(false) }
+    try {
+      setItems(await listChecklistItemsAction(taskId))
+      setLoaded(true)
+    } catch (err) {
+      setLoaded(false)
+      setError(err instanceof Error ? err.message : 'Could not load checklist.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function toggleOpen() {
+    if (open) {
+      setOpen(false)
+      return
+    }
+    setOpen(true)
+    await loadItems()
   }
 
   async function addItem() {
-    if (!title.trim()) return
-    setSaving(true); setError('')
+    const value = title.trim()
+    if (!value || loading || saving) return
+    setSaving(true)
+    setError('')
     try {
-      const item = await addChecklistItemAction(taskId, title)
-      setItems(current => [...current, item].sort((a, b) => a.position - b.position))
+      const item = await addChecklistItemAction(taskId, value)
+      const next = afterChecklistItemCreated(items, item, loaded)
+      setItems(next.items)
+      setLoaded(!next.shouldReload)
       setTitle('')
-    } catch (err) { setError(err instanceof Error ? err.message : 'Could not add checklist item.') }
-    finally { setSaving(false) }
+      if (next.shouldReload) await loadItems()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not add checklist item.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function toggleItem(item: ChecklistItem) {
@@ -38,7 +62,9 @@ export default function ChecklistManager({ taskId }: { taskId: string }) {
     try {
       const updated = await toggleChecklistItemAction(item.id, !item.is_completed)
       setItems(current => current.map(value => value.id === updated.id ? updated : value))
-    } catch (err) { setError(err instanceof Error ? err.message : 'Could not update checklist item.') }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not update checklist item.')
+    }
   }
 
   async function removeItem(id: string) {
@@ -46,7 +72,9 @@ export default function ChecklistManager({ taskId }: { taskId: string }) {
     try {
       await removeChecklistItemAction(id)
       setItems(current => current.filter(item => item.id !== id))
-    } catch (err) { setError(err instanceof Error ? err.message : 'Could not delete checklist item.') }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not delete checklist item.')
+    }
   }
 
   return <div style={{ marginTop: 5 }}>
@@ -59,9 +87,9 @@ export default function ChecklistManager({ taskId }: { taskId: string }) {
       </div>)}
       <form onSubmit={event => { event.preventDefault(); void addItem() }} style={{ display: 'flex', gap: 6, marginTop: 8 }}>
         <input value={title} onChange={event => setTitle(event.target.value)} maxLength={240} placeholder="Add a checklist step" aria-label="Checklist item title" style={{ minWidth: 0, flex: 1, background: '#0b0d10', color: '#f4f4f5', border: '1px solid #303640', borderRadius: 7, padding: 7 }} />
-        <button type="submit" disabled={saving || !title.trim()}>{saving ? '…' : 'Add'}</button>
+        <button type="submit" disabled={saving || loading || !title.trim()}>{saving ? '…' : 'Add'}</button>
       </form>
-      {error && <div role="alert" style={{ color: '#ff7b72', fontSize: 12, marginTop: 6 }}>{error}</div>}
+      {error && <div role="alert" style={{ color: '#ff7b72', fontSize: 12, marginTop: 6 }}>{error} <button type="button" onClick={() => void loadItems()} disabled={loading} style={{ marginLeft: 6 }}>Retry</button></div>}
     </div>}
   </div>
 }
