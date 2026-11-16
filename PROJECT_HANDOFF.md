@@ -7,7 +7,7 @@ Date: 2026-11-17
 - Repository: `mohith-krishnaa/personal-os`.
 - Stable branch: `main` at `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`.
 - Organization branch: `feature/organization-v1`.
-- PR #11: open, unmerged, non-draft, mergeable at last live metadata check, targeting `main`: https://github.com/mohith-krishnaa/personal-os/pull/11
+- PR #11: open, unmerged, non-draft, mergeable, targeting `main`; current head `bc82493c8c5533148e3d82aaf667374fd33b9ee1`: https://github.com/mohith-krishnaa/personal-os/pull/11
 - PR #12 is an open draft explicitly superseded by PR #11; do not merge it separately.
 
 ## Work completed in this checkpoint
@@ -110,3 +110,16 @@ Organization V1 remains blocked on live database inspection, recovery readiness,
 - No production migration, schema/data change, or merge was performed.
 
 Next action: verify CI #131 on the current head, then continue database access recovery and live schema/migration inspection. Keep PR #11 unmerged and Analytics queued until the production authorization gates pass.
+
+
+## Latest verified follow-up — checklist ownership tests (2026-11-17)
+
+- Current PR #11 head: `bc82493c8c5533148e3d82aaf667374fd33b9ee1`; GitHub reports PR open, unmerged, non-draft, `mergeable=true`, `mergeable_state=clean`.
+- Added four mocked Supabase service tests to `src/lib/checklists.test.ts`: owner/task filters and ordering on list; foreign-owned task rejection before checklist query; trusted owner/task/title/position insert payload; owner-scoped completion and deletion.
+- CI #131/#132 failed because the new test file omitted imports for `listChecklistItems` and `setChecklistItemCompleted`. Those imports were added in the current head.
+- [CI #135](https://github.com/mohith-krishnaa/personal-os/actions/runs/43978834178) passed on the current head: **42 passed, 0 failed**; dependency install audited 43 packages with 0 vulnerabilities; `npm run typecheck` passed; `npm run build` passed.
+- No lint script/configuration exists. The tests use mocked Supabase clients and do not prove PostgreSQL RLS or authenticated two-user isolation.
+- Supabase metadata reports `ACTIVE_HEALTHY`, but migration listing, verbose table introspection, and read-only SQL time out; security/performance/health advisors report hibernation. Live migration ledger/schema remain unknown.
+- No production migration, schema/data write, or PR merge occurred.
+
+Next action: restore supported Supabase database access, inspect the live ledger/schema, confirm backup/recovery readiness, then complete authenticated CRUD and two-user isolation. Keep Analytics queued until Organization's production gates pass.
