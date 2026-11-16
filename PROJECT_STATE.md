@@ -1,7 +1,7 @@
 # Personal-OS — Persistent Project State
 
 > Canonical recovery checkpoint. Read this before making project claims or changes.
-> Last verified: 2026-11-17 (PR #11 head `adfffa6f5e125ff9224e618a89ec177144663c9f`; checklist ownership regression tests added; CI #131 queued. Previous head `c0757e01de9d5ef6a6fee7160db55f55bb0c4ddd` passed CI #130. Live database operations still timing out/hibernating).
+> Last verified: 2026-11-17 (PR #11 head `bc82493c8c5533148e3d82aaf667374fd33b9ee1`; CI #135 passed: 42 tests, typecheck, production build, 0 npm audit vulnerabilities. Live database operations still timing out/hibernating).
 
 ## Current verified state
 
@@ -12,7 +12,7 @@
 - Progress & Streaks V1 — **merged** (PR #8).
 - Security issue #6 — **closed/completed** after client execution was revoked for `public.rls_auto_enable()` and security verification reported 0 lints.
 - Open GitHub issue backlog — **0** at last verification.
-- Latest completed implementation CI — **successful** on PR head `c0757e01de9d5ef6a6fee7160db55f55bb0c4ddd` (run #130, ID `43969840071`): 38 tests passed, `npm run typecheck` passed, `npm run build` passed, and install audited 43 packages with 0 vulnerabilities. New checklist ownership tests were committed at `adfffa6f5e125ff9224e618a89ec177144663c9f`; CI #131 (run ID `43978680326`) was queued at last check, so those changes are not yet verified. No lint script/configuration exists.
+- Latest completed implementation CI — **successful** on PR head `bc82493c8c5533148e3d82aaf667374fd33b9ee1` (run #135, ID `43978834178`): **42 tests passed, 0 failed**; `npm run typecheck` and `npm run build` passed; npm install audited 43 packages with 0 vulnerabilities. No lint script/configuration exists.
 - Active feature branch: `feature/organization-v1`, in open PR #11 targeting `main`; it is not merged.
 
 ## Source-of-truth hierarchy
@@ -277,3 +277,16 @@ Next action: restore database connectivity and inspect the actual migration ledg
 - No production migration, schema/data change, or PR merge was performed. Organization remains incomplete; Analytics remains queued.
 
 Next safe action: wait for CI #131 to complete, reconcile the resulting test count, then continue to pursue supported Supabase database access. Do not apply DDL or merge while the live ledger/schema and two-user RLS behavior are unverified.
+
+
+## Latest verified checkpoint — checklist ownership tests (2026-11-17)
+
+- PR #11 is open, unmerged, non-draft, and targeting `main`; current head is `bc82493c8c5533148e3d82aaf667374fd33b9ee1`. Raw GitHub metadata reports `mergeable=true`, `mergeable_state=clean`.
+- Added four checklist service tests covering task ownership before list reads, owner/task list filters and ordering, foreign-task rejection, trusted owner assignment on create, and owner-scoped completion/deletion mutations.
+- CI #131/#132 exposed missing imports in the new test file (`listChecklistItems` and `setChecklistItemCompleted`). Fixed the imports in commit `bc82493c8c5533148e3d82aaf667374fd33b9ee1`; the final current-head CI #135 passed: 42/42 tests, typecheck, production build, npm install audit with 0 vulnerabilities.
+- CI #133/#134 were also triggered by sequential documentation commits; CI #135 is the verified latest-head run.
+- Lint remains unavailable because no lint script or configuration exists.
+- Supabase project `gujzvkyytxsnervovvrt` reports `ACTIVE_HEALTHY` in project metadata. Migration listing, verbose table introspection, and read-only SQL time out; security, performance, and health advisors report the project is hibernated. Live migration ledger and schema remain unknown.
+- No production migrations, schema/data changes, or PR merge were performed.
+
+Next safe action: recover supported database connectivity and inspect the live migration ledger/schema. Do not apply DDL or merge until backup/recovery readiness, migration compatibility, advisors, authenticated CRUD, and two-user RLS isolation are verified.
