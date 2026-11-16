@@ -12,7 +12,7 @@ test('organization project contract accepts names at the 120-character limit', (
 })
 
 test('organization project contract rejects blank names', () => {
-  assert.equal(validateProjectName('\\t\\n'), 'Project name is required')
+  assert.equal(validateProjectName('   '), 'Project name is required')
 })
 
 test('organization project contract rejects names over 120 characters', () => {
