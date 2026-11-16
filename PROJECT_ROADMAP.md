@@ -7,7 +7,7 @@
 
 **Completed:** Core productivity, Recurring Tasks V1, Reminders V1, and Progress & Streaks V1.
 
-**In progress:** Organization V1 — implementation is in PR #11. CI run #115 (ID `43938573918`) passed on PR head `91cd88fedef768a65286381c361b72f46d67ee29`: tests, explicit TypeScript check, and production build succeeded. New mocked-service tests cover authenticated project creation and owner-scoped updates. Live database migration/schema inspection and authenticated end-to-end verification remain blocked.
+**In progress:** Organization V1 — implementation is in PR #11. The dashboard now lazily loads and displays direct subtasks and supports completion toggles. Service tests verify that subtask reads are scoped to both the requested parent and authenticated owner. CI run #120 (ID `43947823009`) passed on implementation commit `b8a686664e5e39b2ebc042192a9ea291c6d1bec7`: 33 tests passed, TypeScript checking and production build passed, and npm reported 0 vulnerabilities. Live database migration/schema inspection and authenticated end-to-end verification remain blocked.
 
 ## Mind map
 
@@ -38,8 +38,11 @@ PERSONAL OS
 │   ├── Projects
 │   ├── Subtasks
 │   ├── Checklists
-│   ├── Notes
-│   └── Tags
+│   └── Core organization workflows
+│
+├── ORGANIZATION EXTENSIONS [DEFERRED]
+│   ├── Notes / advanced tags
+│   └── Attachments (evaluate separately)
 │
 ├── ANALYTICS [PLANNED]
 │   ├── Daily / Weekly / Monthly reviews
@@ -107,8 +110,9 @@ PERSONAL OS
 - Maintain regression coverage for task, recurrence, reminder and progress flows.
 
 ### P1 — Organization V1
-- Implementation exists in PR #11: owner-scoped projects, task/project association, subtasks, checklists, ownership validation, cycle prevention, compatibility migrations, tests, and dashboard UI.
-- Highest-priority remaining work is live database verification and safe rollout, followed by authenticated CRUD and cross-user isolation tests.
+- Implementation exists in PR #11: owner-scoped projects, task/project association, subtasks, checklists, ownership validation, cycle prevention, compatibility migrations, tests, and dashboard UI. The dashboard subtask panel now reads direct children on demand and supports completion updates through the existing owner-scoped task action.
+- CI run #120 passed on implementation commit `b8a686664e5e39b2ebc042192a9ea291c6d1bec7`: 33/33 tests, `npm run typecheck`, and `npm run build` passed; npm audit reported 0 vulnerabilities. New tests assert owner/parent filtering and reject foreign-parent reads.
+- Highest-priority remaining work is live database verification and safe rollout, followed by authenticated CRUD and cross-user isolation tests. The current UI exposes one level of subtasks; recursive hierarchy UX is not claimed.
 - Do not start Analytics until Organization V1's database and authorization acceptance criteria are verified.
 
 ### P2 — Production hardening
@@ -167,3 +171,17 @@ PERSONAL OS
 - Next action: restore supported Supabase database access, inspect the live migration ledger and Organization tables, confirm recovery readiness, then continue authenticated CRUD and cross-user isolation testing.
 
 Architecture note: [docs/architecture/organization-v1.md](docs/architecture/organization-v1.md).
+
+
+## Current checkpoint — 2026-11-17 (subtask visibility)
+
+- PR #11 remains open and unmerged; PR #12 remains an open draft superseded by PR #11.
+- Added an authenticated `listSubtasksAction`. It resolves the current user server-side, validates ownership of the parent task, and reads children filtered by both `user_id` and `parent_task_id`.
+- Updated the dashboard subtask panel to load children only when expanded, display their completion state, and toggle completion through the existing task-status server action. Existing create behavior remains available.
+- Added service tests proving the child query includes both owner and parent filters and that a foreign-owned parent is rejected before child listing.
+- CI run #120 (ID `43947823009`) passed on implementation commit `b8a686664e5e39b2ebc042192a9ea291c6d1bec7`: 33 tests passed, typecheck passed, production build passed, and npm audit reported 0 vulnerabilities. Documentation changes after that commit require the current PR head's checks to remain green.
+- Lint remains unavailable because the repository has no lint script/configuration.
+- Supabase project metadata reports `ACTIVE_HEALTHY`, but migration listing, verbose table introspection, and read-only SQL still time out; security/performance advisors report hibernation. The live schema and migration ledger remain unknown.
+- No production migration, schema/data write, or PR merge was performed.
+
+Decision: keep Organization V1 active; do not begin Analytics or merge until live schema/RLS, recovery readiness, migration rollout, advisors, and authenticated cross-user CRUD are verified.
