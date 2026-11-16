@@ -24,8 +24,8 @@ These describe the branch implementation only. They do not prove that the produc
 
 ## CI and quality checks
 
-- CI run #110 (ID `43938094959`) passed on PR head `b161742617ee6be80b6764034390ccc3be02a325`: `npm install`, `npm run test`, `npm run typecheck`, and `npm run build` all succeeded.
-- The run includes new mocked-service tests for authenticated project creation, owner-scoped project updates, and rejecting unauthenticated updates before database access. An intermediate run #109 failed because the blank-name test fixture encoded literal backslash characters instead of whitespace; the fixture was corrected to spaces and run #110 passed.
+- CI run #113 (ID `43938400901`) passed on current PR head `611dab0b5fe5ed6cdd163ac804a90e95033c4f5d`: `npm install`, `npm run test`, `npm run typecheck`, and `npm run build` all succeeded.
+- The run includes mocked-service tests for authenticated project creation, owner-scoped project updates, and rejecting unauthenticated updates before database access. An intermediate run #109 failed because the blank-name fixture encoded literal backslash characters instead of whitespace; the fixture was corrected to spaces and run #110 passed. Later documentation-only commits were also checked by CI runs #111–#113.
 - No lint script or linter configuration exists in the repository; no lint result is claimed.
 - A local clone could not be obtained in this execution environment because outbound DNS/network access to GitHub was unavailable. CI is the executable verification path.
 
@@ -56,7 +56,7 @@ Organization V1 remains the active milestone. Do not start Analytics V1 until it
 ## Current checkpoint summary
 
 - Organization V1 remains the highest-priority incomplete milestone.
-- CI run #110 passed the test suite, explicit TypeScript check, and production build. The repository has no lint script/configuration.
+- CI run #113 passed the test suite, explicit TypeScript check, and production build. The repository has no lint script/configuration.
 - The current application-level ownership regression tests passed, but the live database boundary is still unverified.
 - Repeated Supabase migration/table/read-only SQL operations time out despite project metadata showing `ACTIVE_HEALTHY`; advisor calls report hibernation.
 - No production DDL, data writes, or merge occurred.
