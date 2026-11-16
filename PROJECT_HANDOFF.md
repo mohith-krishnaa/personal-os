@@ -56,7 +56,7 @@ Organization V1 remains the active milestone. Do not start Analytics V1 until it
 ## Current checkpoint summary
 
 - Organization V1 remains the highest-priority incomplete milestone.
-- CI run #113 passed the test suite, explicit TypeScript check, and production build. The repository has no lint script/configuration.
+- CI run #115 passed the test suite, explicit TypeScript check, and production build on the recorded PR head. The repository has no lint script/configuration.
 - The current application-level ownership regression tests passed, but the live database boundary is still unverified.
 - Repeated Supabase migration/table/read-only SQL operations time out despite project metadata showing `ACTIVE_HEALTHY`; advisor calls report hibernation.
 - No production DDL, data writes, or merge occurred.
