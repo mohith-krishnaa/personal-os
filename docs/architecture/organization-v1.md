@@ -66,3 +66,13 @@ Status: implementation is under review in PR #11. This document records reposito
 - If that refresh also fails, the panel remains retryable and keeps the newly created row visible until a later successful refresh.
 - The create control is disabled while a list read is in flight to avoid overlapping reads racing with a create.
 - The refresh uses the same authenticated server action and owner/parent filters; no client-supplied identity or database privilege changes are introduced.
+
+
+## Checklist create/list consistency decision — 2026-11-17
+
+- The checklist dashboard must not treat a locally appended item as proof that the checklist list is complete when its most recent read failed.
+- `ChecklistManager` tracks successful list loading. After creating an item into an incomplete list, it retains the new item and reloads through the existing authenticated `listChecklistItemsAction`.
+- If that refresh fails, the created item remains visible, the list remains marked incomplete, and the user can retry. Add is disabled while a list read is in flight.
+- The client-side state helper mirrors service ordering (`position`, then `created_at`) for locally appended rows on a successfully loaded list.
+- This change does not alter the server trust boundary: server actions still derive identity with `auth.getUser()`; services validate task ownership and constrain checklist operations by `user_id` and `task_id`. It introduces no client-supplied owner ID, elevated credential, schema change, or RLS change.
+- Regression tests verify state transitions and ordering, but mocked/application tests do not prove live PostgreSQL RLS or cross-user isolation.
