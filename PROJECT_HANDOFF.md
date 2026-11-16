@@ -73,3 +73,16 @@ Organization V1 remains the highest-priority incomplete milestone. Do not start 
 - No schema, migration, RLS, or production data changes were made.
 - Database rollout remains blocked: the Supabase project metadata is healthy, but migration listing, verbose table introspection, read-only SQL, and advisor requests fail with timeouts/hibernation. Live schema and migration ledger are unknown.
 - Next safe action: restore supported database connectivity and inspect the live migration ledger/schema before any DDL or merge; verify the latest documentation-only PR head's CI before merge.
+
+
+## 2026-11-17 — Checklist create/list recovery
+
+- Live PR #11 remains open and unmerged; PR #12 remains a superseded draft.
+- Fixed the checklist equivalent of the subtask partial-list bug. If the initial checklist read failed, a successful create now keeps the new row visible and refreshes through the existing authenticated `listChecklistItemsAction` instead of treating the local partial list as complete.
+- The new helper preserves the service's canonical ordering: `position`, then `created_at`. The component tracks successful list loading, leaves the list retryable if refresh fails, and disables Add during a read.
+- Added three regression tests in `src/lib/checklists.test.ts`. They cover loaded-list ordering, reload after a failed initial read, and retention of locally created rows while the list remains incomplete.
+- No database schema, migrations, RLS, privilege, or server-action authorization changes were made.
+- CI for the final PR head must be checked before merge. The repo has no lint script/configuration, so lint is not claimed.
+- Supabase project metadata reports `ACTIVE_HEALTHY`, but `list_migrations` and verbose `list_tables` timed out during this run. Live migration ledger and schema remain unknown; no production migration or data/schema change was made.
+
+Next actions: verify final-head CI; restore DB connectivity; inspect migration ledger and Organization tables; confirm recovery readiness; then complete authenticated CRUD and two-user isolation tests before merge.
