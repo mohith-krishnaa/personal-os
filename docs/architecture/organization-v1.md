@@ -93,3 +93,11 @@ Status: implementation is under review in PR #11. This document records reposito
 - These tests improve application-level regression coverage only. They do not exercise authenticated server actions, PostgreSQL RLS, triggers, or cross-user isolation against the live database.
 - No production implementation, schema, migration, RLS, or credential change was made in this test-only checkpoint.
 - CI #131 for commit `adfffa6f5e125ff9224e618a89ec177144663c9f` was queued at last check. The previous head's CI #130 passed with 38 tests, typecheck, and production build.
+
+
+## Latest verification — checklist ownership tests (2026-11-17)
+
+- CI #135 passed on current PR #11 head `bc82493c8c5533148e3d82aaf667374fd33b9ee1`: 42 tests passed, typecheck passed, production build passed, and npm install reported 0 vulnerabilities.
+- The test-only checkpoint initially failed because two checklist service functions were not imported in the test module. The missing imports were added; the passing CI run is on the corrected head.
+- The four new tests assert application service query/payload boundaries. They do not prove RLS or cross-user isolation in PostgreSQL.
+- Live schema and migration ledger remain unknown: supported migration listing, table introspection, and read-only SQL time out; security/performance/health advisors report project hibernation.
