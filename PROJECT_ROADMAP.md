@@ -7,7 +7,7 @@
 
 **Completed:** Core productivity, Recurring Tasks V1, Reminders V1, and Progress & Streaks V1.
 
-**In progress:** Organization V1 — implementation remains in PR #11. The dashboard lazy-loads direct subtasks, supports completion toggles, and now handles the case where a subtask is created after the initial list read failed by refreshing the owner-scoped list without treating a partial list as complete. CI run #122 (ID `43959430815`) passed on implementation commit `3de585c8a2ba7e511f50ed0cd0be8c37d9bd1bf2`: 35 tests passed, typecheck and production build passed, and npm install reported 0 vulnerabilities. Lint remains unavailable because no lint script/configuration exists. Live database migration/schema inspection and authenticated end-to-end verification remain blocked.
+**In progress:** Organization V1 remains in PR #11. The dashboard supports direct subtask listing/completion and checklist create/list recovery. Added four checklist service ownership tests on head `adfffa6f5e125ff9224e618a89ec177144663c9f`; CI #131 (ID `43978680326`) was queued at last check. The previous head passed CI #130 with 38 tests, typecheck, build, and 0 npm audit vulnerabilities. No lint script/configuration exists. Live migration/schema inspection and authenticated end-to-end verification remain blocked.
 
 ## Mind map
 
@@ -111,7 +111,7 @@ PERSONAL OS
 
 ### P1 — Organization V1
 - Implementation exists in PR #11: owner-scoped projects, task/project association, subtasks, checklists, ownership validation, cycle prevention, compatibility migrations, tests, and dashboard UI. The dashboard subtask panel now reads direct children on demand and supports completion updates through the existing owner-scoped task action.
-- CI run #122 passed on implementation commit `3de585c8a2ba7e511f50ed0cd0be8c37d9bd1bf2`: 35/35 tests, `npm run typecheck`, and `npm run build` passed; npm install reported 0 vulnerabilities. New tests assert owner/parent filtering and reject foreign-parent reads.
+- CI run #130 passed on prior head `c0757e01de9d5ef6a6fee7160db55f55bb0c4ddd`: 38/38 tests, `npm run typecheck`, `npm run build`, and npm audit (0 vulnerabilities). The new checklist owner-boundary tests are on `adfffa6f5e125ff9224e618a89ec177144663c9f`; CI #131 was queued and is not yet a verified pass.
 - Highest-priority remaining work is live database verification and safe rollout, followed by authenticated CRUD and cross-user isolation tests. The current UI exposes one level of subtasks; recursive hierarchy UX is not claimed.
 - Do not start Analytics until Organization V1's database and authorization acceptance criteria are verified.
 
@@ -222,3 +222,15 @@ Decision: keep Organization V1 active; do not begin Analytics or merge until liv
 - CI #128 (ID `43969545168`) passed on head `4bb083fe94fd36419f47149c3951bc9b594c98aa`: 38 tests passed, typecheck passed, production build passed, and install reported 0 vulnerabilities.
 - Lint remains unavailable. Supabase metadata is `ACTIVE_HEALTHY`, but live migration/table/SQL/advisor calls fail with timeout or hibernation responses; live schema and ledger remain unknown.
 - No production migration, data change, or merge was performed. Organization remains the priority; Analytics stays queued until live schema/RLS, recovery, migration, advisor, authenticated CRUD, and cross-user isolation gates pass.
+
+
+## Verification checkpoint — checklist ownership coverage (2026-11-17)
+
+- Added four service-level regression tests for checklist task-owner validation, list filters/order, foreign-task rejection, owner assignment on insert, and owner-scoped completion/deletion mutations.
+- No production service, UI, schema, migration, RLS policy, or credential behavior changed in this task; only `src/lib/checklists.test.ts` changed.
+- Current PR #11 head is `adfffa6f5e125ff9224e618a89ec177144663c9f`. CI #131 (ID `43978680326`) was queued at last check; test/typecheck/build results for this commit are pending.
+- CI #130 passed on the parent head with 38 tests, typecheck, production build, and 0 npm audit vulnerabilities.
+- Supabase project metadata is `ACTIVE_HEALTHY`; migration listing, verbose table inspection, and read-only SQL timed out. Security/performance/health advisors report hibernation. Live schema and migration ledger remain unknown.
+- No production DDL, data changes, or PR merge occurred.
+
+Organization remains the active milestone. Analytics must not start until live schema/RLS, recovery, migration, advisor, authenticated CRUD, and cross-user isolation gates are verified.
