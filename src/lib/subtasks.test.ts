@@ -110,7 +110,7 @@ test('lists subtasks scoped to the requested owner and parent task', async () =>
         },
         order(column: string, options: { ascending: boolean }) {
           orderCalls.push([column, options])
-          return orderCalls.length === 2 ? Promise.resolve({ data: children, error: null }) : this
+          return orderCalls.length === 1 ? Promise.resolve({ data: children, error: null }) : this
         },
       }
       return query
