@@ -1,7 +1,7 @@
 # Personal-OS — Persistent Project State
 
 > Canonical recovery checkpoint. Read this before making project claims or changes.
-> Last verified: 2026-11-17 (GitHub PR/branch and CI rechecked; subtask UI consistency fix passed CI; live database operations still timing out).
+> Last verified: 2026-11-17 (PR #11 head `4bb083fe94fd36419f47149c3951bc9b594c98aa`; CI #128 passed with 38 tests, typecheck, and production build; live database operations still timing out).
 
 ## Current verified state
 
@@ -12,7 +12,7 @@
 - Progress & Streaks V1 — **merged** (PR #8).
 - Security issue #6 — **closed/completed** after client execution was revoked for `public.rls_auto_enable()` and security verification reported 0 lints.
 - Open GitHub issue backlog — **0** at last verification.
-- Latest verified implementation CI — **successful** on commit `3de585c8a2ba7e511f50ed0cd0be8c37d9bd1bf2` (run #122, ID `43959430815`): 35 tests passed, `npm run typecheck` passed, `npm run build` passed, and npm install reported 0 vulnerabilities. A later documentation-only commit still requires current-head CI before merge.
+- Latest verified implementation CI — **successful** on PR head `4bb083fe94fd36419f47149c3951bc9b594c98aa` (run #128, ID `43969545168`): 38 tests passed, `npm run typecheck` passed, `npm run build` passed, and `npm install` audited 43 packages with 0 vulnerabilities. No lint script/configuration exists.
 - Active feature branch: `feature/organization-v1`, in open PR #11 targeting `main`; it is not merged.
 
 ## Source-of-truth hierarchy
@@ -252,3 +252,16 @@ Next safe action: restore supported database connectivity, inspect the actual mi
 - No production migration, schema/data write, or PR merge was performed.
 
 Next safe action: verify CI on the latest PR head, then restore supported Supabase database access and inspect the live migration ledger/schema before any DDL or merge.
+
+
+## Latest verified checkpoint — checklist recovery (2026-11-17)
+
+- PR #11 is open, unmerged, non-draft, and mergeable at live verification; PR #12 remains an open draft superseded by PR #11.
+- Checklist create/list recovery is implemented in `ChecklistManager`. A create after a failed/incomplete list read keeps the new row visible and reloads via the existing authenticated list action. Failed refreshes leave the list retryable. Loaded-list rows preserve the service order (`position`, then `created_at`).
+- Three new regression tests cover loaded-list ordering, reload after an incomplete read, and retention of locally created rows while still incomplete.
+- CI #128 (ID `43969545168`) passed on head `4bb083fe94fd36419f47149c3951bc9b594c98aa`: 38/38 tests, typecheck, and production build passed; install audited 43 packages and reported 0 vulnerabilities.
+- Lint is unavailable because there is no lint script/configuration.
+- Supabase metadata reports `ACTIVE_HEALTHY`, but `list_migrations`, verbose `list_tables`, read-only SQL, and security/performance/health advisor calls fail with timeouts or hibernation. Live migration ledger/schema remain unknown.
+- No production migration, schema/data change, or PR merge was performed.
+
+Next action: restore database connectivity and inspect the actual migration ledger/schema, then verify backup/recovery readiness and authenticated CRUD plus two-user isolation before any production rollout or PR merge.
