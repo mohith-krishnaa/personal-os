@@ -83,3 +83,13 @@ Status: implementation is under review in PR #11. This document records reposito
 - CI #128 passed on PR #11 head `4bb083fe94fd36419f47149c3951bc9b594c98aa`: 38 unit tests passed, TypeScript check passed, and production build passed.
 - The tests cover application state transitions and service query construction only. They do not establish live PostgreSQL RLS, trigger execution, or two-user isolation.
 - Live migration ledger/schema remain unknown because supported migration listing, table introspection, read-only SQL, and advisor calls still time out or report hibernation.
+
+
+## Checklist service ownership verification — 2026-11-17
+
+- The checklist service's read path first selects the task using both task ID and owner ID, then reads checklist rows filtered by both `user_id` and `task_id` and ordered by `position`, then `created_at`.
+- The create path validates task ownership before insert and explicitly sets `user_id` from the trusted server-derived service argument. The completion and deletion paths constrain mutations by both checklist item ID and owner ID.
+- Four mocked Supabase service tests were added to assert these query/payload invariants and reject a foreign-owned task before querying checklist rows.
+- These tests improve application-level regression coverage only. They do not exercise authenticated server actions, PostgreSQL RLS, triggers, or cross-user isolation against the live database.
+- No production implementation, schema, migration, RLS, or credential change was made in this test-only checkpoint.
+- CI #131 for commit `adfffa6f5e125ff9224e618a89ec177144663c9f` was queued at last check. The previous head's CI #130 passed with 38 tests, typecheck, and production build.
