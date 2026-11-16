@@ -46,3 +46,163 @@ test('retains locally created checklist items while a failed list remains incomp
   assert.deepEqual(result.items.map(item => item.id), ['second', 'first'])
   assert.equal(result.shouldReload, true)
 })
+
+
+test('lists checklist items only after verifying task ownership and applies owner/task filters', async () => {
+  const taskFilters: Array<[string, string]> = []
+  const itemFilters: Array<[string, string]> = []
+  const orderCalls: Array<[string, { ascending: boolean }]> = []
+  const items = [{ id: 'item-1', user_id: 'owner-1', task_id: 'task-1', title: 'First step' }]
+  let fromCalls = 0
+
+  const supabase = {
+    from(table: string) {
+      fromCalls += 1
+      if (table === 'tasks') {
+        return {
+          select(columns: string) {
+            assert.equal(columns, 'id')
+            return this
+          },
+          eq(column: string, value: string) {
+            taskFilters.push([column, value])
+            return this
+          },
+          single: async () => ({ data: { id: 'task-1' }, error: null }),
+        }
+      }
+
+      assert.equal(table, 'checklist_items')
+      return {
+        select(columns: string) {
+          assert.equal(columns, '*')
+          return this
+        },
+        eq(column: string, value: string) {
+          itemFilters.push([column, value])
+          return this
+        },
+        order(column: string, options: { ascending: boolean }) {
+          orderCalls.push([column, options])
+          return orderCalls.length === 2
+            ? Promise.resolve({ data: items, error: null })
+            : this
+        },
+      }
+    },
+  } as any
+
+  const result = await listChecklistItems(supabase, 'owner-1', 'task-1')
+
+  assert.equal(fromCalls, 2)
+  assert.deepEqual(taskFilters, [['id', 'task-1'], ['user_id', 'owner-1']])
+  assert.deepEqual(itemFilters, [['user_id', 'owner-1'], ['task_id', 'task-1']])
+  assert.deepEqual(orderCalls, [
+    ['position', { ascending: true }],
+    ['created_at', { ascending: true }],
+  ])
+  assert.deepEqual(result, items)
+})
+
+test('does not query checklist items when the task belongs to another owner', async () => {
+  const tables: string[] = []
+  const supabase = {
+    from(table: string) {
+      tables.push(table)
+      return {
+        select() { return this },
+        eq() { return this },
+        single: async () => ({ data: null, error: { message: 'not found' } }),
+      }
+    },
+  } as any
+
+  await assert.rejects(
+    () => listChecklistItems(supabase, 'owner-1', 'foreign-task'),
+    /Task not found/,
+  )
+  assert.deepEqual(tables, ['tasks'])
+})
+
+test('createChecklistItem derives the inserted owner from its trusted service argument after task validation', async () => {
+  const inserted: Record<string, unknown>[] = []
+  const tables: string[] = []
+  const supabase = {
+    from(table: string) {
+      tables.push(table)
+      if (table === 'tasks') {
+        return {
+          select() { return this },
+          eq() { return this },
+          single: async () => ({ data: { id: 'task-1' }, error: null }),
+        }
+      }
+
+      return {
+        insert(values: Record<string, unknown>) {
+          inserted.push(values)
+          return this
+        },
+        select() { return this },
+        single: async () => ({
+          data: { id: 'item-1', user_id: 'owner-1', task_id: 'task-1', title: 'Step', position: 2 },
+          error: null,
+        }),
+      }
+    },
+  } as any
+
+  await createChecklistItem(supabase, 'owner-1', 'task-1', ' Step ', 2)
+
+  assert.deepEqual(tables, ['tasks', 'checklist_items'])
+  assert.deepEqual(inserted, [{
+    user_id: 'owner-1',
+    task_id: 'task-1',
+    title: 'Step',
+    position: 2,
+  }])
+})
+
+test('checklist completion and deletion mutations are constrained by item id and owner', async () => {
+  const updateFilters: Array<[string, string]> = []
+  const deleteFilters: Array<[string, string]> = []
+  const supabase = {
+    from(table: string) {
+      assert.equal(table, 'checklist_items')
+      return {
+        update(values: Record<string, unknown>) {
+          assert.equal(values.is_completed, true)
+          return {
+            eq(column: string, value: string) {
+              updateFilters.push([column, value])
+              return this
+            },
+            select() {
+              return this
+            },
+            single: async () => ({
+              data: { id: 'item-1', user_id: 'owner-1', is_completed: true },
+              error: null,
+            }),
+          }
+        },
+        delete() {
+          return {
+            eq(column: string, value: string) {
+              deleteFilters.push([column, value])
+              return deleteFilters.length === 2
+                ? Promise.resolve({ error: null })
+                : this
+            },
+          }
+        },
+      }
+    },
+  } as any
+
+  await setChecklistItemCompleted(supabase, 'owner-1', 'item-1', true)
+  await deleteChecklistItem(supabase, 'owner-1', 'item-1')
+
+  assert.deepEqual(updateFilters, [['id', 'item-1'], ['user_id', 'owner-1']])
+  assert.deepEqual(deleteFilters, [['id', 'item-1'], ['user_id', 'owner-1']])
+})
