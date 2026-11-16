@@ -202,3 +202,14 @@ Decision: keep Organization V1 active; do not begin Analytics or merge until liv
 
 - CI run #122 passed on the subtask create/list consistency implementation commit: 35 tests passed, typecheck passed, production build passed, and npm install reported 0 vulnerabilities.
 - A documentation-only reconciliation follows that implementation commit; verify the resulting latest PR head's CI before merge.
+
+
+## Current checkpoint — 2026-11-17 (checklist consistency)
+
+- Organization V1 remains the active milestone in PR #11. PR #12 remains an open draft superseded by PR #11.
+- Fixed a checklist UI consistency defect: creating an item after a failed list read previously displayed only the newly created row and could hide pre-existing rows. The component now refreshes the authenticated checklist list when the prior read was incomplete, retains the new row if refresh fails, exposes retry, and blocks create while loading.
+- Added `src/lib/checklist-state.ts` and three regression tests for canonical ordering and incomplete-list recovery. No schema or authorization behavior changed.
+- The checklist service continues to use `public.checklist_items`, verifies task ownership, and filters records by authenticated `user_id` and `task_id`.
+- Latest code changes require CI verification on the current PR head. Lint remains unavailable because the repository has no lint script/configuration.
+- Supabase metadata reports `ACTIVE_HEALTHY`, but live migration listing and verbose table introspection timed out again. Live schema/ledger remain unknown; no migrations or production writes were performed.
+- Next priority remains database inspection and safe Organization rollout, not Analytics. Do not merge PR #11 until live schema/RLS, recovery readiness, advisors, authenticated CRUD, cross-user isolation, and current-head CI are verified.
