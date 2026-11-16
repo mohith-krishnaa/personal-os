@@ -7,7 +7,7 @@
 
 **Completed:** Core productivity, Recurring Tasks V1, Reminders V1, and Progress & Streaks V1.
 
-**In progress:** Organization V1 — implementation is in PR #11; CI run #99 passed on the previous PR head, and the workflow now includes an explicit TypeScript check. Live database migration/schema inspection and authenticated end-to-end verification remain blocked.
+**In progress:** Organization V1 — implementation is in PR #11; CI run #102 passed on commit `18f4558e8cedace39b890dd6d8dad80ac542e1cc`, including the explicit TypeScript check. Live database migration/schema inspection and authenticated end-to-end verification remain blocked.
 
 ## Mind map
 
@@ -143,7 +143,7 @@ PERSONAL OS
 ## Current checkpoint — 2026-11-16
 
 - GitHub confirms PR #11 is open, unmerged, non-draft, and mergeable. The branch is `feature/organization-v1`, targeting `main`; the verified head at checkpoint start was `aa26a556cd6627a0ccd19efd914fe62be76f0ed9`.
-- CI run #99 passed on that previous head. The workflow has been extended with an explicit `npm run typecheck` step; verify CI on the final head before merge.
+- CI run #102 passed on commit `18f4558e8cedace39b890dd6d8dad80ac542e1cc`: install, tests, explicit typecheck, and production build all succeeded. The following documentation refresh triggers a new CI run; verify the latest head before merge.
 - Supabase project metadata reports `ACTIVE_HEALTHY`, but migration listing, table introspection, read-only SQL, and advisor calls time out; advisors also report the project as hibernated. The live migration ledger and schema are currently unknown.
 - No migrations or production data changes were made. The next safe action is to restore supported DB connectivity, inspect the live ledger/schema, confirm backup/recovery readiness, then apply reviewed migrations and test authenticated owner isolation.
 - Analytics, AI Assistant, Research Agent, Adaptive Scheduling, and production hardening remain behind Organization V1 in the execution order.
