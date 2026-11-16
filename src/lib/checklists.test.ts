@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createChecklistItem } from './checklists'
+import { createChecklistItem, deleteChecklistItem, listChecklistItems, setChecklistItemCompleted } from './checklists'
 
 test('rejects blank checklist titles before database access', async () => {
   const supabase = { from: () => { throw new Error('database should not be reached') } } as any
