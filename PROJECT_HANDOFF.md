@@ -98,3 +98,15 @@ Next actions: verify final-head CI; restore DB connectivity; inspect migration l
 - Supabase project metadata reports `ACTIVE_HEALTHY`, but migration listing, verbose table introspection, read-only SQL, and security/performance/health advisors still fail with connection timeouts or hibernation responses. Live migration ledger/schema remain unknown.
 
 Organization V1 remains blocked on live database inspection, recovery readiness, and authenticated two-user CRUD/isolation verification. Do not merge or start Analytics until those gates pass.
+
+
+## 2026-11-17 — Checklist service ownership tests
+
+- Current PR #11 head: `adfffa6f5e125ff9224e618a89ec177144663c9f`; PR remains open and unmerged. Raw GitHub PR metadata reports mergeable=true and mergeable_state=`unstable` while checks are pending.
+- Added four mocked-service regression tests in `src/lib/checklists.test.ts`: list verifies task ownership and owner/task filters/order; a foreign-owned task is rejected before checklist query; create verifies owner/task/title/position insert payload after task validation; completion and deletion mutations filter by item ID and owner.
+- No production code or database schema/permissions changed. These tests verify service query construction, not live PostgreSQL RLS.
+- CI #131 (ID `43978680326`) was queued at last check. The previous head passed CI #130 with 38 tests, typecheck, production build, and 0 npm audit vulnerabilities. Do not claim the new test commit is green until #131 completes.
+- Supabase project metadata reports `ACTIVE_HEALTHY`, but migration listing, verbose table introspection, and read-only SQL timed out. Security, performance, and health advisors report the project hibernated. Live migration ledger/schema remain unknown.
+- No production migration, schema/data change, or merge was performed.
+
+Next action: verify CI #131 on the current head, then continue database access recovery and live schema/migration inspection. Keep PR #11 unmerged and Analytics queued until the production authorization gates pass.
