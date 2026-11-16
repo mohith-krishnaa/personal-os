@@ -12,7 +12,7 @@
 - Progress & Streaks V1 — **merged** (PR #8).
 - Security issue #6 — **closed/completed** after client execution was revoked for `public.rls_auto_enable()` and security verification reported 0 lints.
 - Open GitHub issue backlog — **0** at last verification.
-- Latest verified CI on the Organization branch before the explicit typecheck step was added — **successful** on PR head `aa26a556cd6627a0ccd19efd914fe62be76f0ed9` (run #99; tests and production build passed). The current CI workflow now also runs `npm run typecheck`; verify its result on the latest PR head before merge.
+- Latest verified CI on the Organization branch — **successful** on commit `18f4558e8cedace39b890dd6d8dad80ac542e1cc` (run #102): dependency installation, `npm run test`, `npm run typecheck`, and `npm run build` all passed. Subsequent documentation-only checkpoint updates trigger a fresh CI run; verify the latest PR head before merge.
 - Active feature branch: `feature/organization-v1`, in open PR #11 targeting `main`; it is not merged.
 
 ## Source-of-truth hierarchy
@@ -182,7 +182,7 @@ The following observations were made on 2026-10-16 and are retained for traceabi
 
 - GitHub confirms `main` is at `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`.
 - PR #11 is open, unmerged, non-draft, and mergeable; it targets `main`. Its verified head at the start of this checkpoint was `aa26a556cd6627a0ccd19efd914fe62be76f0ed9`.
-- CI run #99 (ID `43917256196`) passed on that head: dependency installation, `npm run test`, and `npm run build`. The workflow has since been strengthened to run an explicit `npm run typecheck`; its result must be verified on the final PR head.
+- CI run #102 (ID `43928191876`) passed on commit `18f4558e8cedace39b890dd6d8dad80ac542e1cc`: dependency installation, `npm run test`, `npm run typecheck`, and `npm run build` all succeeded. This predates the documentation-only checkpoint refresh; verify the newest head's CI before merge.
 - Supabase project metadata for `gujzvkyytxsnervovvrt` reports `ACTIVE_HEALTHY`, but live migration listing, table introspection, read-only SQL, and advisor calls failed with connection timeouts. Advisor calls reported that the project was hibernated. Therefore the current live migration ledger and schema are **unknown**, not verified.
 - No Organization migration was applied in this checkpoint, and no production schema or data was changed.
 - Do not merge PR #11 or start Analytics until the live migration ledger/schema can be read, migration compatibility is reviewed against that state, recovery readiness is confirmed, migrations are applied safely, advisors are checked, and authenticated CRUD plus cross-user isolation pass.
