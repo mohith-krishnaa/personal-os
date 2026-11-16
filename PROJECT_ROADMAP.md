@@ -7,7 +7,7 @@
 
 **Completed:** Core productivity, Recurring Tasks V1, Reminders V1, and Progress & Streaks V1.
 
-**In progress:** Organization V1 — implementation remains in PR #11. The dashboard lazy-loads direct subtasks, supports completion toggles, and now handles the case where a subtask is created after the initial list read failed by refreshing the owner-scoped list without treating a partial list as complete. The latest previously verified CI was run #121 on head `b466ee0ba32cae5b4a1763db50360a69e132ca28` (33 tests, typecheck, build passed); CI for the new consistency fix is pending. Live database migration/schema inspection and authenticated end-to-end verification remain blocked.
+**In progress:** Organization V1 — implementation remains in PR #11. The dashboard lazy-loads direct subtasks, supports completion toggles, and now handles the case where a subtask is created after the initial list read failed by refreshing the owner-scoped list without treating a partial list as complete. CI run #122 (ID `43959430815`) passed on implementation commit `3de585c8a2ba7e511f50ed0cd0be8c37d9bd1bf2`: 35 tests passed, typecheck and production build passed, and npm install reported 0 vulnerabilities. Lint remains unavailable because no lint script/configuration exists. Live database migration/schema inspection and authenticated end-to-end verification remain blocked.
 
 ## Mind map
 
@@ -111,7 +111,7 @@ PERSONAL OS
 
 ### P1 — Organization V1
 - Implementation exists in PR #11: owner-scoped projects, task/project association, subtasks, checklists, ownership validation, cycle prevention, compatibility migrations, tests, and dashboard UI. The dashboard subtask panel now reads direct children on demand and supports completion updates through the existing owner-scoped task action.
-- CI run #120 passed on implementation commit `b8a686664e5e39b2ebc042192a9ea291c6d1bec7`: 33/33 tests, `npm run typecheck`, and `npm run build` passed; npm audit reported 0 vulnerabilities. New tests assert owner/parent filtering and reject foreign-parent reads.
+- CI run #122 passed on implementation commit `3de585c8a2ba7e511f50ed0cd0be8c37d9bd1bf2`: 35/35 tests, `npm run typecheck`, and `npm run build` passed; npm install reported 0 vulnerabilities. New tests assert owner/parent filtering and reject foreign-parent reads.
 - Highest-priority remaining work is live database verification and safe rollout, followed by authenticated CRUD and cross-user isolation tests. The current UI exposes one level of subtasks; recursive hierarchy UX is not claimed.
 - Do not start Analytics until Organization V1's database and authorization acceptance criteria are verified.
 
@@ -193,6 +193,12 @@ Decision: keep Organization V1 active; do not begin Analytics or merge until liv
 - Found a UI state bug: if the initial lazy-load failed and the user then created a subtask, the component marked its partial local list as fully loaded. That hid any pre-existing subtasks until a page refresh.
 - Added a small state transition helper. After creation, an already-loaded list is appended locally; an incomplete list remains marked incomplete and is refreshed through the authenticated owner-scoped read action. A failed refresh keeps the created row visible and leaves retry available.
 - Disabled the Add control during an in-flight list read to prevent overlapping read/create races.
-- Added regression tests for both loaded and incomplete list transitions. CI verification for this change is pending.
+- Added regression tests for both loaded and incomplete list transitions. CI run #122 (ID `43959430815`) passed on implementation commit `3de585c8a2ba7e511f50ed0cd0be8c37d9bd1bf2`: 35/35 tests, typecheck, and production build passed; npm install reported 0 vulnerabilities. Lint is unavailable.
 - No database schema or authorization behavior changed.
 - Live Supabase database calls continue to fail; live migration ledger/schema remain unknown. No migration, production data/schema write, or PR merge was performed.
+
+
+## Verification follow-up — 2026-11-17
+
+- CI run #122 passed on the subtask create/list consistency implementation commit: 35 tests passed, typecheck passed, production build passed, and npm install reported 0 vulnerabilities.
+- A documentation-only reconciliation follows that implementation commit; verify the resulting latest PR head's CI before merge.

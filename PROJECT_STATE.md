@@ -1,7 +1,7 @@
 # Personal-OS — Persistent Project State
 
 > Canonical recovery checkpoint. Read this before making project claims or changes.
-> Last verified: 2026-11-17 (GitHub PR/branch and CI rechecked; live database operations still timing out; latest subtask UI consistency fix awaiting CI).
+> Last verified: 2026-11-17 (GitHub PR/branch and CI rechecked; subtask UI consistency fix passed CI; live database operations still timing out).
 
 ## Current verified state
 
@@ -12,7 +12,7 @@
 - Progress & Streaks V1 — **merged** (PR #8).
 - Security issue #6 — **closed/completed** after client execution was revoked for `public.rls_auto_enable()` and security verification reported 0 lints.
 - Open GitHub issue backlog — **0** at last verification.
-- Latest verified CI for the Organization implementation change — **successful** on commit `b8a686664e5e39b2ebc042192a9ea291c6d1bec7` (run #120, ID `43947823009`): 33 tests passed, `npm run typecheck` passed, `npm run build` passed, and npm audit reported 0 vulnerabilities. Any newer PR head must still have green checks before merge.
+- Latest verified implementation CI — **successful** on commit `3de585c8a2ba7e511f50ed0cd0be8c37d9bd1bf2` (run #122, ID `43959430815`): 35 tests passed, `npm run typecheck` passed, `npm run build` passed, and npm install reported 0 vulnerabilities. A later documentation-only commit still requires current-head CI before merge.
 - Active feature branch: `feature/organization-v1`, in open PR #11 targeting `main`; it is not merged.
 
 ## Source-of-truth hierarchy
@@ -233,7 +233,7 @@ Next safe action: restore supported database connectivity, inspect the actual mi
 - Fixed a partial-list state bug in `SubtaskManager`: creating a subtask after a failed initial read previously set `loaded=true`, which could hide pre-existing children.
 - Added `afterSubtaskCreated` state transition logic. A loaded list appends without another request; an incomplete list remains incomplete and is refreshed through `listSubtasksAction`. If refresh fails, the created row remains visible and retry stays available.
 - The Add control is disabled during a list read to avoid overlapping requests.
-- Added two regression tests for loaded and incomplete list transitions. CI for this change is pending and must be checked on the resulting branch head.
+- Added two regression tests for loaded and incomplete list transitions. CI run #122 (ID `43959430815`) passed on implementation commit `3de585c8a2ba7e511f50ed0cd0be8c37d9bd1bf2`: 35 tests, typecheck, and production build passed; npm install reported 0 vulnerabilities.
 - This is a UI/state correctness change only; no migration, schema, database privilege, or authorization boundary changed.
 - Supabase project metadata reports `ACTIVE_HEALTHY`, but live migration listing, table introspection, read-only SQL, and advisors fail due timeouts/hibernation. Live schema and migration ledger remain unknown.
 - No production migration, schema/data write, or PR merge was performed.

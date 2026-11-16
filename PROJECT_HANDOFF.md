@@ -20,8 +20,8 @@ Date: 2026-11-17
 
 ## CI and quality
 
-- CI run #120 (ID `43947823009`) passed on implementation commit `b8a686664e5e39b2ebc042192a9ea291c6d1bec7`.
-- Test result: **33 passed, 0 failed**.
+- CI run #122 (ID `43959430815`) passed on implementation commit `3de585c8a2ba7e511f50ed0cd0be8c37d9bd1bf2`.
+- Test result: **35 passed, 0 failed**.
 - `npm run typecheck`: passed.
 - `npm run build`: passed.
 - `npm install` audit: 0 vulnerabilities.
@@ -69,7 +69,7 @@ Organization V1 remains the highest-priority incomplete milestone. Do not start 
 - Live PR #11 pre-change head was `b466ee0ba32cae5b4a1763db50360a69e132ca28`; PR #11 remains the active Organization V1 review, while PR #12 is a superseded draft.
 - Fixed a UI state bug where a successful create after a failed initial subtask read marked an incomplete local list as fully loaded. The panel now refreshes the canonical owner-scoped list in that case, retains the created row if refresh fails, and keeps retry available.
 - The Add control is disabled while a list read is in flight to prevent overlapping read/create races.
-- Added two unit tests for the state transition helper. CI for the new branch head is pending; do not treat the change as verified until the current-head run finishes.
+- Added two unit tests for the state transition helper. CI run #122 (ID `43959430815`) passed on the implementation commit: 35 tests, typecheck, and production build passed; npm install reported 0 vulnerabilities. A subsequent documentation-only reconciliation must still have green current-head CI before merge.
 - No schema, migration, RLS, or production data changes were made.
 - Database rollout remains blocked: the Supabase project metadata is healthy, but migration listing, verbose table introspection, read-only SQL, and advisor requests fail with timeouts/hibernation. Live schema and migration ledger are unknown.
-- Next safe action: verify CI on the new PR head, then restore supported database connectivity and inspect the live migration ledger/schema before any DDL or merge.
+- Next safe action: restore supported database connectivity and inspect the live migration ledger/schema before any DDL or merge; verify the latest documentation-only PR head's CI before merge.
