@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createSubtask } from './subtasks'
+import { createSubtask, listSubtasks } from './subtasks'
 
 function unreachableDatabase() {
   return { from: () => { throw new Error('database should not be reached') } } as any
@@ -68,4 +68,76 @@ test('rejects a project that differs from the parent project before insert', asy
     () => createSubtask(supabase, 'user', 'parent', { title: 'Valid title', project_id: 'other-project' }),
     /same project as its parent/,
   )
+})
+
+test('lists subtasks scoped to the requested owner and parent task', async () => {
+  const parentFilters: Array<[string, string]> = []
+  const childFilters: Array<[string, string]> = []
+  const orderCalls: Array<[string, { ascending: boolean }]> = []
+  const children = [{ id: 'child-1', user_id: 'owner-1', parent_task_id: 'parent-1', title: 'First child' }]
+  let fromCalls = 0
+
+  const supabase = {
+    from(table: string) {
+      assert.equal(table, 'tasks')
+      fromCalls += 1
+      if (fromCalls === 1) {
+        const query = {
+          select(columns: string) {
+            assert.equal(columns, 'id,user_id,project_id')
+            return this
+          },
+          eq(column: string, value: string) {
+            parentFilters.push([column, value])
+            return this
+          },
+          single: async () => ({
+            data: { id: 'parent-1', user_id: 'owner-1', project_id: null },
+            error: null,
+          }),
+        }
+        return query
+      }
+
+      const query = {
+        select(columns: string) {
+          assert.equal(columns, '*')
+          return this
+        },
+        eq(column: string, value: string) {
+          childFilters.push([column, value])
+          return this
+        },
+        order(column: string, options: { ascending: boolean }) {
+          orderCalls.push([column, options])
+          return orderCalls.length === 2 ? Promise.resolve({ data: children, error: null }) : this
+        },
+      }
+      return query
+    },
+  } as any
+
+  const result = await listSubtasks(supabase, 'owner-1', 'parent-1')
+
+  assert.deepEqual(parentFilters, [['id', 'parent-1'], ['user_id', 'owner-1']])
+  assert.deepEqual(childFilters, [['user_id', 'owner-1'], ['parent_task_id', 'parent-1']])
+  assert.deepEqual(orderCalls, [['created_at', { ascending: true }]])
+  assert.deepEqual(result, children)
+})
+
+test('does not list children when the parent does not belong to the requested owner', async () => {
+  let fromCalls = 0
+  const supabase = {
+    from() {
+      fromCalls += 1
+      return {
+        select() { return this },
+        eq() { return this },
+        single: async () => ({ data: null, error: { message: 'not found' } }),
+      }
+    },
+  } as any
+
+  await assert.rejects(() => listSubtasks(supabase, 'owner-1', 'foreign-parent'), /Parent task not found/)
+  assert.equal(fromCalls, 1)
 })
