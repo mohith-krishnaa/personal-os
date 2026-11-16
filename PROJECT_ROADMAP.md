@@ -7,7 +7,7 @@
 
 **Completed:** Core productivity, Recurring Tasks V1, Reminders V1, and Progress & Streaks V1.
 
-**In progress:** Organization V1 remains in PR #11. The dashboard supports direct subtask listing/completion and checklist create/list recovery. Added four checklist service ownership tests on head `adfffa6f5e125ff9224e618a89ec177144663c9f`; CI #131 (ID `43978680326`) was queued at last check. The previous head passed CI #130 with 38 tests, typecheck, build, and 0 npm audit vulnerabilities. No lint script/configuration exists. Live migration/schema inspection and authenticated end-to-end verification remain blocked.
+**In progress:** Organization V1 remains in PR #11. The dashboard supports direct subtask listing/completion and checklist create/list recovery. Added four checklist service ownership tests; CI #135 passed on current head `bc82493c8c5533148e3d82aaf667374fd33b9ee1`: 42 tests, typecheck, production build, and npm audit (0 vulnerabilities). No lint script/configuration exists. Live migration/schema inspection and authenticated end-to-end verification remain blocked.
 
 ## Mind map
 
@@ -111,7 +111,7 @@ PERSONAL OS
 
 ### P1 — Organization V1
 - Implementation exists in PR #11: owner-scoped projects, task/project association, subtasks, checklists, ownership validation, cycle prevention, compatibility migrations, tests, and dashboard UI. The dashboard subtask panel now reads direct children on demand and supports completion updates through the existing owner-scoped task action.
-- CI run #130 passed on prior head `c0757e01de9d5ef6a6fee7160db55f55bb0c4ddd`: 38/38 tests, `npm run typecheck`, `npm run build`, and npm audit (0 vulnerabilities). The new checklist owner-boundary tests are on `adfffa6f5e125ff9224e618a89ec177144663c9f`; CI #131 was queued and is not yet a verified pass.
+- CI #135 passed on current head `bc82493c8c5533148e3d82aaf667374fd33b9ee1`: 42/42 tests, `npm run typecheck`, `npm run build`, and npm audit (0 vulnerabilities). CI #131/#132 caught missing imports in the new checklist tests; the imports were corrected before the passing #135 run.
 - Highest-priority remaining work is live database verification and safe rollout, followed by authenticated CRUD and cross-user isolation tests. The current UI exposes one level of subtasks; recursive hierarchy UX is not claimed.
 - Do not start Analytics until Organization V1's database and authorization acceptance criteria are verified.
 
@@ -234,3 +234,12 @@ Decision: keep Organization V1 active; do not begin Analytics or merge until liv
 - No production DDL, data changes, or PR merge occurred.
 
 Organization remains the active milestone. Analytics must not start until live schema/RLS, recovery, migration, advisor, authenticated CRUD, and cross-user isolation gates are verified.
+
+
+## Latest verification — checklist ownership regression coverage (2026-11-17)
+
+- Added four checklist service tests for owner/task list filters, foreign-task rejection, owner assignment on create, and owner-scoped completion/deletion.
+- CI #135 passed on current PR #11 head `bc82493c8c5533148e3d82aaf667374fd33b9ee1`: 42 tests passed, 0 failed; typecheck and production build passed; install audited 43 packages with 0 vulnerabilities.
+- Initial CI #131/#132 failures were caused by missing imports in the new test file. The import correction is included in the verified head.
+- Supabase project metadata remains `ACTIVE_HEALTHY`, but live migration/table/SQL calls time out and advisors report hibernation. Live schema and migration ledger remain unknown.
+- No production database changes or PR merge occurred. Organization remains in progress; Analytics remains blocked behind its production acceptance gates.
