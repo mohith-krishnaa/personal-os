@@ -1,7 +1,7 @@
 # Personal-OS — Persistent Project State
 
 > Canonical recovery checkpoint. Read this before making project claims or changes.
-> Last verified: 2026-11-16 (GitHub PR/branch and CI rechecked; live database operations still timing out).
+> Last verified: 2026-11-17 (GitHub PR/branch and CI rechecked; live database operations still timing out).
 
 ## Current verified state
 
@@ -12,7 +12,7 @@
 - Progress & Streaks V1 — **merged** (PR #8).
 - Security issue #6 — **closed/completed** after client execution was revoked for `public.rls_auto_enable()` and security verification reported 0 lints.
 - Open GitHub issue backlog — **0** at last verification.
-- Latest verified CI on the Organization branch — **successful** on commit `f2b9e43564663c74ac51e7f1e2356163633e21c3` (run #104, ID `43928396020`): dependency installation, `npm run test`, `npm run typecheck`, and `npm run build` all passed. Subsequent documentation-only checkpoint updates trigger a fresh CI run; verify the latest PR head before merge.
+- Latest verified CI on the Organization branch — **successful** on PR head `b161742617ee6be80b6764034390ccc3be02a325` (run #110, ID `43938094959`): dependency installation, `npm run test`, `npm run typecheck`, and `npm run build` all passed.
 - Active feature branch: `feature/organization-v1`, in open PR #11 targeting `main`; it is not merged.
 
 ## Source-of-truth hierarchy
@@ -194,3 +194,19 @@ The following observations were made on 2026-10-16 and are retained for traceabi
 - `checklist_items` is the canonical application table. The legacy `task_checklist_items` table is retained and reconciled forward rather than dropped.
 - The project compatibility migration bridges legacy `projects.title` and application-facing `projects.name` without dropping the legacy column.
 - These are repository implementation contracts. Their live production state remains unverified until Supabase introspection succeeds.
+
+
+## Organization V1 — current checkpoint (2026-11-17)
+
+- Repository: `mohith-krishnaa/personal-os`; stable `main` remains at `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`.
+- PR #11 remains open and unmerged on `feature/organization-v1`. The live PR page is authoritative for its current head and mergeability.
+- PR #12 (`fix/project-schema-compatibility`) remains an open draft explicitly marked superseded by PR #11. Do not merge it separately; its compatibility migration is already integrated into PR #11.
+- CI run #110 (ID `43938094959`) passed on PR head `b161742617ee6be80b6764034390ccc3be02a325`: `npm install`, `npm run test`, `npm run typecheck`, and `npm run build` succeeded.
+- Organization project tests now verify that `createProject` derives `user_id` from `auth.getUser()`, `updateProject` filters by both project ID and authenticated user ID, and unauthenticated updates do not reach the database client. These are application-service tests using mocked Supabase clients, not live RLS tests.
+- Added the architecture/decision record at `docs/architecture/organization-v1.md`. It documents the RLS trust boundary, owner/project/task/checklist invariants, forward-only compatibility intent, and the fail-closed production rollout rule.
+- No lint script or linter configuration exists; no lint result is claimed.
+- Supabase project metadata reports `ACTIVE_HEALTHY`, but repeated `list_migrations` and verbose `list_tables` calls time out. A read-only `select now()` probe also times out. Security/performance advisor calls report that the project is hibernated. Live migration ledger and table definitions remain **unknown**.
+- No migrations were applied and no production schema or data was changed. PR #11 was not merged.
+- Organization V1 remains incomplete until the live ledger/schema are inspected, backup/recovery readiness is confirmed, reviewed migrations are applied safely, advisors are checked, and authenticated CRUD plus cross-user isolation pass.
+
+Next safe action: restore supported database connectivity and inspect the actual live migration ledger and Organization tables before attempting any DDL or merge.
