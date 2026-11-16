@@ -57,3 +57,12 @@ Status: implementation is under review in PR #11. This document records reposito
 - **Lazy-load subtasks through an authenticated server action:** avoid adding per-task child queries to the dashboard's initial load. Keep the caller identity server-derived and enforce both parent ownership and child owner filters in the service.
 - **Reuse the task status action for subtask completion:** preserve existing owner-scoped update and activity-event semantics rather than introducing a second completion path.
 - **Keep production rollout fail-closed:** this UI/service improvement does not remove the requirement to inspect live migrations/schema and verify RLS with separate authenticated users before merging.
+
+
+## Subtask create/list consistency
+
+- If the direct-child list was already loaded successfully, a newly created subtask is appended locally without an extra read.
+- If the initial list read failed, creation retains the newly created row but does not mark the partial list as complete; it immediately retries the owner-scoped list action.
+- If that refresh also fails, the panel remains retryable and keeps the newly created row visible until a later successful refresh.
+- The create control is disabled while a list read is in flight to avoid overlapping reads racing with a create.
+- The refresh uses the same authenticated server action and owner/parent filters; no client-supplied identity or database privilege changes are introduced.

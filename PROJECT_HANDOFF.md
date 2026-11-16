@@ -62,3 +62,14 @@ See [docs/architecture/organization-v1.md](docs/architecture/organization-v1.md)
 ## Roadmap gate
 
 Organization V1 remains the highest-priority incomplete milestone. Do not start Analytics V1 until live schema/RLS, recovery, migration rollout, advisors, authenticated CRUD, and cross-user isolation are verified. AI Assistant, Research Agent, Adaptive Scheduling, and production hardening remain queued behind it.
+
+
+## 2026-11-17 — Subtask create/list consistency fix
+
+- Live PR #11 pre-change head was `b466ee0ba32cae5b4a1763db50360a69e132ca28`; PR #11 remains the active Organization V1 review, while PR #12 is a superseded draft.
+- Fixed a UI state bug where a successful create after a failed initial subtask read marked an incomplete local list as fully loaded. The panel now refreshes the canonical owner-scoped list in that case, retains the created row if refresh fails, and keeps retry available.
+- The Add control is disabled while a list read is in flight to prevent overlapping read/create races.
+- Added two unit tests for the state transition helper. CI for the new branch head is pending; do not treat the change as verified until the current-head run finishes.
+- No schema, migration, RLS, or production data changes were made.
+- Database rollout remains blocked: the Supabase project metadata is healthy, but migration listing, verbose table introspection, read-only SQL, and advisor requests fail with timeouts/hibernation. Live schema and migration ledger are unknown.
+- Next safe action: verify CI on the new PR head, then restore supported database connectivity and inspect the live migration ledger/schema before any DDL or merge.

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { addSubtaskAction, listSubtasksAction } from './subtask-actions'
 import { toggleTaskAction } from './actions'
 import type { Task } from '@/types/task'
+import { afterSubtaskCreated } from '@/lib/subtask-state'
 
 export default function SubtaskManager({ task }: { task: Task }) {
   const [title, setTitle] = useState('')
@@ -39,14 +40,16 @@ export default function SubtaskManager({ task }: { task: Task }) {
 
   async function add() {
     const value = title.trim()
-    if (!value) return
+    if (!value || loading) return
     setSaving(true)
     setError('')
     try {
       const subtask = await addSubtaskAction(task.id, { title: value, project_id: task.project_id })
-      setItems(current => [...current, subtask])
-      setLoaded(true)
+      const next = afterSubtaskCreated(items, subtask, loaded)
+      setItems(next.items)
+      setLoaded(!next.shouldReload)
       setTitle('')
+      if (next.shouldReload) await loadSubtasks()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create subtask.')
     } finally {
@@ -85,7 +88,7 @@ export default function SubtaskManager({ task }: { task: Task }) {
       {error && <div role="alert" style={{ color: '#ff7b72', fontSize: 12, marginTop: 6 }}>{error} <button type="button" onClick={() => void loadSubtasks()} disabled={loading} style={{ marginLeft: 6 }}>Retry</button></div>}
       <form onSubmit={event => { event.preventDefault(); void add() }} style={{ display: 'flex', gap: 6, marginTop: 8 }}>
         <input autoFocus value={title} onChange={event => setTitle(event.target.value)} maxLength={240} placeholder="Subtask" aria-label={`Subtask for ${task.title}`} style={{ minWidth: 0, flex: 1, background: '#0b0d10', color: '#f4f4f5', border: '1px solid #303640', borderRadius: 7, padding: 7 }} />
-        <button type="submit" disabled={saving || !title.trim()}>{saving ? '…' : 'Add'}</button>
+        <button type="submit" disabled={saving || loading || !title.trim()}>{saving ? '…' : 'Add'}</button>
         <button type="button" onClick={() => setOpen(false)}>Close</button>
       </form>
     </div>}

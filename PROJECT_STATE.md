@@ -1,7 +1,7 @@
 # Personal-OS — Persistent Project State
 
 > Canonical recovery checkpoint. Read this before making project claims or changes.
-> Last verified: 2026-11-17 (GitHub PR/branch and CI rechecked; live database operations still timing out).
+> Last verified: 2026-11-17 (GitHub PR/branch and CI rechecked; live database operations still timing out; latest subtask UI consistency fix awaiting CI).
 
 ## Current verified state
 
@@ -225,3 +225,15 @@ Next safe action: restore supported database connectivity and inspect the actual
 - No production DDL, migration, data write, or PR merge was performed.
 
 Next safe action: restore supported database connectivity, inspect the actual migration ledger and Organization tables, confirm recovery readiness, then proceed with reviewed migrations, advisors, and authenticated two-user CRUD/isolation tests.
+
+
+## Organization V1 — subtask create/list consistency (2026-11-17)
+
+- Live PR #11 pre-change head: `b466ee0ba32cae5b4a1763db50360a69e132ca28`; PR #11 remains open/unmerged and PR #12 remains a superseded draft.
+- Fixed a partial-list state bug in `SubtaskManager`: creating a subtask after a failed initial read previously set `loaded=true`, which could hide pre-existing children.
+- Added `afterSubtaskCreated` state transition logic. A loaded list appends without another request; an incomplete list remains incomplete and is refreshed through `listSubtasksAction`. If refresh fails, the created row remains visible and retry stays available.
+- The Add control is disabled during a list read to avoid overlapping requests.
+- Added two regression tests for loaded and incomplete list transitions. CI for this change is pending and must be checked on the resulting branch head.
+- This is a UI/state correctness change only; no migration, schema, database privilege, or authorization boundary changed.
+- Supabase project metadata reports `ACTIVE_HEALTHY`, but live migration listing, table introspection, read-only SQL, and advisors fail due timeouts/hibernation. Live schema and migration ledger remain unknown.
+- No production migration, schema/data write, or PR merge was performed.

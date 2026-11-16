@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createSubtask, listSubtasks } from './subtasks'
+import { afterSubtaskCreated } from './subtask-state'
 
 function unreachableDatabase() {
   return { from: () => { throw new Error('database should not be reached') } } as any
@@ -140,4 +141,25 @@ test('does not list children when the parent does not belong to the requested ow
 
   await assert.rejects(() => listSubtasks(supabase, 'owner-1', 'foreign-parent'), /Parent task not found/)
   assert.equal(fromCalls, 1)
+})
+
+
+test('marks a previously incomplete subtask list for refresh after creation', () => {
+  const pending = [{ id: 'pending-local' }]
+  const created = { id: 'created' }
+
+  assert.deepEqual(afterSubtaskCreated(pending, created, false), {
+    items: [...pending, created],
+    shouldReload: true,
+  })
+})
+
+test('appends to a loaded subtask list without requiring another read', () => {
+  const existing = [{ id: 'existing' }]
+  const created = { id: 'created' }
+
+  assert.deepEqual(afterSubtaskCreated(existing, created, true), {
+    items: [...existing, created],
+    shouldReload: false,
+  })
 })

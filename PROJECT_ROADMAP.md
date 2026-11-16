@@ -7,7 +7,7 @@
 
 **Completed:** Core productivity, Recurring Tasks V1, Reminders V1, and Progress & Streaks V1.
 
-**In progress:** Organization V1 — implementation is in PR #11. The dashboard now lazily loads and displays direct subtasks and supports completion toggles. Service tests verify that subtask reads are scoped to both the requested parent and authenticated owner. CI run #120 (ID `43947823009`) passed on implementation commit `b8a686664e5e39b2ebc042192a9ea291c6d1bec7`: 33 tests passed, TypeScript checking and production build passed, and npm reported 0 vulnerabilities. Live database migration/schema inspection and authenticated end-to-end verification remain blocked.
+**In progress:** Organization V1 — implementation remains in PR #11. The dashboard lazy-loads direct subtasks, supports completion toggles, and now handles the case where a subtask is created after the initial list read failed by refreshing the owner-scoped list without treating a partial list as complete. The latest previously verified CI was run #121 on head `b466ee0ba32cae5b4a1763db50360a69e132ca28` (33 tests, typecheck, build passed); CI for the new consistency fix is pending. Live database migration/schema inspection and authenticated end-to-end verification remain blocked.
 
 ## Mind map
 
@@ -185,3 +185,14 @@ Architecture note: [docs/architecture/organization-v1.md](docs/architecture/orga
 - No production migration, schema/data write, or PR merge was performed.
 
 Decision: keep Organization V1 active; do not begin Analytics or merge until live schema/RLS, recovery readiness, migration rollout, advisors, and authenticated cross-user CRUD are verified.
+
+
+## Current checkpoint — 2026-11-17 (subtask create/list consistency)
+
+- Live GitHub inspection confirms PR #11 is open, unmerged, non-draft, and mergeable; current pre-change head was `b466ee0ba32cae5b4a1763db50360a69e132ca28`. PR #12 remains an open draft explicitly superseded by PR #11.
+- Found a UI state bug: if the initial lazy-load failed and the user then created a subtask, the component marked its partial local list as fully loaded. That hid any pre-existing subtasks until a page refresh.
+- Added a small state transition helper. After creation, an already-loaded list is appended locally; an incomplete list remains marked incomplete and is refreshed through the authenticated owner-scoped read action. A failed refresh keeps the created row visible and leaves retry available.
+- Disabled the Add control during an in-flight list read to prevent overlapping read/create races.
+- Added regression tests for both loaded and incomplete list transitions. CI verification for this change is pending.
+- No database schema or authorization behavior changed.
+- Live Supabase database calls continue to fail; live migration ledger/schema remain unknown. No migration, production data/schema write, or PR merge was performed.
