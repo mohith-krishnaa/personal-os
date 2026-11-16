@@ -1,7 +1,7 @@
 # Personal OS — Project Roadmap & Mind Map
 
 > Single source of truth for project direction. Verify GitHub/Supabase/CI before making claims.
- > Last reconciled: 2026-11-16.
+> Last reconciled: 2026-11-16.
 
 ## Current position
 
@@ -131,7 +131,7 @@ PERSONAL OS
 - 2026-09-05: Organization V1 promoted to the next roadmap milestone.
 
 
-## Current checkpoint — 2026-10-16
+## Historical checkpoint — 2026-10-16
 
 - Organization V1 implementation is under review in PR #11 (`feature/organization-v1`), not yet merged.
 - GitHub Actions run #95 passed after the checklist migration was made repeat-safe, and run #96 passed `npm install`, `npm run test`, and `npm run build` on docs commit `04b185b0afc744a61b0a20ad5a7b169874952dd1` (https://github.com/mohith-krishnaa/personal-os/actions/runs/38873921256). Re-check CI against the current PR head before merge. Organization RLS policies use `(select auth.uid())`; the compatibility migration conditionally indexes legacy `projects.goal_id` when present. Live database rollout and authenticated end-to-end CRUD/isolation checks remain pending.
