@@ -74,7 +74,7 @@ npm run build
 ## Project-state references
 
 - `PROJECT_STATE.md` is the canonical verified checkpoint for current implementation status.
-- `PROJECT_ROADMAP.md` describes longer-term direction and may lag behind merged work; verify it against the actual repository and CI before making claims.
+- `PROJECT_ROADMAP.md` describes longer-term direction and may lag behind merged work; verify it against the actual repository and CI before making claims.\n- `docs/architecture/organization-v1.md` records Organization ownership boundaries, compatibility decisions, and production rollout gates.
 
 ## License
 
