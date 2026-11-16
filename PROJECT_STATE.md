@@ -1,19 +1,19 @@
 # Personal-OS — Persistent Project State
 
 > Canonical recovery checkpoint. Read this before making project claims or changes.
-> Last verified: 2026-10-16 (Organization V1 branch checkpoint; live database and CI rechecked).
+> Last verified: 2026-11-16 (GitHub PR/branch and CI rechecked; live database operations still timing out).
 
 ## Current verified state
 
 - Stable integration branch: `main`
-- Current `main` commit: `b25e4250816a785e9e4dbc5bf124d72d34b9a476` (`fix: restrict rls_auto_enable client execution`).
+- Current `main` commit: `2b42dd17796b75dca79434a81d4e1f0cbf0fa043` (`docs: reconcile roadmap after V1 completion`).
 - Recurring Tasks V1 — **merged** (PR #5).
 - Reminders V1 — **merged** (PR #7).
 - Progress & Streaks V1 — **merged** (PR #8).
 - Security issue #6 — **closed/completed** after client execution was revoked for `public.rls_auto_enable()` and security verification reported 0 lints.
 - Open GitHub issue backlog — **0** at last verification.
-- Latest verified CI on `main` — **successful**; tests and production build passed.
-- No feature branch is currently required for the completed Progress & Streaks milestone.
+- Latest verified CI on the Organization branch before the explicit typecheck step was added — **successful** on PR head `aa26a556cd6627a0ccd19efd914fe62be76f0ed9` (run #99; tests and production build passed). The current CI workflow now also runs `npm run typecheck`; verify its result on the latest PR head before merge.
+- Active feature branch: `feature/organization-v1`, in open PR #11 targeting `main`; it is not merged.
 
 ## Source-of-truth hierarchy
 
@@ -92,7 +92,7 @@ Branches are not PRs. A Compare & pull request button only means a branch has ch
 1. Recurring Tasks V1 — DONE
 2. Reminders V1 — DONE
 3. Progress & Streaks V1 — DONE
-4. **Organization V1 — NEXT**
+4. **Organization V1 — IN PROGRESS (PR #11; live database verification pending)**
 5. Analytics V1
 6. AI Assistant V1
 7. Research Agent V1
@@ -132,7 +132,7 @@ mindmap
       Dashboard
       Batched loading
       Tests + RLS
-    Organization V1 [NEXT]
+    Organization V1 [IN PROGRESS]
       Subtasks
       Checklists
       Projects
@@ -169,11 +169,28 @@ A feature is not complete merely because the UI works. Where applicable, verify:
 Never infer progress from chat wording. Verify GitHub branch/PR state, inspect relevant files, verify Supabase for data changes, verify CI, and update this checkpoint. If uncertain, mark it uncertain and continue verification rather than guessing.
 
 
-## Organization V1 — current checkpoint (2026-10-16)
+## Historical Organization V1 checkpoint — 2026-10-16
 
-- Active implementation is in PR #11, `feature/organization-v1`; PR remains open and unmerged. The project-schema compatibility migration is included on this branch. Organization migration filenames were moved to `20260905170000` and `20260905170100` so they sort after the latest already-applied remote migration (`20260905162251`) and before the October hardening migrations. PR #12 contains the same migration on a child branch and is redundant; do not merge it separately.
-- Implemented in this branch: owner-scoped projects, project/task associations, task subtasks, checklist UI and server actions, database-level ownership/link validation, checklist ownership hardening, legacy checklist reconciliation, cycle prevention, and input validation tests.
-- GitHub Actions run #95 passed after the checklist migration was made repeat-safe by dropping its four named policies before recreating them (run ID `38873897532`). Run #96 also passed `npm install`, `npm run test`, and `npm run build` on docs commit `04b185b0afc744a61b0a20ad5a7b169874952dd1` (https://github.com/mohith-krishnaa/personal-os/actions/runs/38873921256). The verified run confirms tests and production build pass on that commit; re-check CI against the current PR head before merge. Database rollout and authenticated end-to-end CRUD/isolation checks remain pending.
-- Live Supabase verification has been restored for the intended project `gujzvkyytxsnervovvrt` (`puttamohithkrishnaa@gmail.com's Project`, ACTIVE_HEALTHY). The unrelated `yojantra` project is not the target. The live migration ledger currently contains only the core, recurrence, reminders, RLS hardening, and goals migrations; Organization V1 migrations are NOT applied. Live `projects` uses legacy `title`, has existing status values including `COMPLETED`, and currently has no rows. Existing task project/parent columns and foreign keys are already present.
-- Before merge/deployment: review migration order and compatibility; apply Organization V1 migrations to the intended Supabase project only after preflight and backup/recovery checks; run security/performance advisors; then test owner isolation plus project/subtask/checklist CRUD with authenticated users. The compatibility migration is included on this branch to bridge legacy `projects.title` to app-facing `projects.name` without dropping the old column or removing `COMPLETED` status support. Organization migration versions now sort after the existing remote ledger; this avoids requiring an out-of-order migration push.
-- CI passed on earlier integrated commits, but final migration/policy edits still need a fresh CI run. Do not merge PR #11 until the final head passes CI, migration review and live database rollout plan are accepted, and authenticated end-to-end CRUD verification is complete.
+The following observations were made on 2026-10-16 and are retained for traceability, not as a claim about the current live database:
+
+- Organization V1 implementation was under PR #11 on `feature/organization-v1`.
+- The intended Supabase project was `gujzvkyytxsnervovvrt`; at that time the migration ledger and schema were reported as accessible, with Organization migrations not yet applied.
+- The branch included owner-scoped projects, task/project associations, subtasks, checklist CRUD, ownership hardening, legacy checklist reconciliation, cycle prevention, and the project-name compatibility migration.
+- Earlier CI runs #95 and #96 passed. These are historical checks and do not replace final-head verification.
+
+## Organization V1 — current checkpoint (2026-11-16)
+
+- GitHub confirms `main` is at `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`.
+- PR #11 is open, unmerged, non-draft, and mergeable; it targets `main`. Its verified head at the start of this checkpoint was `aa26a556cd6627a0ccd19efd914fe62be76f0ed9`.
+- CI run #99 (ID `43917256196`) passed on that head: dependency installation, `npm run test`, and `npm run build`. The workflow has since been strengthened to run an explicit `npm run typecheck`; its result must be verified on the final PR head.
+- Supabase project metadata for `gujzvkyytxsnervovvrt` reports `ACTIVE_HEALTHY`, but live migration listing, table introspection, read-only SQL, and advisor calls failed with connection timeouts. Advisor calls reported that the project was hibernated. Therefore the current live migration ledger and schema are **unknown**, not verified.
+- No Organization migration was applied in this checkpoint, and no production schema or data was changed.
+- Do not merge PR #11 or start Analytics until the live migration ledger/schema can be read, migration compatibility is reviewed against that state, recovery readiness is confirmed, migrations are applied safely, advisors are checked, and authenticated CRUD plus cross-user isolation pass.
+
+## Organization V1 implementation contract (branch state; not a live-deployment claim)
+
+- Projects, tasks, subtasks, and checklist records are owner-scoped. Application checks provide defense in depth; PostgreSQL RLS and task-link validation triggers are intended to enforce the database boundary.
+- A task's project and parent task must belong to the same owner; a subtask must remain in the same project as its parent. The hierarchy trigger rejects self-parenting and indirect cycles.
+- `checklist_items` is the canonical application table. The legacy `task_checklist_items` table is retained and reconciled forward rather than dropped.
+- The project compatibility migration bridges legacy `projects.title` and application-facing `projects.name` without dropping the legacy column.
+- These are repository implementation contracts. Their live production state remains unverified until Supabase introspection succeeds.
