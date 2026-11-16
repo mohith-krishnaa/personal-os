@@ -7,7 +7,7 @@
 
 **Completed:** Core productivity, Recurring Tasks V1, Reminders V1, and Progress & Streaks V1.
 
-**In progress:** Organization V1 — implementation is in PR #11. CI run #113 (ID `43938400901`) passed on PR head `611dab0b5fe5ed6cdd163ac804a90e95033c4f5d`: tests, explicit TypeScript check, and production build succeeded. New mocked-service tests cover authenticated project creation and owner-scoped updates. Live database migration/schema inspection and authenticated end-to-end verification remain blocked.
+**In progress:** Organization V1 — implementation is in PR #11. CI run #115 (ID `43938573918`) passed on PR head `91cd88fedef768a65286381c361b72f46d67ee29`: tests, explicit TypeScript check, and production build succeeded. New mocked-service tests cover authenticated project creation and owner-scoped updates. Live database migration/schema inspection and authenticated end-to-end verification remain blocked.
 
 ## Mind map
 
@@ -158,7 +158,7 @@ PERSONAL OS
 ## Current checkpoint — 2026-11-17
 
 - PR #11 remains the active Organization V1 review: open, unmerged, non-draft, and mergeable status must be rechecked live before any merge. PR #12 is still an open draft explicitly marked superseded by PR #11; do not merge it separately.
-- CI run #113 (ID `43938400901`) passed on PR head `611dab0b5fe5ed6cdd163ac804a90e95033c4f5d`: dependency installation, `npm run test`, `npm run typecheck`, and `npm run build` all succeeded. The run includes the new project owner-boundary tests.
+- CI run #115 (ID `43938573918`) passed on PR head `91cd88fedef768a65286381c361b72f46d67ee29`: dependency installation, `npm run test`, `npm run typecheck`, and `npm run build` all succeeded. The run includes the new project owner-boundary tests.
 - Added `docs/architecture/organization-v1.md` to record ownership boundaries, compatibility decisions, migration/recovery rules, and verification limits.
 - Added service-level regression coverage proving project creation derives `user_id` from the authenticated session, updates filter by both project ID and authenticated owner, and unauthenticated updates stop before database access. These mocked-client tests do not prove live RLS or cross-user database isolation.
 - Supabase project metadata reports `ACTIVE_HEALTHY`, but repeated migration listing and verbose table inspection still fail with database connection timeouts. Read-only SQL probes time out, and advisor calls report the project as hibernated. The live migration ledger and schema remain unknown.

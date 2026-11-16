@@ -24,8 +24,8 @@ These describe the branch implementation only. They do not prove that the produc
 
 ## CI and quality checks
 
-- CI run #113 (ID `43938400901`) passed on current PR head `611dab0b5fe5ed6cdd163ac804a90e95033c4f5d`: `npm install`, `npm run test`, `npm run typecheck`, and `npm run build` all succeeded.
-- The run includes mocked-service tests for authenticated project creation, owner-scoped project updates, and rejecting unauthenticated updates before database access. An intermediate run #109 failed because the blank-name fixture encoded literal backslash characters instead of whitespace; the fixture was corrected to spaces and run #110 passed. Later documentation-only commits were also checked by CI runs #111–#113.
+- CI run #115 (ID `43938573918`) passed on current PR head `91cd88fedef768a65286381c361b72f46d67ee29`: `npm install`, `npm run test`, `npm run typecheck`, and `npm run build` all succeeded.
+- The run includes mocked-service tests for authenticated project creation, owner-scoped project updates, and rejecting unauthenticated updates before database access. An intermediate run #109 failed because the blank-name fixture encoded literal backslash characters instead of whitespace; the fixture was corrected to spaces and run #110 passed. Later documentation-only commits were also checked by CI runs #111–#115.
 - No lint script or linter configuration exists in the repository; no lint result is claimed.
 - A local clone could not be obtained in this execution environment because outbound DNS/network access to GitHub was unavailable. CI is the executable verification path.
 

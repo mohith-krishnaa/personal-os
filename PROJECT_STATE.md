@@ -12,7 +12,7 @@
 - Progress & Streaks V1 — **merged** (PR #8).
 - Security issue #6 — **closed/completed** after client execution was revoked for `public.rls_auto_enable()` and security verification reported 0 lints.
 - Open GitHub issue backlog — **0** at last verification.
-- Latest verified CI on the Organization branch — **successful** on PR head `611dab0b5fe5ed6cdd163ac804a90e95033c4f5d` (run #113, ID `43938400901`): dependency installation, `npm run test`, `npm run typecheck`, and `npm run build` all passed.
+- Latest verified CI on the Organization branch — **successful** on PR head `91cd88fedef768a65286381c361b72f46d67ee29` (run #115, ID `43938573918`): dependency installation, `npm run test`, `npm run typecheck`, and `npm run build` all passed.
 - Active feature branch: `feature/organization-v1`, in open PR #11 targeting `main`; it is not merged.
 
 ## Source-of-truth hierarchy
@@ -201,7 +201,7 @@ The following observations were made on 2026-10-16 and are retained for traceabi
 - Repository: `mohith-krishnaa/personal-os`; stable `main` remains at `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`.
 - PR #11 remains open and unmerged on `feature/organization-v1`. The live PR page is authoritative for its current head and mergeability.
 - PR #12 (`fix/project-schema-compatibility`) remains an open draft explicitly marked superseded by PR #11. Do not merge it separately; its compatibility migration is already integrated into PR #11.
-- CI run #113 (ID `43938400901`) passed on PR head `611dab0b5fe5ed6cdd163ac804a90e95033c4f5d`: `npm install`, `npm run test`, `npm run typecheck`, and `npm run build` succeeded.
+- CI run #115 (ID `43938573918`) passed on PR head `91cd88fedef768a65286381c361b72f46d67ee29`: `npm install`, `npm run test`, `npm run typecheck`, and `npm run build` succeeded.
 - Organization project tests now verify that `createProject` derives `user_id` from `auth.getUser()`, `updateProject` filters by both project ID and authenticated user ID, and unauthenticated updates do not reach the database client. These are application-service tests using mocked Supabase clients, not live RLS tests.
 - Added the architecture/decision record at `docs/architecture/organization-v1.md`. It documents the RLS trust boundary, owner/project/task/checklist invariants, forward-only compatibility intent, and the fail-closed production rollout rule.
 - No lint script or linter configuration exists; no lint result is claimed.
