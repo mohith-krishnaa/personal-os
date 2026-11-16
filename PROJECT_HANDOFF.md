@@ -2,40 +2,53 @@
 
 Date: 2026-11-16
 
-## Verified implementation state
+## Verified repository state
 
-- Organization V1 implementation is on `feature/organization-v1` in open PR #11 targeting `main`.
-- PR head at audit time: `c4047ab998ef34d0d2cdf676eaf9de72144215ec`.
-- PR is open, unmerged, and reported mergeable.
-- Scope currently implemented: owner-scoped projects, task/project association, subtasks, checklist UI and server actions, ownership validation, hierarchy cycle protection, migration compatibility, and organization tests.
+- Repository: `mohith-krishnaa/personal-os`
+- Stable branch: `main` at `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`.
+- Organization V1 branch: `feature/organization-v1`.
+- PR #11: open, unmerged, non-draft, mergeable, targeting `main`: https://github.com/mohith-krishnaa/personal-os/pull/11
+- PR head immediately before this handoff refresh: `a74dbf80a8e440943af82fda275d8c438f6a4380`. Read the PR page for the current head after this documentation commit.
 
-## Fresh CI verification
+## Organization V1 implementation reviewed
 
-- Workflow: CI
-- Run: #98 (ID `38875200334`)
-- Commit: `c4047ab998ef34d0d2cdf676eaf9de72144215ec`
-- Result: SUCCESS
-- Verified steps: dependency installation, `npm run test`, and `npm run build` all completed successfully.
-- Run URL: https://github.com/mohith-krishnaa/personal-os/actions/runs/38875200334
+The branch contains owner-scoped projects, task/project association, subtasks, checklist CRUD and dashboard UI, server actions, application ownership checks, database RLS policies, task-link validation, indirect hierarchy-cycle prevention, legacy checklist reconciliation, and project name/title compatibility.
 
-## Database verification blocker
+Repository-level architecture contract:
+- PostgreSQL RLS and task-link triggers are the intended final ownership boundary; application validation is defense in depth.
+- A task's project and parent task must have the same owner; a subtask must remain in the parent's project.
+- `checklist_items` is the canonical application table. The legacy `task_checklist_items` table is retained and reconciled forward rather than dropped.
+- The project compatibility migration preserves legacy `projects.title` while supporting application-facing `projects.name`.
 
-The intended Supabase project is `gujzvkyytxsnervovvrt`. Project metadata reports ACTIVE_HEALTHY, but live database operations (migration listing, table introspection, read-only SQL, and advisors) repeatedly failed with connection timeouts; the advisor endpoint also reported the project was hibernated.
+These describe the branch implementation only. They do not prove that the production database currently has those migrations applied.
 
-No Organization V1 migration was applied during this session. No production schema or data was changed.
+## CI and quality checks
 
-## Required next steps
+- Previously verified CI run #99 (ID `43917256196`) passed on commit `aa26a556cd6627a0ccd19efd914fe62be76f0ed9`: `npm install`, `npm run test`, and `npm run build`.
+- This run predates the latest changes.
+- Added `npm run typecheck` (`tsc --noEmit`) to `package.json` and the GitHub Actions workflow. The final PR head must pass the updated workflow before merge.
+- No lint script or linter configuration exists in the repository; no lint result is claimed.
+- A local clone could not be obtained in this execution environment because outbound DNS/network access to GitHub was unavailable. CI is the executable verification path.
 
-1. Restore/re-establish database connectivity to the intended Supabase project.
-2. Re-read the live migration ledger and current `projects`, `tasks`, and checklist table definitions.
-3. Reconcile the exact migration sequence against the live schema; review the compatibility migration and the legacy/canonical checklist table reconciliation.
-4. Confirm backup/recovery readiness before any production DDL.
-5. Apply the Organization V1 migrations only after preflight is clean.
+## Live Supabase blocker
+
+- Intended project: `gujzvkyytxsnervovvrt`.
+- Project metadata reports `ACTIVE_HEALTHY`.
+- Current database operations are not healthy: migration listing, verbose table introspection, read-only SQL, and security/performance advisor calls failed. SQL operations returned connection timeouts; advisor calls reported that the project was hibernated.
+- The live migration ledger and current schema are therefore **unknown**. October notes claiming successful live inspection are historical and must not be treated as current state.
+- No Organization migration was applied in this run. No production schema or data was changed.
+
+## Next safe actions
+
+1. Verify CI on the latest PR head, including tests, explicit TypeScript check, and production build.
+2. Restore supported Supabase database connectivity; re-read the migration ledger and verbose definitions for `projects`, `tasks`, `checklist_items`, and the legacy checklist table.
+3. Reconcile the ordered migrations against the actual live schema and ledger. Do not infer that migrations are unapplied or already applied from repository files.
+4. Confirm backup/recovery readiness before production DDL.
+5. Apply only the reviewed Organization migrations after the preflight is clean.
 6. Run security and performance advisors.
-7. Verify authenticated project, task association, subtask, checklist CRUD, and cross-user isolation.
-8. Re-run CI on the final PR head after any changes.
-9. Merge PR #11 only after database and authenticated end-to-end checks pass.
+7. Exercise authenticated project, task association, subtask, checklist CRUD, and cross-user isolation with at least two test users.
+8. Merge PR #11 only after the database and authenticated end-to-end gates pass.
 
-## Safety note
+## Roadmap gate
 
-Do not claim Organization V1 is complete based on CI alone. CI passed, but live database rollout and authenticated end-to-end verification remain outstanding. Do not apply migrations while database state cannot be inspected.
+Organization V1 remains the active milestone. Do not start Analytics V1 until its live schema, authorization, CRUD, recovery, and CI acceptance criteria are verified. AI Assistant, Research Agent, Adaptive Scheduling, and production hardening remain later milestones.
