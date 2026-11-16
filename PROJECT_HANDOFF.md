@@ -86,3 +86,15 @@ Organization V1 remains the highest-priority incomplete milestone. Do not start 
 - Supabase project metadata reports `ACTIVE_HEALTHY`, but `list_migrations` and verbose `list_tables` timed out during this run. Live migration ledger and schema remain unknown; no production migration or data/schema change was made.
 
 Next actions: verify final-head CI; restore DB connectivity; inspect migration ledger and Organization tables; confirm recovery readiness; then complete authenticated CRUD and two-user isolation tests before merge.
+
+
+## Verified follow-up — Checklist recovery (2026-11-17)
+
+- Latest verified PR #11 head at this checkpoint: `4bb083fe94fd36419f47149c3951bc9b594c98aa`; PR remains open, unmerged, non-draft, and mergeable. PR #12 remains a superseded draft.
+- Checklist create after a failed list read now retains the created row and refreshes through the authenticated list action. If refresh fails, the row remains visible and Retry remains available. Locally appended items preserve service ordering by `position` then `created_at`.
+- Three regression tests were added for canonical ordering and incomplete-list recovery.
+- [CI #128](https://github.com/mohith-krishnaa/personal-os/actions/runs/43969545168) passed on the verified head: **38 tests passed, 0 failed**; `npm run typecheck` and `npm run build` passed; install audited 43 packages and reported 0 vulnerabilities.
+- No lint script/configuration exists. No schema/RLS changes, production migrations, or production data writes were made.
+- Supabase project metadata reports `ACTIVE_HEALTHY`, but migration listing, verbose table introspection, read-only SQL, and security/performance/health advisors still fail with connection timeouts or hibernation responses. Live migration ledger/schema remain unknown.
+
+Organization V1 remains blocked on live database inspection, recovery readiness, and authenticated two-user CRUD/isolation verification. Do not merge or start Analytics until those gates pass.
