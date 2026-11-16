@@ -1,13 +1,13 @@
 # Personal OS — Project Roadmap & Mind Map
 
 > Single source of truth for project direction. Verify GitHub/Supabase/CI before making claims.
-> Last reconciled: 2026-11-16.
+> Last reconciled: 2026-11-17.
 
 ## Current position
 
 **Completed:** Core productivity, Recurring Tasks V1, Reminders V1, and Progress & Streaks V1.
 
-**In progress:** Organization V1 — implementation is in PR #11; CI run #104 passed on commit `f2b9e43564663c74ac51e7f1e2356163633e21c3`, including the explicit TypeScript check. Live database migration/schema inspection and authenticated end-to-end verification remain blocked.
+**In progress:** Organization V1 — implementation is in PR #11. CI run #110 (ID `43938094959`) passed on PR head `b161742617ee6be80b6764034390ccc3be02a325`: tests, explicit TypeScript check, and production build succeeded. New mocked-service tests cover authenticated project creation and owner-scoped updates. Live database migration/schema inspection and authenticated end-to-end verification remain blocked.
 
 ## Mind map
 
@@ -153,3 +153,17 @@ PERSONAL OS
 - 2026-11-16: Keep Organization V1 as the active milestone. Do not infer live schema from repository migrations or stale October notes.
 - 2026-11-16: Do not apply production DDL, create a replacement database, or merge PR #11 while the live migration ledger/schema and authenticated isolation behavior are unverified.
 - 2026-11-16: Make TypeScript checking an explicit CI step (`tsc --noEmit`) rather than relying only on the Next.js production build to surface type errors.
+
+
+## Current checkpoint — 2026-11-17
+
+- PR #11 remains the active Organization V1 review: open, unmerged, non-draft, and mergeable status must be rechecked live before any merge. PR #12 is still an open draft explicitly marked superseded by PR #11; do not merge it separately.
+- CI run #110 (ID `43938094959`) passed on PR head `b161742617ee6be80b6764034390ccc3be02a325`: dependency installation, `npm run test`, `npm run typecheck`, and `npm run build` all succeeded. The run includes the new project owner-boundary tests.
+- Added `docs/architecture/organization-v1.md` to record ownership boundaries, compatibility decisions, migration/recovery rules, and verification limits.
+- Added service-level regression coverage proving project creation derives `user_id` from the authenticated session, updates filter by both project ID and authenticated owner, and unauthenticated updates stop before database access. These mocked-client tests do not prove live RLS or cross-user database isolation.
+- Supabase project metadata reports `ACTIVE_HEALTHY`, but repeated migration listing and verbose table inspection still fail with database connection timeouts. Read-only SQL probes time out, and advisor calls report the project as hibernated. The live migration ledger and schema remain unknown.
+- No production migrations, schema changes, data changes, or PR merge were performed. Do not start Analytics until Organization's live schema, RLS, CRUD, recovery, and CI gates are verified.
+- No lint script or linter configuration exists in the repository; lint is not a verified check.
+- Next action: restore supported Supabase database access, inspect the live migration ledger and Organization tables, confirm recovery readiness, then continue authenticated CRUD and cross-user isolation testing.
+
+Architecture note: [docs/architecture/organization-v1.md](docs/architecture/organization-v1.md).
