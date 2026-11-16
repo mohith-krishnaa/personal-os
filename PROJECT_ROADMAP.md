@@ -1,13 +1,13 @@
 # Personal OS — Project Roadmap & Mind Map
 
 > Single source of truth for project direction. Verify GitHub/Supabase/CI before making claims.
-> Last reconciled: 2026-10-16.
+ > Last reconciled: 2026-11-16.
 
 ## Current position
 
 **Completed:** Core productivity, Recurring Tasks V1, Reminders V1, and Progress & Streaks V1.
 
-**In progress:** Organization V1 — implementation is in PR #11; live database migrations, final-head CI, and authenticated end-to-end verification remain pending.
+**In progress:** Organization V1 — implementation is in PR #11; CI run #99 passed on the previous PR head, and the workflow now includes an explicit TypeScript check. Live database migration/schema inspection and authenticated end-to-end verification remain blocked.
 
 ## Mind map
 
@@ -34,7 +34,7 @@ PERSONAL OS
 │   ├── Current + longest streaks
 │   └── Batched dashboard loading
 │
-├── ORGANIZATION [NEXT]
+├── ORGANIZATION [IN PROGRESS — PR #11]
 │   ├── Projects
 │   ├── Subtasks
 │   ├── Checklists
@@ -70,7 +70,7 @@ PERSONAL OS
 1. Recurring Tasks V1 — DONE
 2. Reminders V1 — DONE
 3. Progress & Streaks V1 — DONE
-4. **Organization V1 — IN PROGRESS (PR #11; database rollout pending)**
+4. **Organization V1 — IN PROGRESS (PR #11; live database verification pending)**
 5. Analytics V1
 6. AI Assistant V1
 7. Research Agent V1
@@ -107,10 +107,9 @@ PERSONAL OS
 - Maintain regression coverage for task, recurrence, reminder and progress flows.
 
 ### P1 — Organization V1
-- Add a minimal project model.
-- Add task → project association with owner-scoped RLS.
-- Add subtasks/checklists without breaking existing task behavior.
-- Add tests and dashboard/task UI incrementally.
+- Implementation exists in PR #11: owner-scoped projects, task/project association, subtasks, checklists, ownership validation, cycle prevention, compatibility migrations, tests, and dashboard UI.
+- Highest-priority remaining work is live database verification and safe rollout, followed by authenticated CRUD and cross-user isolation tests.
+- Do not start Analytics until Organization V1's database and authorization acceptance criteria are verified.
 
 ### P2 — Production hardening
 - Review foreign-key indexes and query performance.
@@ -139,3 +138,18 @@ PERSONAL OS
 - Live database access is restored for the intended Supabase project `gujzvkyytxsnervovvrt` (`puttamohithkrishnaa@gmail.com's Project`, ACTIVE_HEALTHY). The live ledger does not yet include Organization V1 migrations; `projects` has legacy `title` and supports `COMPLETED` status.
 - Next steps: finish migration review; plan a safe rollout with recovery checks; apply/verify migrations only after preflight; run Supabase security/performance advisors; then exercise authenticated owner-isolation and CRUD flows. Do not mark Organization V1 complete until these checks pass.
 - Scope after Organization V1: Analytics V1, AI Assistant V1, Research Agent V1, Adaptive Scheduling, and production hardening. Each milestone needs schema/RLS, application logic, edge-case tests, UI, CI, and recovery documentation.
+
+
+## Current checkpoint — 2026-11-16
+
+- GitHub confirms PR #11 is open, unmerged, non-draft, and mergeable. The branch is `feature/organization-v1`, targeting `main`; the verified head at checkpoint start was `aa26a556cd6627a0ccd19efd914fe62be76f0ed9`.
+- CI run #99 passed on that previous head. The workflow has been extended with an explicit `npm run typecheck` step; verify CI on the final head before merge.
+- Supabase project metadata reports `ACTIVE_HEALTHY`, but migration listing, table introspection, read-only SQL, and advisor calls time out; advisors also report the project as hibernated. The live migration ledger and schema are currently unknown.
+- No migrations or production data changes were made. The next safe action is to restore supported DB connectivity, inspect the live ledger/schema, confirm backup/recovery readiness, then apply reviewed migrations and test authenticated owner isolation.
+- Analytics, AI Assistant, Research Agent, Adaptive Scheduling, and production hardening remain behind Organization V1 in the execution order.
+
+## Decision log
+
+- 2026-11-16: Keep Organization V1 as the active milestone. Do not infer live schema from repository migrations or stale October notes.
+- 2026-11-16: Do not apply production DDL, create a replacement database, or merge PR #11 while the live migration ledger/schema and authenticated isolation behavior are unverified.
+- 2026-11-16: Make TypeScript checking an explicit CI step (`tsc --noEmit`) rather than relying only on the Next.js production build to surface type errors.
