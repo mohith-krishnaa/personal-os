@@ -12,7 +12,7 @@
 - Progress & Streaks V1 — **merged** (PR #8).
 - Security issue #6 — **closed/completed** after client execution was revoked for `public.rls_auto_enable()` and security verification reported 0 lints.
 - Open GitHub issue backlog — **0** at last verification.
-- Latest verified CI on the Organization branch — **successful** on PR head `91cd88fedef768a65286381c361b72f46d67ee29` (run #115, ID `43938573918`): dependency installation, `npm run test`, `npm run typecheck`, and `npm run build` all passed.
+- Latest verified CI for the Organization implementation change — **successful** on commit `b8a686664e5e39b2ebc042192a9ea291c6d1bec7` (run #120, ID `43947823009`): 33 tests passed, `npm run typecheck` passed, `npm run build` passed, and npm audit reported 0 vulnerabilities. Any newer PR head must still have green checks before merge.
 - Active feature branch: `feature/organization-v1`, in open PR #11 targeting `main`; it is not merged.
 
 ## Source-of-truth hierarchy
@@ -210,3 +210,18 @@ The following observations were made on 2026-10-16 and are retained for traceabi
 - Organization V1 remains incomplete until the live ledger/schema are inspected, backup/recovery readiness is confirmed, reviewed migrations are applied safely, advisors are checked, and authenticated CRUD plus cross-user isolation pass.
 
 Next safe action: restore supported database connectivity and inspect the actual live migration ledger and Organization tables before attempting any DDL or merge.
+
+
+## Organization V1 — subtask visibility checkpoint (2026-11-17)
+
+- PR #11 remains open and unmerged on `feature/organization-v1`; its live page is authoritative for current head/mergeability. PR #12 remains a draft explicitly superseded by PR #11.
+- Added `listSubtasksAction` in `src/app/dashboard/subtask-actions.ts`. It creates the authenticated server-side Supabase client, resolves the user with `auth.getUser()`, and delegates to the owner-scoped service.
+- `listSubtasks` verifies that the parent belongs to the supplied user and filters the child query by both `user_id` and `parent_task_id`.
+- Updated `SubtaskManager` to lazy-load direct subtasks when expanded, display their completion state, and update completion through the existing `toggleTaskAction`. Subtask creation remains available. This is a one-level dashboard view; recursive hierarchy navigation is not implemented by this change.
+- Added two tests: one asserts the child query's owner/parent filters and stable ordering; one asserts that a foreign-owned parent prevents child listing.
+- CI run #120 (ID `43947823009`) passed on implementation commit `b8a686664e5e39b2ebc042192a9ea291c6d1bec7`: **33 passed, 0 failed**, typecheck passed, production build passed, and npm audit reported 0 vulnerabilities. Recheck the live PR checks on any later documentation commit before merge.
+- No lint script or linter configuration exists; lint is not verified.
+- Supabase metadata reports `ACTIVE_HEALTHY`; `list_migrations`, verbose `list_tables`, and read-only SQL continue to time out. Security/performance advisor calls report the project hibernated. Live migration ledger/schema remain unknown.
+- No production DDL, migration, data write, or PR merge was performed.
+
+Next safe action: restore supported database connectivity, inspect the actual migration ledger and Organization tables, confirm recovery readiness, then proceed with reviewed migrations, advisors, and authenticated two-user CRUD/isolation tests.
