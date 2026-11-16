@@ -53,7 +53,7 @@ Behavior modeling, workload prediction, intelligent scheduling, and continuous i
 
 ## Verified status
 
-The current verified baseline on `main` includes the core productivity foundation, **Recurring Tasks V1**, and **Reminders V1**. Progress & Streaks V1 is the current engineering focus. The project-state checkpoint documents the merged work, CI verification, ownership boundaries, and remaining timezone/DST limitations.
+The current verified baseline on `main` includes core productivity, **Recurring Tasks V1**, **Reminders V1**, and **Progress & Streaks V1**. **Organization V1** is implemented on `feature/organization-v1` in open PR #11, but it is not merged. Live Supabase migration-ledger/schema verification and authenticated CRUD/cross-user-isolation checks remain blocked by database connectivity. See `PROJECT_STATE.md` and `PROJECT_HANDOFF.md` for the current checkpoint.
 
 The V1 recurrence implementation includes daily, weekly, and monthly rules, next-occurrence generation, validation, activity events, and idempotency protection. Reminders include owner-scoped data access, upcoming-reminder queries, an in-app channel contract, authenticated delivery, durable notifications, and dashboard UI.
 
@@ -67,6 +67,7 @@ The repository uses Next.js and includes scripts for development, production bui
 npm install
 npm run dev
 npm run test
+npm run typecheck
 npm run build
 ```
 
