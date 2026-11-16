@@ -24,7 +24,7 @@ These describe the branch implementation only. They do not prove that the produc
 
 ## CI and quality checks
 
-- CI run #102 (ID `43928191876`) passed on commit `18f4558e8cedace39b890dd6d8dad80ac542e1cc`: `npm install`, `npm run test`, `npm run typecheck`, and `npm run build` all succeeded.
+- CI run #104 (ID `43928396020`) passed on commit `f2b9e43564663c74ac51e7f1e2356163633e21c3`: `npm install`, `npm run test`, `npm run typecheck`, and `npm run build` all succeeded.
 - Added `npm run typecheck` (`tsc --noEmit`) to `package.json` and the GitHub Actions workflow. This handoff refresh is documentation-only and triggers a new CI run; verify that newest run on the current PR head before merge.
 - No lint script or linter configuration exists in the repository; no lint result is claimed.
 - A local clone could not be obtained in this execution environment because outbound DNS/network access to GitHub was unavailable. CI is the executable verification path.
