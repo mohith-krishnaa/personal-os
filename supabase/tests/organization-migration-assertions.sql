@@ -5,6 +5,17 @@ DECLARE
   project_name_nullable text;
   copied_count integer;
 BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'goals'
+      AND column_name = 'unit' AND data_type = 'text'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'goals'
+      AND column_name = 'target' AND data_type = 'numeric'
+  ) THEN
+    RAISE EXCEPTION 'Progress goal metric columns are missing after the forward compatibility migration.';
+  END IF;
   IF to_regclass('public.checklist_items') IS NULL
      OR to_regclass('public.task_checklist_items') IS NULL THEN
     RAISE EXCEPTION 'Both canonical and legacy checklist tables must exist.';
