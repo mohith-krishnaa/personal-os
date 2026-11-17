@@ -1,7 +1,7 @@
 # Personal OS — Project Roadmap & Mind Map
 
 > Single source of truth for project direction. Verify GitHub/Supabase/CI before making claims.
-> Last reconciled: 2026-11-17. Code-bearing head `3c23e01e3574b4fc91d15a1929e7c5e37eb16988` passed CI #189; documentation checkpoint `d7c5fc12b40afc1f69b28591bca0db0c77039ce9` passed CI #191. Both passed full 15-migration replay, authenticated two-owner RLS checks, hierarchy concurrency, 58 tests, typecheck, production build, and npm audit with 0 vulnerabilities.
+> Last reconciled: 2026-11-17. Code-bearing head `3c23e01e3574b4fc91d15a1929e7c5e37eb16988` passed CI #189; the project-state/roadmap/handoff/runbook documentation checkpoint `ef49a03e948e27617f5522beb1370167e936555b` passed CI #195. Both verified full 15-migration replay, authenticated two-owner RLS, hierarchy concurrency, 58 tests, typecheck, production build, and npm audit with 0 vulnerabilities. This roadmap refresh is documentation-only.
 
 ## Current position
 
