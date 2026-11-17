@@ -1,7 +1,7 @@
 # Personal OS — Project Roadmap & Mind Map
 
 > Single source of truth for project direction. Verify GitHub/Supabase/CI before making claims.
-> Last reconciled: 2026-11-17. PR #11 head `d872a6e6f530a9ee87e8851a1cf5465197240379` passed CI #176, including PostgreSQL 17 hierarchy/parent-child integration checks, 56 application tests, typecheck, production build, and 0 npm audit vulnerabilities.
+> Last reconciled: 2026-11-17. Latest code checkpoint `d872a6e6f530a9ee87e8851a1cf5465197240379` passed CI #176; latest documentation head `74979439c63e9ba27009a786cf2d929c4a15e68e` passed CI #177. Both runs passed PostgreSQL integration, 56 application tests, typecheck, production build, and 0 npm audit vulnerabilities.
 
 ## Current position
 
@@ -333,3 +333,5 @@ Next safe action: create and restore-test the private logical backup on an owner
 - Free Plan scheduled backups remain unavailable and no manual schema/data/role export or restore test exists. PR #11 remains open and unmerged; PR #12 remains a superseded draft. Analytics remains queued. Lint is not configured.
 
 Next safe action: create and restore-test the private logical backup on an owner-controlled machine, then run the full six-migration sequence and authenticated two-user direct-API isolation against a disposable database matching the live legacy schema. Only then consider production rollout or PR #11 merge.
+
+Documentation verification: [CI #177](https://github.com/mohith-krishnaa/personal-os/actions/runs/44039076954) passed on latest PR head `74979439c63e9ba27009a786cf2d929c4a15e68e`; this docs-only checkpoint preserves the code-bearing verification from CI #176.
