@@ -8,7 +8,7 @@ Date: 2026-11-17
 - Stable branch: `main` at `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`.
 - Organization branch: `feature/organization-v1`.
 - PR #11 is the intended Organization V1 review path targeting `main`; this checkpoint did not merge it. Recheck the live PR page for current state/head before any merge: https://github.com/mohith-krishnaa/personal-os/pull/11
-- Latest code-bearing checkpoint: 8d3667ae8aa843ef6e6fe6a62c9df2480cd63265; [CI #204](https://github.com/mohith-krishnaa/personal-os/actions/runs/44054528518) passed the 15-migration PostgreSQL 17 replay, authenticated two-owner RLS checks including cross-owner UPDATE/DELETE denial for projects, tasks, canonical checklists, and legacy checklists, hierarchy concurrency, application test suite, typecheck, and production build. No lint script/configuration exists.
+- Latest code-bearing checkpoint: a9f73bfc26de818679c101974544793a839f2c74; [CI #207](https://github.com/mohith-krishnaa/personal-os/actions/runs/44055203271) passed the 15-migration PostgreSQL 17 replay, reciprocal authenticated two-owner RLS checks including cross-owner UPDATE/DELETE denial in both directions for projects, tasks, canonical checklists, and legacy checklists, hierarchy concurrency, application test suite, typecheck, and production build. No lint script/configuration exists.
 - PR #12 was previously marked as a draft superseded by PR #11; verify its live state before any action and do not merge it separately.
 
 ## Work completed in this checkpoint
@@ -348,6 +348,6 @@ Next safe action: create private schema/data/role exports, restore-test them in 
 
 - Added a valid Owner B legacy checklist row to the migration fixture; both owners' valid rows must reconcile, while the malformed Owner A-to-Owner B task association must not be copied.
 - The authenticated RLS fixture now verifies each owner sees only their own projects, tasks, canonical checklist rows, and legacy checklist rows.
-- Owner A directly attempts UPDATE and DELETE against Owner B's project, task, canonical checklist item, and legacy checklist item. Each operation must affect zero rows; Owner B's rows must remain intact.
-- [CI #204](https://github.com/mohith-krishnaa/personal-os/actions/runs/44054528518) passed all configured steps on `8d3667ae8aa843ef6e6fe6a62c9df2480cd63265`: migration replay, task hierarchy concurrency, application tests, TypeScript typecheck, and production build.
+- Both owners directly attempt UPDATE and DELETE against the other owner's project, task, canonical checklist item, and legacy checklist item. Each operation must affect zero rows; neither owner's rows may be changed or removed.
+- [CI #207](https://github.com/mohith-krishnaa/personal-os/actions/runs/44055203271) passed all configured steps on `a9f73bfc26de818679c101974544793a839f2c74`: migration replay, task hierarchy concurrency, application tests, TypeScript typecheck, and production build.
 - Live Supabase remains unchanged. The migration ledger still has 8 applied entries; 6 Organization migrations and 1 Progress compatibility migration remain unapplied. No manual backup/restore test exists.

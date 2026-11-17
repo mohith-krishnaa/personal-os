@@ -42,6 +42,6 @@ The migration is branch-only and has not been applied to Supabase production.
 
 ## Two-owner checklist mutation regression
 
-The full migration replay fixture now seeds valid legacy checklist rows for Owner A and Owner B plus one malformed Owner A row attached to Owner B's task. It asserts that both valid rows reconcile and the malformed row does not. Separate authenticated JWT subjects verify reciprocal visibility and that Owner A cannot UPDATE or DELETE Owner B's project, task, canonical checklist row, or legacy checklist row. Each cross-owner mutation must affect zero rows.
+The full migration replay fixture now seeds valid legacy checklist rows for Owner A and Owner B plus one malformed Owner A row attached to Owner B's task. It asserts that both valid rows reconcile and the malformed row does not. Separate authenticated JWT subjects verify reciprocal visibility and that neither owner can UPDATE or DELETE the other's project, task, canonical checklist row, or legacy checklist row. Each cross-owner mutation must affect zero rows.
 
-[CI #204](https://github.com/mohith-krishnaa/personal-os/actions/runs/44054528518) passed the full 15-migration PostgreSQL 17 replay, hierarchy integration, application tests, typecheck, and production build on 8d3667ae8aa843ef6e6fe6a62c9df2480cd63265. This remains disposable-database verification only; no production migration was applied.
+[CI #207](https://github.com/mohith-krishnaa/personal-os/actions/runs/44055203271) passed the full 15-migration PostgreSQL 17 replay, hierarchy integration, application tests, typecheck, and production build on a9f73bfc26de818679c101974544793a839f2c74. This remains disposable-database verification only; no production migration was applied.

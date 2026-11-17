@@ -1,14 +1,14 @@
 # Personal-OS — Persistent Project State
 
 > Canonical recovery checkpoint. Read this before making project claims or changes.
-> Last reconciled: 2026-11-17. Code-bearing head 8d3667ae8aa843ef6e6fe6a62c9df2480cd63265 passed [CI #204](https://github.com/mohith-krishnaa/personal-os/actions/runs/44054528518): full 15-migration PostgreSQL 17 replay, two-owner RLS including cross-owner UPDATE/DELETE denial for projects, tasks, and both checklist tables, hierarchy concurrency, application tests, typecheck, and production build. No lint script/configuration exists.
+> Last reconciled: 2026-11-17. Code-bearing head a9f73bfc26de818679c101974544793a839f2c74 passed [CI #207](https://github.com/mohith-krishnaa/personal-os/actions/runs/44055203271): full 15-migration PostgreSQL 17 replay, reciprocal two-owner RLS including cross-owner UPDATE/DELETE denial in both directions for projects, tasks, and both checklist tables, hierarchy concurrency, application tests, typecheck, and production build. No lint script/configuration exists.
 
 ## Current verified state
 
 - Stable integration branch: `main` at `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`.
 - Recurring Tasks V1 and Reminders V1 are merged. Progress & Streaks V1 application code is present, but live schema compatibility is incomplete: the live `public.goals` table lacks `unit` and `target`.
 - Active development branch: `feature/organization-v1`. PR #11 is the intended Organization V1 review path; this run did not merge it. Recheck the live PR page for its current state/head before any merge. PR #12 was previously marked as superseded and should not be merged separately.
-- Latest code-bearing checkpoint 8d3667ae8aa843ef6e6fe6a62c9df2480cd63265 passed [CI #204](https://github.com/mohith-krishnaa/personal-os/actions/runs/44054528518). The run completed the full 15-migration PostgreSQL 17 replay, authenticated two-owner RLS checks (including cross-owner UPDATE/DELETE denial for projects, tasks, canonical checklist items, and legacy checklist items), hierarchy concurrency integration, application tests, TypeScript typecheck, and production build. No lint script/configuration exists; CI does not define a lint step.
+- Latest code-bearing checkpoint a9f73bfc26de818679c101974544793a839f2c74 passed [CI #207](https://github.com/mohith-krishnaa/personal-os/actions/runs/44055203271). The run completed the full 15-migration PostgreSQL 17 replay, reciprocal authenticated two-owner RLS checks (both owners' cross-owner UPDATE/DELETE attempts against projects, tasks, canonical checklist items, and legacy checklist items must affect zero rows), hierarchy concurrency integration, application tests, TypeScript typecheck, and production build. No lint script/configuration exists; CI does not define a lint step.
 - Live Supabase project `gujzvkyytxsnervovvrt`: `ACTIVE_HEALTHY`, region ap-southeast-1, PostgreSQL 17.11.0.003.
 - Live migration ledger: 8 applied core migrations. The branch contains 15 numbered SQL migrations: 8 matching the live ledger, 6 Organization migrations, and 1 Progress goal-metrics compatibility migration. The latter 7 are unapplied in production.
 - Live public schema: 9 application tables, all RLS-enabled and all reporting zero rows. `projects` has `title` but no `name`; `checklist_items` and `task_checklist_items` are absent; the Organization task validation trigger is absent; `goals` lacks `unit` and `target`.
@@ -492,6 +492,6 @@ Next safe action: create private schema/data/role exports, restore-test them in 
 
 - Added a valid legacy checklist fixture for each owner while retaining one malformed Owner A checklist-to-Owner B task association. The full migration replay verifies that both valid rows reconcile into the canonical table and the malformed row does not.
 - Under separate authenticated Owner A and Owner B JWT subjects, the fixture checks reciprocal visibility across projects, tasks, canonical checklists, and legacy checklists.
-- Owner A attempts to UPDATE and DELETE Owner B's project, task, canonical checklist item, and legacy checklist item; every statement must affect zero rows. Owner B's records must remain visible afterward.
-- [CI #204](https://github.com/mohith-krishnaa/personal-os/actions/runs/44054528518) passed the migration replay, hierarchy integration, application test, typecheck, and production build steps on code-bearing head `8d3667ae8aa843ef6e6fe6a62c9df2480cd63265`.
+- Both owners attempt to UPDATE and DELETE the other owner's project, task, canonical checklist item, and legacy checklist item; every statement must affect zero rows. Each owner's records must remain visible afterward.
+- [CI #207](https://github.com/mohith-krishnaa/personal-os/actions/runs/44055203271) passed the migration replay, hierarchy integration, application test, typecheck, and production build steps on code-bearing head `a9f73bfc26de818679c101974544793a839f2c74`.
 - This is disposable PostgreSQL 17 RLS verification. It does not establish live Supabase/PostgREST behavior and does not remove the backup/restore or production approval gates.

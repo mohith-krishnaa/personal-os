@@ -141,8 +141,8 @@ CI #204 passed the full local migration replay and now includes stronger two-own
 - Both owners have valid legacy checklist records; the reconciliation migration must copy both to checklist_items.
 - A malformed Owner A checklist row attached to Owner B's task must not be copied.
 - Each owner sees only its own projects, tasks, canonical checklist rows, and legacy checklist rows.
-- Owner A's UPDATE and DELETE attempts against Owner B's project, task, canonical checklist item, and legacy checklist item must each affect zero rows.
+- Each owner’s UPDATE and DELETE attempts against the other owner's project, task, canonical checklist item, and legacy checklist item must each affect zero rows.
 
 This is a disposable PostgreSQL 17 test. It does not replace a private production backup/restore, a live PostgREST JWT test, or approval to apply migrations. The live database was not changed.
 
-CI: [run #204](https://github.com/mohith-krishnaa/personal-os/actions/runs/44054528518) on code-bearing head 8d3667ae8aa843ef6e6fe6a62c9df2480cd63265.
+CI: [run #207](https://github.com/mohith-krishnaa/personal-os/actions/runs/44055203271) on code-bearing head a9f73bfc26de818679c101974544793a839f2c74.

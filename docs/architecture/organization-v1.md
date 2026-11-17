@@ -249,6 +249,6 @@ The disposable PostgreSQL migration fixture now exercises both authenticated own
 - Seed one valid legacy checklist row for each owner and one malformed Owner A checklist row attached to Owner B's task.
 - Replay the canonical checklist reconciliation migration; both valid rows must be copied, while the malformed association must be excluded.
 - Under separate authenticated JWT subjects, verify each owner sees only its own projects, tasks, canonical checklist rows, and legacy checklist rows.
-- As Owner A, issue UPDATE and DELETE statements targeting Owner B's project, task, canonical checklist item, and legacy checklist item. Every statement must affect zero rows; Owner B must still see its rows afterward.
+- As each owner, issue UPDATE and DELETE statements targeting the other owner's project, task, canonical checklist item, and legacy checklist item. Every statement must affect zero rows; both owners must still see their own rows afterward.
 
-CI #204 passed this fixture on 8d3667ae8aa843ef6e6fe6a62c9df2480cd63265. This is a PostgreSQL 17 disposable-database test, not a live Supabase/PostgREST test. Production acceptance still requires a restore-tested backup and separate live JWT/API checks.
+CI #207 passed this fixture on a9f73bfc26de818679c101974544793a839f2c74. This is a PostgreSQL 17 disposable-database test, not a live Supabase/PostgREST test. Production acceptance still requires a restore-tested backup and separate live JWT/API checks.
