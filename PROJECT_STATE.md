@@ -1,7 +1,7 @@
 # Personal-OS — Persistent Project State
 
 > Canonical recovery checkpoint. Read this before making project claims or changes.
-> Last reconciled: 2026-11-17. Latest code checkpoint `d872a6e6f530a9ee87e8851a1cf5465197240379` passed CI #176; latest documentation head `74979439c63e9ba27009a786cf2d929c4a15e68e` passed CI #177. Both runs passed PostgreSQL integration, 56 tests, typecheck, production build, and 0 npm audit vulnerabilities. Organization production acceptance remains blocked by backup/restore, the six unapplied migrations, and live database authorization/isolation gaps.
+> Last reconciled: 2026-11-17. Code head `3c23e01e3574b4fc91d15a1929e7c5e37eb16988` passed CI #189; architecture/migration docs checkpoint `d7c5fc12b40afc1f69b28591bca0db0c77039ce9` passed CI #191. Both passed 15-migration replay, authenticated two-owner RLS, hierarchy concurrency, 58 tests, typecheck, production build, and 0 npm audit vulnerabilities. A later documentation reconciliation is being verified separately.
 
 ## Current verified state
 
@@ -454,3 +454,33 @@ Next safe action: create and restore-test the private logical backup on an owner
 - Latest PR #11 head `74979439c63e9ba27009a786cf2d929c4a15e68e` is documentation-only after code-bearing head `d872a6e6f530a9ee87e8851a1cf5465197240379`.
 - [CI #177](https://github.com/mohith-krishnaa/personal-os/actions/runs/44039076954) passed on the latest head: PostgreSQL 17 hierarchy integration, 56/56 application tests, typecheck, production build, and 0 npm audit vulnerabilities.
 - PR #11 remains open and unmerged; live Supabase remains unchanged and Organization production rollout remains blocked by the backup/restore and full migration/authenticated-isolation gates.
+
+
+## Latest engineering checkpoint — migration replay and live progress schema repair (2026-11-17)
+
+### Repository implementation
+
+- Added `supabase/tests/organization-migrations.sh` plus bootstrap, seed, and assertion SQL. CI replays all 15 numbered SQL migrations in a separate disposable PostgreSQL 17 database.
+- The replay seeds two users, legacy `projects.title` records, tasks, and legacy checklist rows before reconciliation. It verifies that only same-owner checklist associations copy into the canonical table, both checklist tables remain, project `title`/`name` dual-write works, client roles cannot execute `rls_auto_enable()`, and authenticated Owner A/Owner B sessions cannot read or mutate each other's Organization records.
+- Existing hierarchy integration remains separate and verifies the owner-scoped advisory lock under a two-session READ COMMITTED cycle race, plus invalid parent owner/project mutations.
+- Added forward-only migration `20261117000100_reconcile_progress_goal_metrics.sql`. It repairs a live mismatch without rewriting applied migration history: the original core migration created `goals` before Progress V1, so the later `CREATE TABLE IF NOT EXISTS` did not add `unit` or `target`.
+- Updated the Goal type and dashboard rendering to preserve legacy goals with null metrics. New measurable goal creation still requires a unit and positive target; legacy goals are shown without a progress-entry form rather than receiving fabricated defaults.
+- Added unit coverage for legacy goal summaries and included it in `npm test`.
+
+### Verification
+
+- CI #189 passed on code head `3c23e01e3574b4fc91d15a1929e7c5e37eb16988`; CI #191 passed on the subsequent architecture/migration documentation checkpoint `d7c5fc12b40afc1f69b28591bca0db0c77039ce9`.
+- Both runs passed the 15-migration PostgreSQL 17 replay, authenticated two-owner RLS checks, hierarchy concurrency integration, 58/58 application tests, TypeScript typecheck, production build, and npm audit with 0 vulnerabilities.
+- Lint is not configured in this repository.
+- Security advisor returned no lints. Performance advisor findings remain: 4 unindexed foreign keys, 14 auth RLS initialization-plan warnings, 13 unused-index findings, and 4 overlapping permissive policies on `goals`.
+
+### Live production state — unchanged
+
+- Supabase project `gujzvkyytxsnervovvrt` remains `ACTIVE_HEALTHY`, ap-southeast-1, PostgreSQL 17.11.0.003.
+- The live migration ledger contains 8 applied migrations. The six Organization migrations and the new Progress metrics repair remain unapplied.
+- The live `goals` table lacks `unit` and `target`; `getGoalsWithProgress` selects both on dashboard load. Until the forward migration is applied, the live dashboard's progress query is expected to fail with missing-column errors. This is a verified schema/code mismatch, not a reproduced browser trace.
+- Live `projects` still has `title` and lacks `name`; both checklist tables and the Organization task validation trigger are still absent. All 9 public application tables have RLS enabled and zero rows; `auth.users` and `storage.objects` also had zero rows at the latest inspection.
+- The Free Plan has no scheduled backups. No private logical export or restore test exists.
+- No production DDL, migration, RLS change, data write, restore, or PR merge was performed.
+
+Next safe action: create private schema/data/role exports, restore-test them in an isolated database, replay the migration chain against that restored snapshot, and run authenticated direct-API isolation tests there. Keep production read-only until backup/restore and explicit rollout approval are satisfied. Organization remains the highest-priority incomplete roadmap milestone; Analytics remains queued.
