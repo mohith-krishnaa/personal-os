@@ -8,7 +8,7 @@ Date: 2026-11-17
 - Stable branch: `main` at `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`.
 - Organization branch: `feature/organization-v1`.
 - PR #11: open, unmerged, non-draft, mergeable, targeting `main`; the live PR page is authoritative for the current head: https://github.com/mohith-krishnaa/personal-os/pull/11
-- Latest PR #11 head: `30e490aaf1832d7003717473a0eb5b3d6a16ce8c`; [CI #163](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023466322) passed on this exact head: **56 tests passed, 0 failed**; typecheck and production build passed; npm install reported 0 vulnerabilities. No lint script/configuration exists.
+- Latest PR #11 head: `e4caece780f3b585e6c986b85e1fe95b76abd5c0`; [CI #163](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023466322) passed on this exact head: **56 tests passed, 0 failed**; typecheck and production build passed; npm install reported 0 vulnerabilities. No lint script/configuration exists.
 - PR #12 is an open draft explicitly superseded by PR #11; do not merge it separately.
 
 ## Work completed in this checkpoint
@@ -23,10 +23,10 @@ Date: 2026-11-17
 
 ## CI and quality
 
-- Code-bearing commit `1106efd1b3a1be9e3b5aac18bd8a6e714476cb9f` passed CI #143 (ID `43994197614`): **45 passed, 0 failed**; install, typecheck, and production build succeeded; install output reported 0 vulnerabilities.
-- Latest PR-head documentation checkpoint `b86056d20ca3f9ed470709ad4baebcfa711e9ea6` passed CI #147 (ID `43994686893`) with the same checks and 45 passing tests.
+- [CI #163](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023466322) passed on migration-history commit 30e490aaf1832d7003717473a0eb5b3d6a16ce8c: **56 passed, 0 failed**; install, typecheck, and production build succeeded; npm install reported 0 vulnerabilities.
+- [CI #164](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023774660) passed on final documentation head e4caece780f3b585e6c986b85e1fe95b76abd5c0: **56 passed, 0 failed**; install, typecheck, and production build succeeded; npm install reported 0 vulnerabilities.
 - No lint script or linter configuration exists; lint is unavailable and no lint pass is claimed.
-- The current workflow does not run live database integration or two-user RLS tests.
+- The workflow does not run live database integration or two-user RLS tests.
 
 ## Architecture / security boundaries
 
@@ -252,11 +252,11 @@ Next safe action: restore supported database connectivity, inspect the actual mi
 - Organization V1 remains blocked on live migration/schema inspection, recovery readiness, advisors, and authenticated two-user isolation. Analytics remains queued.
 
 
-## Latest verified checkpoint — migration-history reconciliation (2026-11-17)
+## Latest verified checkpoint — migration-history reconciliation and state update (2026-11-17)
 
 - Recovered the eight applied migration SQL statements directly from the live supabase_migrations.schema_migrations ledger and stored them under exact version/name filenames.
 - Removed six timestamp-drifted or duplicate local core migration files. The resulting migration directory contains the eight exact applied migrations followed by six unapplied Organization migrations.
 - Verified all eight local core migration files match the live ledger SQL statements exactly after trimming the trailing newline.
 - Added a migration-history README, an Organization rollout runbook, and an eight-query read-only SQL preflight. Executed all eight SQL statements against the live project successfully.
-- [CI #163](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023466322) passed on head 30e490aaf1832d7003717473a0eb5b3d6a16ce8c: 56 tests, typecheck, production build, and 0 npm audit vulnerabilities.
+- [CI #163](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023466322) passed on head e4caece780f3b585e6c986b85e1fe95b76abd5c0: 56 tests, typecheck, production build, and 0 npm audit vulnerabilities.
 - No production migration, DDL, RLS change, data write, or merge occurred. Backup/recovery remains the rollout blocker.

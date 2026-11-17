@@ -1,7 +1,7 @@
 # Personal-OS — Persistent Project State
 
 > Canonical recovery checkpoint. Read this before making project claims or changes.
-> Last reconciled: 2026-11-17. Live Supabase read-only inspection now succeeds; the eight applied core migration statements have been restored into exact versioned repository files. Current PR #11 head 30e490aaf1832d7003717473a0eb5b3d6a16ce8c passed CI #163 (56 tests, typecheck, production build, 0 npm audit vulnerabilities). Organization migrations remain unapplied; the Free Plan has no scheduled backups and no manual backup has been created.
+> Last reconciled: 2026-11-17. Live Supabase read-only inspection now succeeds; the eight applied core migration statements have been restored into exact versioned repository files. Current PR #11 head e4caece780f3b585e6c986b85e1fe95b76abd5c0 passed CI #164 (56 tests, typecheck, production build, 0 npm audit vulnerabilities). Organization migrations remain unapplied; the Free Plan has no scheduled backups and no manual backup has been created.
 
 ## Current verified state
 
@@ -12,8 +12,8 @@
 - Progress & Streaks V1 — **merged** (PR #8).
 - Security issue #6 — **closed/completed** after client execution was revoked for `public.rls_auto_enable()` and security verification reported 0 lints.
 - Open GitHub issue backlog — **0** at last verification.
-- Latest verified PR-head CI — [CI #163](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023466322) passed on `30e490aaf1832d7003717473a0eb5b3d6a16ce8c`: **56 tests passed, 0 failed**; `npm run typecheck` and `npm run build` passed; npm install audited 43 packages and reported 0 vulnerabilities. No lint script/configuration exists.
-- Active feature branch: `feature/organization-v1`, in open PR #11 targeting `main`; current head `30e490aaf1832d7003717473a0eb5b3d6a16ce8c`. PR #12 remains a superseded open draft.
+- Latest verified PR-head CI — [CI #164](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023774660) passed on `e4caece780f3b585e6c986b85e1fe95b76abd5c0`: **56 tests passed, 0 failed**; `npm run typecheck` and `npm run build` passed; npm install audited 43 packages and reported 0 vulnerabilities. No lint script/configuration exists.
+- Active feature branch: `feature/organization-v1`, in open PR #11 targeting `main`; current head `e4caece780f3b585e6c986b85e1fe95b76abd5c0`. PR #12 remains a superseded open draft.
 
 ## Source-of-truth hierarchy
 
@@ -113,7 +113,7 @@ Next safe action: restore supported database connectivity, inspect the live migr
 1. Recurring Tasks V1 — DONE
 2. Reminders V1 — DONE
 3. Progress & Streaks V1 — DONE
-4. **Organization V1 — IN PROGRESS (PR #11; live database verification pending)**
+4. **Organization V1 — IN PROGRESS (PR #11; live schema inspected, backup and rollout gates pending)**
 5. Analytics V1
 6. AI Assistant V1
 7. Research Agent V1
@@ -395,8 +395,8 @@ Next safe action: verify CI on the updated PR head, then restore database-tool c
 
 ## Latest checkpoint — live Supabase reconciliation (2026-11-17)
 
-- Current PR #11 head: 30e490aaf1832d7003717473a0eb5b3d6a16ce8c. PR #11 remains open and unmerged; PR #12 remains a superseded draft.
-- [CI #163](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023466322) passed on the exact head: 56/56 tests, TypeScript check, production build, and npm install with 0 vulnerabilities. The workflow has no lint step; the repository has no lint script/configuration.
+- Current PR #11 head: e4caece780f3b585e6c986b85e1fe95b76abd5c0. PR #11 remains open and unmerged; PR #12 remains a superseded draft.
+- [CI #163](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023466322) passed on the migration-history commit: 56/56 tests, typecheck, production build, and 0 npm audit vulnerabilities. [CI #164](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023774660) passed on the final documentation checkpoint: 56/56 tests, typecheck, production build, and 0 npm audit vulnerabilities. The workflow has no lint step; the repository has no lint script/configuration.
 - Supabase project gujzvkyytxsnervovvrt is ACTIVE_HEALTHY in ap-southeast-1 on PostgreSQL 17.11.0.003. Read-only migration, schema, policy, constraint, and advisor queries now succeed.
 - The live migration ledger has 8 entries. Their exact SQL statements were recovered from supabase_migrations.schema_migrations into files with matching version/name filenames. The migration directory now contains 8 applied core migrations plus 6 local-only Organization migrations. The duplicate 20260830181600 reminder-notifications migration was removed because it is not in the live ledger.
 - The six Organization migrations remain unapplied. The live schema has projects.title but no projects.name; tasks has project_id and parent_task_id foreign keys but no Organization validation trigger; checklist_items and task_checklist_items are absent.
