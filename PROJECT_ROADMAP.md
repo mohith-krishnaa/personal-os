@@ -1,13 +1,13 @@
 # Personal OS — Project Roadmap & Mind Map
 
 > Single source of truth for project direction. Verify GitHub/Supabase/CI before making claims.
-> Last reconciled: 2026-11-17. Code-bearing head a9f73bfc26de818679c101974544793a839f2c74 passed [CI #207](https://github.com/mohith-krishnaa/personal-os/actions/runs/44055203271): full 15-migration PostgreSQL 17 replay, reciprocal two-owner RLS including cross-owner UPDATE/DELETE denial in both directions for projects, tasks, and both checklist tables, hierarchy concurrency, application tests, typecheck, and production build. No lint script/configuration exists.
+> Last reconciled: 2026-11-17. Code-bearing head e9ea11a85e9145698900d876edf34f289ca76b2f passed [CI #209](https://github.com/mohith-krishnaa/personal-os/actions/runs/44064242592): full 15-migration PostgreSQL 17 replay, reciprocal authenticated two-owner RLS checks for cross-owner project/task/checklist inserts, task project/parent reassignment and checklist-task reassignment rejection, cross-owner UPDATE/DELETE denial in both directions, hierarchy concurrency, 58 application tests, typecheck, and production build. No lint script/configuration exists.
 
 ## Current position
 
 **Completed:** Core productivity, Recurring Tasks V1, and Reminders V1. Progress & Streaks V1 application code exists, but live schema compatibility is pending a forward-only repair; do not treat its production data contract as verified yet.
 
-**In progress:** Organization V1 remains the highest-priority incomplete milestone on `feature/organization-v1`; production acceptance is still blocked. The branch now replays all 15 local SQL migrations and tests two-owner RLS behavior in disposable PostgreSQL 17; CI #207 verifies that both owners cannot UPDATE or DELETE the other owner's project, task, canonical checklist item, or legacy checklist item. Live Supabase is ACTIVE_HEALTHY in ap-southeast-1 on PostgreSQL 17.11.0.003 with 8 applied migrations and 7 local-only migrations pending (6 Organization + 1 Progress compatibility repair). Live `projects` has `title` but no `name`; both checklist tables and the task validation trigger are absent; `goals` lacks `unit` and `target`. All 9 public application tables have RLS enabled and zero rows. The Free Plan has no scheduled backups and no manual logical backup/restore test exists. No production changes were made. Analytics remains queued until a private backup/restore and authenticated direct-API isolation against the restored snapshot pass.
+**In progress:** Organization V1 remains the highest-priority incomplete milestone on `feature/organization-v1`; production acceptance is still blocked. The branch now replays all 15 local SQL migrations and tests two-owner RLS behavior in disposable PostgreSQL 17; CI #209 verifies reciprocal cross-owner UPDATE/DELETE denial and extends Owner B's direct-API insert and task/checklist relationship-reassignment rejection checks. Live Supabase is ACTIVE_HEALTHY in ap-southeast-1 on PostgreSQL 17.11.0.003 with 8 applied migrations and 7 local-only migrations pending (6 Organization + 1 Progress compatibility repair). Live `projects` has `title` but no `name`; both checklist tables and the task validation trigger are absent; `goals` lacks `unit` and `target`. All 9 public application tables have RLS enabled and zero rows. The Free Plan has no scheduled backups and no manual logical backup/restore test exists. No production changes were made. Analytics remains queued until a private backup/restore and authenticated direct-API isolation against the restored snapshot pass.
 
 ## Mind map
 
@@ -359,3 +359,10 @@ Next safe action: create and restore-test a private logical backup, run the migr
 - Added reciprocal two-owner visibility checks and direct SQL UPDATE/DELETE attempts in both directions across projects, tasks, and both checklist tables. Every cross-owner mutation must affect zero rows.
 - [CI #207](https://github.com/mohith-krishnaa/personal-os/actions/runs/44055203271) passed the full migration replay, hierarchy concurrency, application tests, typecheck, and production build on `a9f73bfc26de818679c101974544793a839f2c74`.
 - This strengthens Organization's CI acceptance evidence only; it is not a live PostgREST test or a production rollout.
+
+
+### Organization direct-API relationship regression — 2026-11-17
+- Added reciprocal Owner B attempts to spoof a project owner, attach a task to Owner A's project, insert canonical/legacy checklist items for Owner A's task, and reassign Owner B task/checklist relationships to Owner A records.
+- The fixture fails if any prohibited operation succeeds. Existing two-owner UPDATE/DELETE denial checks remain reciprocal.
+- [CI #209](https://github.com/mohith-krishnaa/personal-os/actions/runs/44064242592) passed the 15-migration PostgreSQL 17 replay, Organization RLS assertions, hierarchy concurrency, 58 application tests, typecheck, and production build.
+- These are disposable-database checks only. They do not replace a restore-tested production backup or live PostgREST JWT isolation.

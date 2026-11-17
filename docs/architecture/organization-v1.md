@@ -252,3 +252,19 @@ The disposable PostgreSQL migration fixture now exercises both authenticated own
 - As each owner, issue UPDATE and DELETE statements targeting the other owner's project, task, canonical checklist item, and legacy checklist item. Every statement must affect zero rows; both owners must still see their own rows afterward.
 
 CI #207 passed this fixture on a9f73bfc26de818679c101974544793a839f2c74. This is a PostgreSQL 17 disposable-database test, not a live Supabase/PostgREST test. Production acceptance still requires a restore-tested backup and separate live JWT/API checks.
+
+
+## Reciprocal direct-API relationship isolation — 2026-11-17
+
+The disposable PostgreSQL migration fixture now tests both authenticated owner contexts for insert-time owner/link tampering and tests Owner B's relationship reassignment paths:
+
+- Owner B cannot insert a project while claiming Owner A's user_id.
+- Owner B cannot create a task linked to Owner A's project.
+- Owner B cannot insert canonical or legacy checklist items attached to Owner A's task.
+- Owner B cannot move its task to Owner A's project or parent task.
+- Owner B cannot reassign its canonical or legacy checklist item to Owner A's task.
+- Existing tests verify Owner A's corresponding insert/link attacks and reciprocal cross-owner UPDATE/DELETE denial for both owners.
+
+The test catches the expected insufficient_privilege error and fails if the operation succeeds. [CI #209](https://github.com/mohith-krishnaa/personal-os/actions/runs/44064242592) passed the full 15-migration PostgreSQL 17 replay, hierarchy concurrency, 58 application tests, typecheck, and production build.
+
+This does not establish live Supabase/PostgREST behavior. Production acceptance still requires a private backup that has been restored successfully and separate authenticated API checks against the live project or a verified restored snapshot.

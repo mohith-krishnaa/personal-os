@@ -146,3 +146,18 @@ CI #204 passed the full local migration replay and now includes stronger two-own
 This is a disposable PostgreSQL 17 test. It does not replace a private production backup/restore, a live PostgREST JWT test, or approval to apply migrations. The live database was not changed.
 
 CI: [run #207](https://github.com/mohith-krishnaa/personal-os/actions/runs/44055203271) on code-bearing head a9f73bfc26de818679c101974544793a839f2c74.
+
+
+## Reciprocal insert and relationship-reassignment checks — 2026-11-17
+
+CI #209 extends the disposable PostgreSQL 17 fixture beyond read visibility and UPDATE/DELETE isolation. Under Owner B's JWT subject, it now attempts:
+
+- Inserting a project with Owner A's user_id.
+- Inserting a task that references Owner A's project.
+- Inserting canonical and legacy checklist items that reference Owner A's task.
+- Reassigning Owner B's task to Owner A's project and parent task.
+- Reassigning Owner B's canonical and legacy checklist items to Owner A's task.
+
+Each operation must raise insufficient_privilege; the test raises an uncaught exception if an operation is accepted. Owner A's corresponding insert/link tests and reciprocal UPDATE/DELETE checks remain in the fixture.
+
+[CI #209](https://github.com/mohith-krishnaa/personal-os/actions/runs/44064242592) passed the full 15-migration replay, task-hierarchy concurrency checks, 58 application tests, typecheck, and production build. This remains a disposable-database result, not a live PostgREST authorization test. The live database was not changed; the backup/restore and production approval gates remain mandatory.
