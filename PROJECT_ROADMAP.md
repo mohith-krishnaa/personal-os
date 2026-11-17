@@ -7,7 +7,7 @@
 
 **Completed:** Core productivity, Recurring Tasks V1, Reminders V1, and Progress & Streaks V1.
 
-**In progress:** Organization V1 remains in PR #11. The dashboard supports projects, direct subtask listing/completion, and checklist create/list recovery. The latest code checkpoint fixes stale completeness after a failed subtask-list refresh; CI #140 passed on code-bearing commit `07c95f13a76435ec94976e61b8123143f46e4158`: 43 tests, typecheck, production build, and npm audit (0 vulnerabilities). No lint script/configuration exists. Live migration/schema inspection and authenticated end-to-end verification remain blocked.
+**In progress:** Organization V1 remains in PR #11. The dashboard supports projects, direct subtask listing/completion, and checklist create/list recovery. The latest code checkpoint fixes stale completeness after a failed subtask-list refresh; CI #140 passed on code-bearing commit `07c95f13a76435ec94976e61b8123143f46e4158`, and CI #141 passed on documentation checkpoint `7f72caff39f4e4efba2bdf65fdcb11ff29163360`: 43 tests, typecheck, production build, and npm audit (0 vulnerabilities) on both runs. No lint script/configuration exists. Live migration/schema inspection and authenticated end-to-end verification remain blocked.
 
 ## Mind map
 

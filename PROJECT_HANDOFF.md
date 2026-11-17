@@ -7,8 +7,8 @@ Date: 2026-11-17
 - Repository: `mohith-krishnaa/personal-os`.
 - Stable branch: `main` at `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`.
 - Organization branch: `feature/organization-v1`.
-- PR #11: open, unmerged, non-draft, mergeable, targeting `main`; verify the live branch head before any merge: https://github.com/mohith-krishnaa/personal-os/pull/11
-- Latest code-bearing checkpoint in this run: `07c95f13a76435ec94976e61b8123143f46e4158` (documentation-only reconciliation follows).
+- PR #11: open, unmerged, non-draft, mergeable, targeting `main`; current verified head at this checkpoint: `7f72caff39f4e4efba2bdf65fdcb11ff29163360`: https://github.com/mohith-krishnaa/personal-os/pull/11
+- Latest code-bearing checkpoint: `07c95f13a76435ec94976e61b8123143f46e4158`; documentation checkpoint `7f72caff39f4e4efba2bdf65fdcb11ff29163360` passed CI #141.
 - PR #12 is an open draft explicitly superseded by PR #11; do not merge it separately.
 
 ## Work completed in this checkpoint
@@ -134,3 +134,6 @@ Next action: restore supported Supabase database access, inspect the live ledger
 - Lint remains unavailable because the repository has no lint script/configuration.
 - Live DB status is unresolved: project listing says `ACTIVE_HEALTHY`, but direct project/migration/table/advisor requests return a hibernation error. Live schema and migration ledger are unknown; no production SQL or DDL was run.
 - Do not merge until live schema/migration inspection, recovery readiness, authenticated CRUD, and two-user isolation are verified.
+
+ 
+- Final documentation-head verification: [CI #141](https://github.com/mohith-krishnaa/personal-os/actions/runs/43987217774) passed on `7f72caff39f4e4efba2bdf65fdcb11ff29163360`: 43 tests passed, 0 failed; typecheck and production build passed; 43 packages audited, 0 vulnerabilities.

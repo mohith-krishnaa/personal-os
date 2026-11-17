@@ -1,7 +1,7 @@
 # Personal-OS — Persistent Project State
 
 > Canonical recovery checkpoint. Read this before making project claims or changes.
-> Last code verification: 2026-11-17 (PR #11 code-bearing commit `07c95f13a76435ec94976e61b8123143f46e4158`; CI #140 passed: 43 tests, typecheck, production build, 0 npm audit vulnerabilities. Live database inspection remains blocked by a hibernation response despite project-list metadata reporting ACTIVE_HEALTHY).
+> Last code verification: 2026-11-17 (code-bearing commit `07c95f13a76435ec94976e61b8123143f46e4158`; CI #140 passed: 43 tests, typecheck, production build, 0 npm audit vulnerabilities). Documentation checkpoint `7f72caff39f4e4efba2bdf65fdcb11ff29163360` also passed CI #141 on the exact PR head. Live database inspection remains blocked by hibernation/timeouts despite project-list metadata reporting ACTIVE_HEALTHY).
 
 ## Current verified state
 
@@ -13,7 +13,7 @@
 - Security issue #6 — **closed/completed** after client execution was revoked for `public.rls_auto_enable()` and security verification reported 0 lints.
 - Open GitHub issue backlog — **0** at last verification.
 - Latest completed code CI — **successful** on code-bearing commit `07c95f13a76435ec94976e61b8123143f46e4158` (run #140, ID `43987021956`): **43 tests passed, 0 failed**; `npm run typecheck` and `npm run build` passed; npm install audited 43 packages with 0 vulnerabilities. No lint script/configuration exists.
-- Active feature branch: `feature/organization-v1`, in open PR #11 targeting `main`; it is not merged.
+- Active feature branch: `feature/organization-v1`, in open PR #11 targeting `main`; current verified PR head at this checkpoint is `7f72caff39f4e4efba2bdf65fdcb11ff29163360`, open, unmerged, non-draft, and mergeable.
 
 ## Source-of-truth hierarchy
 
@@ -302,3 +302,5 @@ Next safe action: recover supported database connectivity and inspect the live m
 - No lint script or lint configuration exists. No schema, migration, RLS, production data, or authentication changes were made.
 - Supabase `list_projects` returned the intended project `gujzvkyytxsnervovvrt` as `ACTIVE_HEALTHY`; direct `get_project`, migration listing, table introspection, and advisor requests returned: `Project 48591712 is currently hibernated and will wake on next supported request`. The metadata/connection discrepancy means the live migration ledger and schema remain unknown. No SQL or migration write was executed.
 - Next safe action: restore a supported live database connection, inspect the migration ledger and Organization tables, confirm backup/recovery readiness, then run authenticated CRUD and two-user isolation checks before merging PR #11.
+
+- Documentation checkpoint commit `7f72caff39f4e4efba2bdf65fdcb11ff29163360` passed [CI #141](https://github.com/mohith-krishnaa/personal-os/actions/runs/43987217774) on the exact PR head: 43 tests, typecheck, and production build passed; 0 npm audit vulnerabilities.
