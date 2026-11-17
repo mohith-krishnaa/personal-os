@@ -18,6 +18,6 @@ The application progress service selects `unit` and `target` on every dashboard 
 
 ## Verification
 
-The migration replay CI applies the complete numbered migration sequence against a disposable PostgreSQL 17 database and asserts that both columns exist after replay. A unit test verifies that legacy goals without a target produce a safe 0% progress summary. CI must pass tests, typecheck, and production build on the current branch head.
+CI #189 passed the complete 15-migration replay against disposable PostgreSQL 17, and CI #195 passed again on the latest project documentation checkpoint. Both verified the goal metric columns, authenticated two-owner RLS, hierarchy concurrency, 58/58 tests, typecheck, production build, and npm audit with 0 vulnerabilities. A unit test verifies that legacy goals without a target produce a safe 0% progress summary.
 
 This does not authorize production DDL. The migration remains unapplied until a private backup/restore path is established and the production rollout is separately approved.
