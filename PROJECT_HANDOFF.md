@@ -8,7 +8,7 @@ Date: 2026-11-17
 - Stable branch: `main` at `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`.
 - Organization branch: `feature/organization-v1`.
 - PR #11: open, unmerged, non-draft, mergeable, targeting `main`; the live PR page is authoritative for the current head: https://github.com/mohith-krishnaa/personal-os/pull/11
-- Latest code-bearing checkpoint: `8f5eac4fd9d314a9fb3125de46789fe7858beac3` passed CI #150 (run ID `44002396846`): 48 tests, typecheck, and production build passed; npm install reported 0 vulnerabilities. The current PR page is authoritative for later documentation commits.
+- Latest code-bearing checkpoint: PR #11 head `b2526b832281e55c3feaaf854341dbf11af94e97` passed [CI #156](https://github.com/mohith-krishnaa/personal-os/actions/runs/44016733596): **56 tests passed, 0 failed**; `npm run typecheck` and `npm run build` passed. Lint is unavailable because no script/configuration exists. The current PR page remains authoritative for branch state.
 - PR #12 is an open draft explicitly superseded by PR #11; do not merge it separately.
 
 ## Work completed in this checkpoint
@@ -199,3 +199,17 @@ Next safe actions: verify CI on the updated PR head; restore supported Supabase 
 
 - Documentation head `f02a2145e7dc7aa05b8914188dee6ae322457650` passed [CI #154](https://github.com/mohith-krishnaa/personal-os/actions/runs/44009629263): 54 tests passed, TypeScript check passed, production build passed, and npm install reported 0 vulnerabilities.
 - PR #11 remains open, unmerged, non-draft, and mergeable. This docs-only handoff cleanup will trigger a new current-head CI run; verify that run before any merge decision.
+
+
+## Latest checkpoint — partial task relationship update semantics (2026-11-17)
+
+- Latest verified PR #11 head: `b2526b832281e55c3feaaf854341dbf11af94e97`; PR remains open, unmerged, non-draft, and mergeable.
+- Added `resolveTaskOrganizationLinks` and wired it into `updateTask`. Partial updates preserve omitted existing project/parent links; explicit `null` clears only the supplied relationship.
+- Added two regression tests in `src/lib/tasks.test.ts` for omitted-field preservation and explicit-null clearing.
+- [CI #156](https://github.com/mohith-krishnaa/personal-os/actions/runs/44016733596) passed on the exact code head: 56 tests, 0 failures; TypeScript and production build passed. Dependency installation, tests, typecheck, and build all completed successfully.
+- No lint script/configuration exists. The repository has no package lockfile; CI currently uses `npm install`, so exact dependency versions are not pinned.
+- Live Supabase status is still unresolved: metadata says `ACTIVE_HEALTHY`; migration listing, verbose table inspection, and read-only SQL time out; security/performance advisors report hibernation. Unified logs returned no Postgres rows in the default 24-hour window. Live migration ledger/schema remain unknown.
+- No production migrations, schema/data changes, RLS changes, or merge were performed.
+
+Next safe action: restore supported database connectivity, inspect the actual migration ledger/schema, confirm backup/recovery readiness, and run authenticated CRUD plus two-user isolation before merge. Analytics remains queued behind Organization.
+

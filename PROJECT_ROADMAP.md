@@ -7,7 +7,7 @@
 
 **Completed:** Core productivity, Recurring Tasks V1, Reminders V1, and Progress & Streaks V1.
 
-**In progress:** Organization V1 remains in PR #11. Task listing now resolves the authenticated server-side user on the query client and explicitly filters by `user_id`, preserving the optional project filter and existing ordering. CI #150 passed on code-bearing commit `8f5eac4fd9d314a9fb3125de46789fe7858beac3` with 48 tests, typecheck, production build, and 0 npm vulnerabilities. No lint script/configuration exists. Live migration/schema inspection and authenticated database isolation remain blocked.
+**In progress:** Organization V1 remains in PR #11. The task update path now resolves partial project/parent relationship patches through a tested helper: omitted fields preserve the current relationship, while explicit `null` clears only that field. CI #156 passed on PR head `b2526b832281e55c3feaaf854341dbf11af94e97` with 56 tests, typecheck, and production build. Lint is not configured. Supabase project metadata reports `ACTIVE_HEALTHY`, but live migration listing, table inspection, and read-only SQL time out; security/performance advisors report hibernation. Production schema and migration ledger remain unknown.
 
 ## Mind map
 
@@ -110,12 +110,13 @@ PERSONAL OS
 - Maintain regression coverage for task, recurrence, reminder and progress flows.
 
 ### P1 — Organization V1
-- Implementation exists in PR #11: owner-scoped projects, task/project association, subtasks, checklists, ownership validation, cycle prevention, compatibility migrations, tests, and dashboard UI. The dashboard subtask panel reads direct children on demand and supports completion updates through the existing owner-scoped task action.
-- Project-list reads resolve the authenticated server-side user, reject unauthenticated calls before database access, and filter by `user_id`; optional status filtering and newest-first ordering are preserved.
-- Task-list reads now resolve the caller on the same server-side Supabase client used for the query and filter by authenticated `user_id`; optional `project_id` filtering and due-date/creation-time ordering are preserved. Three mocked-client tests cover the query contract.
-- CI #143 passed on code-bearing commit `1106efd1b3a1be9e3b5aac18bd8a6e714476cb9f`: 45/45 tests, typecheck, production build, and install output with 0 vulnerabilities. CI #147 passed on latest documentation checkpoint `b86056d20ca3f9ed470709ad4baebcfa711e9ea6` with the same checks. No lint script/configuration exists.
-- Highest-priority remaining work is live database verification and safe rollout, followed by authenticated CRUD and cross-user isolation tests. The current UI exposes one level of subtasks; recursive hierarchy UX is not claimed.
-- Do not start Analytics until Organization V1's database and authorization acceptance criteria are verified.
+- Active review: PR #11 (`feature/organization-v1`) remains open and unmerged. Latest verified head is `b2526b832281e55c3feaaf854341dbf11af94e97`; PR #12 remains a superseded draft and must not be merged separately.
+- Application implementation includes owner-scoped projects/tasks, task/project association, subtasks, checklists, dashboard failure-state recovery, and task relationship preflight. The latest code checkpoint extracts partial-update resolution so omitted project/parent fields are preserved and explicit `null` clears are handled intentionally.
+- [CI #156](https://github.com/mohith-krishnaa/personal-os/actions/runs/44016733596) passed on the current code head: 56/56 tests, TypeScript check, and production build. No lint script/configuration exists.
+- Production rollout is still blocked: project metadata is `ACTIVE_HEALTHY`, but migration listing, verbose table introspection, and read-only SQL time out; security/performance advisors report hibernation. The live migration ledger/schema remain unknown.
+- No production migration, data/schema write, RLS change, or merge has been performed. Mocked service tests do not prove PostgreSQL RLS or two-user isolation.
+- Next: restore database connectivity; inspect the actual migration ledger and Organization tables; confirm backup/recovery readiness; review/apply migrations safely; run advisors and authenticated CRUD/cross-user isolation; then merge only after current-head CI and all production gates pass.
+- Do not start Analytics until Organization V1's live database and authorization acceptance criteria are verified.
 
 ### P2 — Production hardening
 - Review foreign-key indexes and query performance.

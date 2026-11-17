@@ -158,3 +158,13 @@ Verification: CI #150 passed on code-bearing commit `8f5eac4fd9d314a9fb3125de467
 - CI #153 passed on `9bdaa29e60afddc893a7e6fa5a1e43ee37469a7d`: 54 mocked/unit tests passed, TypeScript check passed, and production build passed; npm install audited 43 packages with 0 vulnerabilities.
 - The tests cover application-level relationship lookup/query construction and fail-closed behavior. They do not establish PostgreSQL RLS, trigger execution, race behavior, or authenticated cross-user isolation.
 - Live Supabase migration/schema inspection remains unavailable; no production migration or schema/data write was made.
+
+
+## Decision — partial task relationship updates (2026-11-17)
+
+- Resolve the effective task project/parent relationship before validating a partial update. If a field is omitted, retain its current database value; if it is explicitly `null`, treat that as an intentional unlink.
+- Keep this resolution in a pure helper used by `updateTask` so its semantics can be regression-tested without importing the Next.js server runtime.
+- Continue to run `assertTaskOrganizationLinks` against the resolved relationship using the authenticated owner. This does not replace the database trigger, which remains authoritative for races and indirect cycles.
+- Two tests cover omitted-field preservation and explicit-null clearing. They verify application semantics only; they do not prove live RLS or trigger behavior.
+- CI #156 passed on code head `b2526b832281e55c3feaaf854341dbf11af94e97`: 56 tests, typecheck, and production build passed.
+- Live Supabase migration/schema inspection remains blocked by connection timeouts and advisor hibernation responses. No production migration or data/schema change was made.

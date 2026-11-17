@@ -1,7 +1,7 @@
 # Personal-OS — Persistent Project State
 
 > Canonical recovery checkpoint. Read this before making project claims or changes.
-> Last code verification: 2026-11-17 (code-bearing commit `9bdaa29e60afddc893a7e6fa5a1e43ee37469a7d`; CI #153 passed: 54 tests, typecheck, production build, npm install audited 43 packages with 0 vulnerabilities. No lint script/configuration exists. Live Supabase migration/table/catalog inspection still times out and advisors report hibernation despite ACTIVE_HEALTHY project metadata.)
+> Last code verification: 2026-11-17 (PR #11 head `b2526b832281e55c3feaaf854341dbf11af94e97`; CI #156 passed: 56 tests, typecheck, and production build. Lint is not configured. Live Supabase migration/table/SQL inspection still times out and security/performance advisors report hibernation despite ACTIVE_HEALTHY project metadata.)
 
 ## Current verified state
 
@@ -12,7 +12,7 @@
 - Progress & Streaks V1 — **merged** (PR #8).
 - Security issue #6 — **closed/completed** after client execution was revoked for `public.rls_auto_enable()` and security verification reported 0 lints.
 - Open GitHub issue backlog — **0** at last verification.
-- Latest completed code CI — successful on commit `8f5eac4fd9d314a9fb3125de46789fe7858beac3` (CI #150, run ID `44002396846`): **48 tests passed, 0 failed**; `npm run typecheck` and `npm run build` passed; install audited 43 packages and reported 0 vulnerabilities. No lint script/configuration exists.
+- Latest completed code CI — successful on PR #11 head `b2526b832281e55c3feaaf854341dbf11af94e97` (CI #156, run ID `44016733596`): **56 tests passed, 0 failed**; `npm run typecheck` and `npm run build` passed. The CI workflow has no lint step and the repository has no lint script/configuration.
 - Active feature branch: `feature/organization-v1`, in open PR #11 targeting `main`; consult the live PR page for the current head and mergeability.
 
 ## Source-of-truth hierarchy
@@ -40,6 +40,18 @@ Before every substantial change:
 9. Never report a change as verified until the authoritative system confirms it.
 
 Branches are not PRs. A Compare & pull request button only means a branch has changes relative to its base.
+
+## Latest checkpoint — partial task relationship update semantics (2026-11-17)
+
+- Live PR #11 remains open, unmerged, non-draft, and mergeable. Latest head: `b2526b832281e55c3feaaf854341dbf11af94e97`.
+- Extracted `resolveTaskOrganizationLinks` and used it in `updateTask` so omitted relationship fields preserve the existing project/parent link, while an explicit `null` clears only the requested link.
+- Added two regression tests covering partial parent changes and explicit-null clearing. Existing owner-scoped preflight and database trigger behavior are unchanged.
+- [CI #156](https://github.com/mohith-krishnaa/personal-os/actions/runs/44016733596) passed on this exact code head: **56 tests passed, 0 failed**; `npm run typecheck` and `npm run build` passed. All configured workflow steps completed successfully.
+- Lint remains unavailable because no lint script/configuration exists. CI uses `npm install`; no lockfile is present, so dependency resolution is not pinned.
+- Supabase project metadata reports `ACTIVE_HEALTHY`, but migration listing, verbose table inspection, and a read-only `select now()` query time out. Security/performance advisors report hibernation. The live migration ledger and schema remain unknown; recent unified-log query returned no Postgres log rows in its default window.
+- No production migration, schema/data write, RLS change, or PR merge was performed.
+
+Next safe action: restore supported database connectivity, inspect the live migration ledger and Organization tables, confirm backup/recovery readiness, then complete authenticated CRUD and two-user isolation before merge. Keep Analytics queued until Organization's production gates pass.
 
 ## Completed milestones
 
