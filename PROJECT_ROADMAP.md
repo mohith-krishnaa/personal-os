@@ -1,11 +1,11 @@
 # Personal OS — Project Roadmap & Mind Map
 
 > Single source of truth for project direction. Verify GitHub/Supabase/CI before making claims.
-> Last reconciled: 2026-11-17. Latest code checkpoint `d872a6e6f530a9ee87e8851a1cf5465197240379` passed CI #176; latest documentation head `74979439c63e9ba27009a786cf2d929c4a15e68e` passed CI #177. Both runs passed PostgreSQL integration, 56 application tests, typecheck, production build, and 0 npm audit vulnerabilities.
+> Last reconciled: 2026-11-17. Code-bearing head `3c23e01e3574b4fc91d15a1929e7c5e37eb16988` passed CI #189; documentation checkpoint `d7c5fc12b40afc1f69b28591bca0db0c77039ce9` passed CI #191. Both passed full 15-migration replay, authenticated two-owner RLS checks, hierarchy concurrency, 58 tests, typecheck, production build, and npm audit with 0 vulnerabilities.
 
 ## Current position
 
-**Completed:** Core productivity, Recurring Tasks V1, Reminders V1, and Progress & Streaks V1.
+**Completed:** Core productivity, Recurring Tasks V1, and Reminders V1. Progress & Streaks V1 application code exists, but live schema compatibility is pending a forward-only repair; do not treat its production data contract as verified yet.
 
 **In progress:** Organization V1 remains in PR #11 and is not production-accepted. The branch's cycle-prevention migration now serializes relationship-changing writes with owner-scoped transaction advisory locks and rejects parent owner/project changes that would invalidate existing children; CI #176 passed the PostgreSQL 17 two-session cycle and parent/child mutation checks. Live Supabase remains ACTIVE_HEALTHY in ap-southeast-1 on PostgreSQL 17.11.0.003 with 8 applied core migrations; 6 Organization migrations remain unapplied. Live `projects` has `title` but no `name`, both checklist tables are absent, and the Organization task trigger is absent. All 9 public application tables have RLS enabled and zero rows; `auth.users` and `storage.objects` also have zero rows. The Free Plan has no scheduled backups and no manual logical backup/restore test exists. PR #11 head `d872a6e6f530a9ee87e8851a1cf5465197240379` passed CI #176: PostgreSQL integration, 56 tests, typecheck, production build, and 0 npm audit vulnerabilities. Lint is not configured. Analytics remains queued until backup/restore, full migration-chain, production database authorization, and authenticated isolation gates pass.
 
@@ -27,7 +27,7 @@ PERSONAL OS
 │   ├── Reminders [DONE — PR #7]
 │   └── Conflict-aware scheduling [LATER]
 │
-├── GOALS & PROGRESS [DONE — PR #8]
+├── GOALS & PROGRESS [IMPLEMENTED — LIVE SCHEMA REPAIR PENDING]
 │   ├── Generic measurable goals
 │   ├── Custom units
 │   ├── Progress history
@@ -72,7 +72,7 @@ PERSONAL OS
 
 1. Recurring Tasks V1 — DONE
 2. Reminders V1 — DONE
-3. Progress & Streaks V1 — DONE
+3. Progress & Streaks V1 — implementation exists; live `goals.unit`/`target` repair pending
 4. **Organization V1 — IN PROGRESS (PR #11; live schema inspected, backup and rollout gates pending)**
 5. Analytics V1
 6. AI Assistant V1
@@ -108,11 +108,13 @@ PERSONAL OS
 - Keep `main` green.
 - Verify authentication and owner isolation.
 - Maintain regression coverage for task, recurrence, reminder and progress flows.
+- Live Supabase `public.goals` lacks `unit` and `target`, while the dashboard progress service selects both on every load. A forward-only migration and null-safe legacy rendering are now branch-tested; production compatibility remains pending backup and migration approval.
 
 ### P1 — Organization V1
 - Active review: PR #11 on `feature/organization-v1` remains open and unmerged at `482e1921ada6bc723a65c167b3cbea72b916bcf4`; CI #173 passed. PR #12 remains a superseded draft and must not be merged separately.
 - Application implementation includes owner-scoped projects/tasks, task/project association, subtasks, checklists, dashboard failure-state recovery, and task relationship preflight. Partial relationship updates preserve omitted links and honor explicit null unlinks.
 - [CI #176](https://github.com/mohith-krishnaa/personal-os/actions/runs/44038758029) passed on `d872a6e6f530a9ee87e8851a1cf5465197240379`: PostgreSQL 17 hierarchy integration test, 56/56 application tests, TypeScript check, production build, and 0 npm audit vulnerabilities. No lint script/configuration exists.
+- [CI #189](https://github.com/mohith-krishnaa/personal-os/actions/runs/44047023836) passed on code head `3c23e01e3574b4fc91d15a1929e7c5e37eb16988`; [CI #191](https://github.com/mohith-krishnaa/personal-os/actions/runs/44047078890) passed on documentation head `d7c5fc12b40afc1f69b28591bca0db0c77039ce9`. Both replayed all 15 local SQL migrations in disposable PostgreSQL 17, checked legacy checklist reconciliation, project title/name dual-write, authenticated two-owner RLS isolation, hierarchy concurrency, 58/58 tests, typecheck, production build, and 0 npm audit vulnerabilities.
 - Live Supabase read-only inspection now succeeds. The exact eight applied core migration statements have been restored into version-matched repository files; the duplicate non-ledger reminder migration was removed. Six Organization migrations remain local-only.
 - Live schema gap: projects has title but no name; checklist_items and task_checklist_items are absent; tasks has project/parent foreign keys but no Organization validation trigger. The branch migration now defines the owner-locking trigger function and rejects parent changes that would invalidate existing children, but it remains unapplied. All nine public application tables have RLS enabled and zero rows; auth.users and storage.objects also have zero rows.
 - Security and health advisors report no lints. Performance findings: 4 unindexed foreign keys, 14 auth_rls_initplan warnings, 13 unused-index findings, and 4 overlapping permissive-policy findings on goals.
@@ -335,3 +337,18 @@ Next safe action: create and restore-test the private logical backup on an owner
 Next safe action: create and restore-test the private logical backup on an owner-controlled machine, then run the full six-migration sequence and authenticated two-user direct-API isolation against a disposable database matching the live legacy schema. Only then consider production rollout or PR #11 merge.
 
 Documentation verification: [CI #177](https://github.com/mohith-krishnaa/personal-os/actions/runs/44039076954) passed on latest PR head `74979439c63e9ba27009a786cf2d929c4a15e68e`; this docs-only checkpoint preserves the code-bearing verification from CI #176.
+
+- CI now replays the complete 15-file local migration chain on a disposable legacy-schema fixture and verifies two-owner RLS behavior. This does not restore production or test live PostgREST. Next: create and restore-test a private schema/data/role backup, replay migrations against that restored snapshot, verify authenticated direct-API isolation against the restored database, then re-run advisors before any production rollout or merge.
+
+
+## Latest engineering checkpoint — full migration replay and progress schema repair (2026-11-17)
+
+- Re-inspected the live Supabase project: `ACTIVE_HEALTHY`, ap-southeast-1, PostgreSQL 17.11.0.003; the authoritative migration ledger still has 8 applied migrations. The live public schema has 9 application tables, all with RLS enabled and zero rows. The six Organization migrations and the new Progress compatibility migration remain unapplied.
+- Added a PostgreSQL 17 CI replay harness for all 15 local SQL migrations. It bootstraps Supabase roles/auth helpers, seeds legacy project/checklist records before the relevant migrations, verifies owner-safe checklist reconciliation, validates project title/name dual-write, and exercises authenticated Owner A/Owner B read/write isolation.
+- The hierarchy concurrency test remains separate and continues to verify the two-session READ COMMITTED cycle race and parent/child invariant checks.
+- Live schema inspection found a second concrete mismatch: `public.goals` has no `unit` or `target`, but `getGoalsWithProgress` selects both. The original Progress V1 `CREATE TABLE IF NOT EXISTS` skipped those columns because the core migration had already created `goals`. Added forward-only migration `20261117000100_reconcile_progress_goal_metrics.sql`; it adds nullable metrics without inventing values for legacy goals. The dashboard now renders such goals safely and omits progress logging until metrics are present.
+- Added regression coverage for null-target legacy goal summaries. CI #189 and #191 passed: 15-migration replay, authenticated two-owner RLS checks, hierarchy concurrency, 58/58 tests, typecheck, production build, and 0 npm audit vulnerabilities. Lint remains unconfigured.
+- Security advisor returned no lints. Performance advisor still reports 4 unindexed foreign keys, 14 auth RLS initialization-plan warnings, 13 unused-index findings, and 4 overlapping permissive policies on `goals`.
+- The Free Plan has no scheduled backups. No manual logical backup or restore test exists. No production DDL, migration, RLS change, data write, restore, or PR merge was performed.
+
+Next safe action: create and restore-test a private logical backup, run the migration chain against the restored production snapshot, and test authenticated direct-API isolation there. Keep production read-only until those gates and explicit rollout approval are satisfied. Analytics remains queued behind Organization.
