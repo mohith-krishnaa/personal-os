@@ -221,3 +221,13 @@ Before rollout, test concurrent parent updates/inserts against disposable Postgr
 - Keep Organization V1 as the active milestone and keep PR #11 unmerged until backup/restore, disposable migration testing, trigger concurrency testing, and authenticated two-user direct-API isolation pass.
 - Treat the current missing task relationship trigger and checklist tables as production authorization/data-integrity gaps, not merely pending UI work.
 - Keep Analytics V1 queued until these Organization acceptance gates pass.
+
+
+## Decision — serialize task hierarchy writes per owner (2026-11-17)
+
+- The cycle-prevention trigger must serialize writes that can change `user_id`, `project_id`, or `parent_task_id`; otherwise two transactions can validate against incomplete ancestor chains and jointly form a cycle.
+- The unapplied `20261015000300_prevent_task_hierarchy_cycles.sql` migration now acquires a transaction-scoped advisory lock in a dedicated key namespace using the owner UUID hash before any relationship validation. A transaction holds the lock until commit/rollback.
+- Owner transfers acquire both old/new owner lock keys in deterministic integer-key order. Hash collisions can reduce concurrency by serializing unrelated owners, but cannot weaken validation.
+- CI #173 runs the actual migration function against a disposable PostgreSQL 17 fixture and orchestrates two concurrent READ COMMITTED writers. It verifies that the second writer waits for the first transaction and then rejects the inverse edge as a cycle. The same fixture covers direct self-parenting, foreign parents/projects, cross-project links, and a sequential indirect cycle.
+- CI #173 passed on `482e1921ada6bc723a65c167b3cbea72b916bcf4`: PostgreSQL integration passed, 56 application tests passed, typecheck and production build passed, and npm audit reported 0 vulnerabilities.
+- This is not a test of the complete six-migration sequence, the live Supabase trigger, RLS, or two-user PostgREST isolation. The migration remains unapplied in production; backup/restore and full rollout gates still apply.

@@ -18,3 +18,8 @@ The six Organization V1 migrations that follow these versions are local-only and
 The duplicate 20260830181600_reminder_notifications.sql file was not present in the live ledger and was removed. Its additional policy/index definitions must not be reintroduced without a reviewed migration.
 
 Use the Supabase CLI migration list --remote command to verify local/remote version alignment after linking the project. Do not run migration repair, migration up, or a remote reset to make the histories appear aligned.
+
+
+## Organization hierarchy concurrency guard
+
+The local-only `20261015000300_prevent_task_hierarchy_cycles.sql` migration now uses owner-scoped transaction advisory locks to serialize task relationship writes and prevent concurrent transactions from creating an indirect cycle. The lock is transaction-scoped and owner transfers acquire both lock keys in deterministic order. CI #173 validates this function against a disposable PostgreSQL 17 fixture, including a two-session READ COMMITTED race. This migration is still unapplied in the live project; the test does not replace full migration-chain, backup/restore, RLS, or authenticated two-user isolation checks.

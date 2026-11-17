@@ -8,7 +8,7 @@ Date: 2026-11-17
 - Stable branch: `main` at `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`.
 - Organization branch: `feature/organization-v1`.
 - PR #11: open, unmerged, non-draft, mergeable, targeting `main`; the live PR page is authoritative for the current head: https://github.com/mohith-krishnaa/personal-os/pull/11
-- Latest verified documentation checkpoint: `0fe10995fbd3d5cb2e74c5a07d2257bc8ff623cc`; [CI #170](https://github.com/mohith-krishnaa/personal-os/actions/runs/44031496258) passed on this exact commit with **56 tests passed, 0 failed**, typecheck and production build passed, and npm install reported 0 vulnerabilities. The preceding code-bearing checkpoint `b8879c55a9439ea7586ea7400a73534ebd547ea8` passed CI #167. Consult the live PR page for the exact current head. No lint script/configuration exists.
+- Latest verified PR #11 checkpoint: `482e1921ada6bc723a65c167b3cbea72b916bcf4`; [CI #173](https://github.com/mohith-krishnaa/personal-os/actions/runs/44038158510) passed: PostgreSQL 17 hierarchy integration, **56 tests passed / 0 failed**, typecheck, production build, and npm install audited 43 packages with 0 vulnerabilities. No lint script/configuration exists.
 - PR #12 is an open draft explicitly superseded by PR #11; do not merge it separately.
 
 ## Work completed in this checkpoint
@@ -279,3 +279,18 @@ Next safe action: restore supported database connectivity, inspect the actual mi
 - No production schema/data changes, migrations, RLS changes, or PR merge occurred.
 
 Next safe action remains a private logical backup and isolated restore test, followed by disposable migration/concurrency tests and authenticated two-user direct-API isolation. Do not start Analytics or merge PR #11 before these gates pass.
+
+
+## Latest engineering checkpoint — concurrent task hierarchy protection (2026-11-17 12:47 IST)
+
+- Updated the unapplied `20261015000300_prevent_task_hierarchy_cycles.sql` migration to acquire an owner-scoped transaction advisory lock before validating project/parent links and walking ancestors. Relationship-changing writes for one owner serialize until commit. Owner transfers acquire old/new owner lock keys in deterministic order; hash collisions can only add serialization, not bypass validation.
+- Added a disposable PostgreSQL fixture covering valid same-owner/same-project links, direct self-parent rejection, foreign-parent rejection, cross-project rejection, foreign-project rejection, and a sequential indirect cycle.
+- Added a two-session READ COMMITTED test. Writer A creates one edge and holds its transaction open; writer B attempts the inverse edge, is observed waiting on the advisory lock, then must fail with the cycle-constraint error after writer A commits.
+- CI now provisions PostgreSQL 17 and runs this database integration test before the existing application tests, typecheck, and production build.
+- [CI #173](https://github.com/mohith-krishnaa/personal-os/actions/runs/44038158510) passed on `482e1921ada6bc723a65c167b3cbea72b916bcf4`: PostgreSQL integration check passed (including concurrent cycle rejection); 56/56 application tests passed; `npm run typecheck` passed; `npm run build` passed; npm install audited 43 packages and reported 0 vulnerabilities.
+- The CI service resolved PostgreSQL 17.12. This is a disposable integration fixture, not a restore test and not a test against the live Supabase database's exact 17.11.0.003 patch level. The fixture validates the trigger function and trigger event contract; it does not apply the full six-migration chain or prove live RLS/two-user PostgREST isolation.
+- Live Supabase remains unchanged: ACTIVE_HEALTHY in ap-southeast-1 on 17.11.0.003; the ledger still has 8 applied core migrations; both checklist tables and the Organization trigger remain absent from production. No production DDL, migration, data/RLS change, restore, or PR merge was performed.
+- Free Plan scheduled backups remain unavailable and no manual schema/data/role export or restore test exists. PR #11 remains open and unmerged. Analytics remains queued.
+- Lint remains unavailable because the repository has no lint script or configuration.
+
+Next safe action: create and restore-test the private logical backup on an owner-controlled machine, then run the full six-migration sequence and authenticated two-user direct-API isolation against a disposable database matching the live legacy schema. Only then consider production rollout or PR #11 merge.

@@ -1,7 +1,7 @@
 # Personal-OS — Persistent Project State
 
 > Canonical recovery checkpoint. Read this before making project claims or changes.
-> Last reconciled: 2026-11-17 11:49 IST. Live Supabase read-only inspection succeeds. Latest verified PR #11 documentation checkpoint `0fe10995fbd3d5cb2e74c5a07d2257bc8ff623cc` passed CI #170 (56 tests, typecheck, production build, 0 npm audit vulnerabilities); the preceding code-bearing checkpoint `b8879c55a9439ea7586ea7400a73534ebd547ea8` passed CI #167. Consult the live PR page for any later docs-only head. Organization production acceptance remains blocked by backup/restore, unapplied migrations, and live database authorization gaps.
+> Last reconciled: 2026-11-17 12:47 IST. PR #11 head `482e1921ada6bc723a65c167b3cbea72b916bcf4` passed CI #173: PostgreSQL 17 hierarchy concurrency integration, 56 tests, typecheck, production build, and 0 npm audit vulnerabilities. Organization production acceptance remains blocked by backup/restore, the six unapplied migrations, and live database authorization/isolation gaps.
 
 ## Current verified state
 
@@ -51,7 +51,7 @@ Branches are not PRs. A Compare & pull request button only means a branch has ch
 - Supabase project metadata reports `ACTIVE_HEALTHY`, but migration listing, verbose table inspection, and a read-only `select now()` query time out. Security/performance advisors report hibernation. The live migration ledger and schema remain unknown; recent unified-log query returned no Postgres log rows in its default window.
 - No production migration, schema/data write, RLS change, or PR merge was performed.
 
-Next safe action: restore supported database connectivity, inspect the live migration ledger and Organization tables, confirm backup/recovery readiness, then complete authenticated CRUD and two-user isolation before merge. Keep Analytics queued until Organization's production gates pass.
+Next safe action: create and restore-test a private schema/data/role backup, then test the complete six-migration sequence and authenticated two-user direct-API isolation against a disposable database matching the live schema. Keep Analytics queued until Organization's production gates pass.
 
 ## Latest checkpoint — CI action runtime upgrade (2026-11-17)
 
@@ -421,3 +421,18 @@ Next safe action: create and restore-test a private logical backup using the Sup
 - No production migration, DDL, RLS change, data write, infrastructure operation, or PR merge was performed.
 
 **Next safe action:** on an owner-controlled machine, create private schema/data/role exports with the Supabase CLI and Docker, verify the exports, and restore-test them in isolation. Then test all six Organization migrations against a disposable database matching the live legacy schema, including concurrent task-cycle writes and two-user direct-API relationship isolation. Only after those gates should production rollout or PR #11 merge be considered. Analytics remains queued.
+
+
+## Latest engineering checkpoint — concurrent task hierarchy protection (2026-11-17 12:47 IST)
+
+- Updated the unapplied `20261015000300_prevent_task_hierarchy_cycles.sql` migration to acquire an owner-scoped transaction advisory lock before validating project/parent links and walking ancestors. Relationship-changing writes for one owner serialize until commit. Owner transfers acquire old/new owner lock keys in deterministic order; hash collisions can only add serialization, not bypass validation.
+- Added a disposable PostgreSQL fixture covering valid same-owner/same-project links, direct self-parent rejection, foreign-parent rejection, cross-project rejection, foreign-project rejection, and a sequential indirect cycle.
+- Added a two-session READ COMMITTED test. Writer A creates one edge and holds its transaction open; writer B attempts the inverse edge, is observed waiting on the advisory lock, then must fail with the cycle-constraint error after writer A commits.
+- CI now provisions PostgreSQL 17 and runs this database integration test before the existing application tests, typecheck, and production build.
+- [CI #173](https://github.com/mohith-krishnaa/personal-os/actions/runs/44038158510) passed on `482e1921ada6bc723a65c167b3cbea72b916bcf4`: PostgreSQL integration check passed (including concurrent cycle rejection); 56/56 application tests passed; `npm run typecheck` passed; `npm run build` passed; npm install audited 43 packages and reported 0 vulnerabilities.
+- The CI service resolved PostgreSQL 17.12. This is a disposable integration fixture, not a restore test and not a test against the live Supabase database's exact 17.11.0.003 patch level. The fixture validates the trigger function and trigger event contract; it does not apply the full six-migration chain or prove live RLS/two-user PostgREST isolation.
+- Live Supabase remains unchanged: ACTIVE_HEALTHY in ap-southeast-1 on 17.11.0.003; the ledger still has 8 applied core migrations; both checklist tables and the Organization trigger remain absent from production. No production DDL, migration, data/RLS change, restore, or PR merge was performed.
+- Free Plan scheduled backups remain unavailable and no manual schema/data/role export or restore test exists. PR #11 remains open and unmerged. Analytics remains queued.
+- Lint remains unavailable because the repository has no lint script or configuration.
+
+Next safe action: create and restore-test the private logical backup on an owner-controlled machine, then run the full six-migration sequence and authenticated two-user direct-API isolation against a disposable database matching the live legacy schema. Only then consider production rollout or PR #11 merge.
