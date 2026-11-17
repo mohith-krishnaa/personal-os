@@ -168,3 +168,17 @@ Next safe actions: verify CI on the updated PR head; restore supported Supabase 
 - Fresh Supabase inspection: project metadata remains `ACTIVE_HEALTHY`, while migration listing, verbose public-table introspection, and a read-only information_schema query time out. Security, performance, and health advisor calls report the project as hibernated. The live migration ledger and schema remain unknown.
 - PR #11 remains open and unmerged; PR #12 remains an open draft explicitly superseded by PR #11. The live PR page is authoritative for the current documentation head.
 - Next safe action: restore supported database connectivity, inspect the actual migration ledger and Organization tables, confirm backup/recovery readiness, then run authenticated CRUD and cross-user isolation against the live database before migration rollout or merge.
+
+
+## 2026-11-17 — Task relationship ownership preflight
+
+- Starting PR #11 head: `49d7faae9bd6b8f448e7ccf438862b04a4aeb4c1`; PR #11 was open, unmerged, non-draft, and mergeable. PR #12 was an open draft marked superseded.
+- Inspected the current task services and Organization migration. The database trigger already validates owner/project consistency and rejects direct self-parenting; the application write paths did not preflight those relationships.
+- Added `src/lib/task-relationships.ts`. Task creation now verifies any selected project and parent against the authenticated owner; task updates that change either link first load the current relationship using task ID + owner, resolve omitted relationship fields, then validate the resulting relationship.
+- Parent must be owned by the caller and use the same project as the task. A selected project must also be owned by the caller. Direct self-parenting is rejected before querying.
+- Six mocked-client tests cover valid links, foreign parent, mismatched project, foreign project, direct self-parent, and missing owner.
+- The database trigger remains necessary for races and indirect cycles; mocked tests do not prove live RLS/trigger behavior.
+- No database migration, schema/RLS change, production write, or merge was performed.
+- New code CI is pending. No lint script/configuration exists.
+- Supabase project `gujzvkyytxsnervovvrt` reports `ACTIVE_HEALTHY`, but migration listing, verbose public-table introspection, and a read-only SQL query time out; security/performance/health advisors report hibernation. The live migration ledger/schema remain unknown.
+- Next safe actions: verify CI on the new PR head; restore supported Supabase connectivity; inspect the live migration ledger and Organization tables; confirm recovery readiness; then run authenticated CRUD and two-user isolation before rollout/merge.

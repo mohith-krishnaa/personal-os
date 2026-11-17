@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { listTasksForUser } from './task-queries'
+import { assertTaskOrganizationLinks } from './task-relationships'
 
 test('listTasksForUser scopes reads to the owner and optional project while preserving task ordering', async () => {
   const filters: Array<[string, string]> = []
@@ -79,4 +80,115 @@ test('listTasksForUser rejects a missing owner before database access', async ()
 
   await assert.rejects(() => listTasksForUser(supabase, ''), /Unauthorized/)
   assert.equal(fromCalls, 0)
+})
+
+
+function createRelationshipSupabase(
+  responses: Array<{ table: string; data: unknown; error: unknown | null }>,
+) {
+  const calls: Array<{ table: string; columns?: string; filters: Array<[string, string]> }> = []
+  const pending = [...responses]
+  const supabase = {
+    from(table: string) {
+      const call = { table, filters: [] as Array<[string, string]>, columns: undefined as string | undefined }
+      calls.push(call)
+      const response = pending.shift()
+      assert.ok(response, `unexpected query for ${table}`)
+      assert.equal(response.table, table)
+      const query = {
+        select(columns: string) {
+          call.columns = columns
+          return this
+        },
+        eq(column: string, value: string) {
+          call.filters.push([column, value])
+          return this
+        },
+        maybeSingle() {
+          return Promise.resolve({ data: response.data, error: response.error })
+        },
+      }
+      return query
+    },
+  } as any
+  return { supabase, calls }
+}
+
+test('task link preflight verifies parent and project ownership for the same owner', async () => {
+  const { supabase, calls } = createRelationshipSupabase([
+    { table: 'tasks', data: { id: 'parent-1', user_id: 'owner-1', project_id: 'project-1' }, error: null },
+    { table: 'projects', data: { id: 'project-1' }, error: null },
+  ])
+
+  await assertTaskOrganizationLinks(supabase, 'owner-1', {
+    projectId: 'project-1',
+    parentTaskId: 'parent-1',
+  })
+
+  assert.deepEqual(calls, [
+    { table: 'tasks', columns: 'id,user_id,project_id', filters: [['id', 'parent-1'], ['user_id', 'owner-1']] },
+    { table: 'projects', columns: 'id', filters: [['id', 'project-1'], ['user_id', 'owner-1']] },
+  ])
+})
+
+test('task link preflight rejects a parent not owned by the caller', async () => {
+  const { supabase, calls } = createRelationshipSupabase([
+    { table: 'tasks', data: null, error: null },
+  ])
+
+  await assert.rejects(
+    () => assertTaskOrganizationLinks(supabase, 'owner-1', { parentTaskId: 'foreign-parent' }),
+    /Parent task not found/,
+  )
+  assert.equal(calls.length, 1)
+})
+
+test('task link preflight rejects a parent in a different project', async () => {
+  const { supabase, calls } = createRelationshipSupabase([
+    { table: 'tasks', data: { id: 'parent-1', user_id: 'owner-1', project_id: 'project-1' }, error: null },
+  ])
+
+  await assert.rejects(
+    () => assertTaskOrganizationLinks(supabase, 'owner-1', {
+      projectId: 'project-2',
+      parentTaskId: 'parent-1',
+    }),
+    /same project as its parent/,
+  )
+  assert.equal(calls.length, 1)
+})
+
+test('task link preflight rejects a project not owned by the caller', async () => {
+  const { supabase, calls } = createRelationshipSupabase([
+    { table: 'projects', data: null, error: null },
+  ])
+
+  await assert.rejects(
+    () => assertTaskOrganizationLinks(supabase, 'owner-1', { projectId: 'foreign-project' }),
+    /Project not found/,
+  )
+  assert.deepEqual(calls[0].filters, [['id', 'foreign-project'], ['user_id', 'owner-1']])
+})
+
+test('task link preflight rejects direct self-parenting before database access', async () => {
+  const { supabase, calls } = createRelationshipSupabase([])
+
+  await assert.rejects(
+    () => assertTaskOrganizationLinks(supabase, 'owner-1', {
+      parentTaskId: 'task-1',
+      taskId: 'task-1',
+    }),
+    /cannot be its own parent/,
+  )
+  assert.equal(calls.length, 0)
+})
+
+test('task link preflight rejects a missing owner before database access', async () => {
+  const { supabase, calls } = createRelationshipSupabase([])
+
+  await assert.rejects(
+    () => assertTaskOrganizationLinks(supabase, '', { projectId: 'project-1' }),
+    /Unauthorized/,
+  )
+  assert.equal(calls.length, 0)
 })

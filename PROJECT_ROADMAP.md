@@ -276,3 +276,13 @@ Organization remains the active milestone. Analytics must not start until live s
 - Fresh Supabase inspection: project metadata remains `ACTIVE_HEALTHY`, while migration listing, verbose public-table introspection, and a read-only information_schema query time out. Security, performance, and health advisor calls report the project as hibernated. The live migration ledger and schema remain unknown.
 - PR #11 remains open and unmerged; PR #12 remains an open draft explicitly superseded by PR #11. The live PR page is authoritative for the current documentation head.
 - Next safe action: restore supported database connectivity, inspect the actual migration ledger and Organization tables, confirm backup/recovery readiness, then run authenticated CRUD and cross-user isolation against the live database before migration rollout or merge.
+
+
+## Engineering checkpoint — task relationship ownership preflight (2026-11-17)
+
+- Organization V1 remains the active milestone.
+- Task creation and relationship-changing updates now preflight project and parent ownership through the authenticated server-side Supabase client. Parent and task must belong to the same user and project; direct self-parenting is rejected before the write.
+- The PostgreSQL validation trigger remains the authoritative protection against races and indirect cycles. The new checks are defense in depth, not a replacement for RLS/constraints.
+- Six mocked-client tests were added. They do not verify live PostgreSQL RLS or cross-user isolation. CI for the new PR head is pending.
+- The live Supabase migration ledger/schema remains unknown: project metadata is ACTIVE_HEALTHY, but migration listing, verbose table introspection and read-only SQL time out; advisors report hibernation.
+- Next: verify current-head CI; restore database access; inspect actual migrations/schema; confirm backup/recovery; then complete authenticated CRUD and two-user isolation. Analytics remains blocked behind Organization V1.

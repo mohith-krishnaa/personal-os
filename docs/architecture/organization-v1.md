@@ -140,3 +140,14 @@ Task listing must enforce the same explicit application-level owner boundary as 
 The query is isolated in `src/lib/task-queries.ts` so owner filtering and ordering can be regression-tested without importing the Next.js server runtime. Tests use mocked Supabase clients and establish query construction only. PostgreSQL RLS and cross-user isolation still require live authenticated database tests.
 
 Verification: CI #150 passed on code-bearing commit `8f5eac4fd9d314a9fb3125de46789fe7858beac3` with 48 tests, typecheck, and production build. No database schema or policy was changed.
+
+
+## Decision — task relationship ownership preflight (2026-11-17)
+
+- Task create and update services preflight any non-null project/parent relationship using the authenticated server-side Supabase client.
+- A parent task must be visible to the authenticated owner, and the parent and child must use the same project (including both being unassigned).
+- A project link must resolve to a project owned by the authenticated user.
+- When an update changes either relationship field, the service first reads the current task's project/parent fields constrained by task ID and owner, then validates the effective resulting pair. This prevents omitted update fields from being treated as null.
+- Direct self-parenting is rejected in the application layer. The existing database trigger remains authoritative for concurrent writes and indirect cycles; do not remove or weaken it.
+- Six mocked-client tests assert the lookup filters and fail-closed behavior. They do not establish live RLS, trigger execution, or cross-user isolation.
+- No schema, migration, RLS, or production data change is part of this decision.
