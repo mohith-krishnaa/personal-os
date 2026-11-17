@@ -377,3 +377,12 @@ Next safe action: create private schema/data/role exports, restore-test them in 
 - [CI #216](https://github.com/mohith-krishnaa/personal-os/actions/runs/44072614729) passed the complete 16-migration replay, authenticated RLS checks, anonymous denial, hierarchy concurrency, application tests, TypeScript check, and production build.
 - Live Supabase remains ACTIVE_HEALTHY with 8 applied migrations and 9 RLS-enabled public application tables. The Organization migrations remain unapplied. No production database change or PR merge occurred.
 - Next safe action remains a private schema/data/role backup plus successful isolated restore, followed by migration replay and live PostgREST tests using anonymous and two distinct authenticated identities.
+
+
+## Latest checkpoint — complete anonymous Organization CRUD denial matrix (2026-11-17)
+
+- Code-bearing commit [fba0eee](https://github.com/mohith-krishnaa/personal-os/commit/fba0eeeda2b824afd8525d9f941050dca08e6a6a) extends the anonymous RLS fixture from representative write checks to the complete CRUD matrix.
+- The test explicitly grants `anon` table-level SELECT, INSERT, UPDATE, and DELETE on `projects`, `tasks`, `checklist_items`, and `task_checklist_items`. Under an empty JWT subject it verifies zero visible rows, denied inserts, zero-row updates, and zero-row deletes on every table.
+- [GitHub Actions run 44082207231](https://github.com/mohith-krishnaa/personal-os/actions/runs/44082207231) completed successfully: full 16-migration PostgreSQL 17 replay, task-hierarchy concurrency test, 58/58 application tests, TypeScript typecheck, production build, and npm audit with 0 vulnerabilities. No lint script/configuration exists.
+- This is disposable PostgreSQL verification only. Live Supabase remains unchanged: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, 8 applied migrations, 8 local-only migrations, and 9 RLS-enabled public application tables with zero rows. The seven Organization migrations and one Progress compatibility migration remain unapplied.
+- No production DDL, migration, RLS change, data write, restore, or PR merge was performed. Private backup/restore and live authenticated PostgREST verification remain the rollout blockers.
