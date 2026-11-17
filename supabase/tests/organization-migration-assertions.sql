@@ -97,7 +97,15 @@ BEGIN
   WHERE id = '30000000-0000-4000-8000-000000000001';
 
   IF copied_count <> 1 THEN
-    RAISE EXCEPTION 'A valid legacy checklist item was not reconciled.';
+    RAISE EXCEPTION 'A valid Owner A legacy checklist item was not reconciled.';
+  END IF;
+
+  SELECT count(*) INTO copied_count
+  FROM public.checklist_items
+  WHERE id = '30000000-0000-4000-8000-000000000003';
+
+  IF copied_count <> 1 THEN
+    RAISE EXCEPTION 'A valid Owner B legacy checklist item was not reconciled.';
   END IF;
 
   IF EXISTS (
@@ -122,6 +130,7 @@ DECLARE
   visible_projects integer;
   visible_tasks integer;
   visible_checklists integer;
+  visible_legacy_checklists integer;
   affected_rows integer;
   project_name text;
   project_title text;
@@ -133,10 +142,16 @@ BEGIN
   SELECT count(*) INTO visible_projects FROM public.projects;
   SELECT count(*) INTO visible_tasks FROM public.tasks;
   SELECT count(*) INTO visible_checklists FROM public.checklist_items;
+  SELECT count(*) INTO visible_legacy_checklists FROM public.task_checklist_items;
 
   IF visible_projects <> 1 OR visible_tasks <> 1 OR visible_checklists <> 1 THEN
     RAISE EXCEPTION 'Owner A visibility is incorrect: projects %, tasks %, checklists %.',
       visible_projects, visible_tasks, visible_checklists;
+  END IF;
+
+  IF visible_legacy_checklists <> 2 THEN
+    RAISE EXCEPTION 'Owner A must see only its two legacy checklist rows; found %.',
+      visible_legacy_checklists;
   END IF;
 
   IF EXISTS (
@@ -145,6 +160,12 @@ BEGIN
   ) OR EXISTS (
     SELECT 1 FROM public.tasks
     WHERE id = '20000000-0000-4000-8000-000000000001'
+  ) OR EXISTS (
+    SELECT 1 FROM public.checklist_items
+    WHERE id = '30000000-0000-4000-8000-000000000003'
+  ) OR EXISTS (
+    SELECT 1 FROM public.task_checklist_items
+    WHERE id = '30000000-0000-4000-8000-000000000003'
   ) THEN
     RAISE EXCEPTION 'Owner A can read Owner B organization records.';
   END IF;
@@ -260,6 +281,58 @@ BEGIN
   IF affected_rows <> 0 THEN
     RAISE EXCEPTION 'Owner A updated Owner B project.';
   END IF;
+
+  DELETE FROM public.projects
+  WHERE id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 0 THEN
+    RAISE EXCEPTION 'Owner A deleted Owner B project.';
+  END IF;
+
+  UPDATE public.tasks
+  SET title = 'Unauthorized task update'
+  WHERE id = '20000000-0000-4000-8000-000000000001';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 0 THEN
+    RAISE EXCEPTION 'Owner A updated Owner B task.';
+  END IF;
+
+  DELETE FROM public.tasks
+  WHERE id = '20000000-0000-4000-8000-000000000001';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 0 THEN
+    RAISE EXCEPTION 'Owner A deleted Owner B task.';
+  END IF;
+
+  UPDATE public.checklist_items
+  SET title = 'Unauthorized canonical checklist update'
+  WHERE id = '30000000-0000-4000-8000-000000000003';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 0 THEN
+    RAISE EXCEPTION 'Owner A updated Owner B canonical checklist item.';
+  END IF;
+
+  DELETE FROM public.checklist_items
+  WHERE id = '30000000-0000-4000-8000-000000000003';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 0 THEN
+    RAISE EXCEPTION 'Owner A deleted Owner B canonical checklist item.';
+  END IF;
+
+  UPDATE public.task_checklist_items
+  SET title = 'Unauthorized legacy checklist update'
+  WHERE id = '30000000-0000-4000-8000-000000000003';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 0 THEN
+    RAISE EXCEPTION 'Owner A updated Owner B legacy checklist item.';
+  END IF;
+
+  DELETE FROM public.task_checklist_items
+  WHERE id = '30000000-0000-4000-8000-000000000003';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 0 THEN
+    RAISE EXCEPTION 'Owner A deleted Owner B legacy checklist item.';
+  END IF;
 END
 $owner_a$;
 
@@ -270,6 +343,7 @@ DECLARE
   visible_projects integer;
   visible_tasks integer;
   visible_checklists integer;
+  visible_legacy_checklists integer;
 BEGIN
   IF auth.uid() <> '22222222-2222-4222-8222-222222222222'::uuid THEN
     RAISE EXCEPTION 'The second test JWT subject was not resolved.';
@@ -278,10 +352,16 @@ BEGIN
   SELECT count(*) INTO visible_projects FROM public.projects;
   SELECT count(*) INTO visible_tasks FROM public.tasks;
   SELECT count(*) INTO visible_checklists FROM public.checklist_items;
+  SELECT count(*) INTO visible_legacy_checklists FROM public.task_checklist_items;
 
-  IF visible_projects <> 1 OR visible_tasks <> 1 OR visible_checklists <> 0 THEN
+  IF visible_projects <> 1 OR visible_tasks <> 1 OR visible_checklists <> 1 THEN
     RAISE EXCEPTION 'Owner B visibility is incorrect: projects %, tasks %, checklists %.',
       visible_projects, visible_tasks, visible_checklists;
+  END IF;
+
+  IF visible_legacy_checklists <> 1 THEN
+    RAISE EXCEPTION 'Owner B must see only its one legacy checklist row; found %.',
+      visible_legacy_checklists;
   END IF;
 
   IF EXISTS (
@@ -290,6 +370,12 @@ BEGIN
   ) OR EXISTS (
     SELECT 1 FROM public.tasks
     WHERE id = '10000000-0000-4000-8000-000000000001'
+  ) OR EXISTS (
+    SELECT 1 FROM public.checklist_items
+    WHERE id = '30000000-0000-4000-8000-000000000001'
+  ) OR EXISTS (
+    SELECT 1 FROM public.task_checklist_items
+    WHERE id = '30000000-0000-4000-8000-000000000001'
   ) THEN
     RAISE EXCEPTION 'Owner B can read Owner A organization records.';
   END IF;
