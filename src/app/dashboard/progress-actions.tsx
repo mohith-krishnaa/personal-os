@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { createGoalAction, logProgressAction } from './actions-progress'
 
-type Goal = { id: string; title: string; unit: string }
+type Goal = { id: string; title: string; unit: string | null; target: number | null }
 
 export function GoalForm() {
   const [open, setOpen] = useState(false)
@@ -12,5 +12,6 @@ export function GoalForm() {
 
 export function ProgressForm({ goal }: { goal: Goal }) {
   const [open, setOpen] = useState(false)
+  if (goal.unit == null || goal.target == null) return null
   return <div style={{ marginTop: 10 }}><button type="button" onClick={() => setOpen(!open)}>{open ? 'Close' : `Log ${goal.unit}`}</button>{open && <form action={logProgressAction} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}><input type="hidden" name="goalId" value={goal.id} /><input name="value" type="number" min="0.01" step="any" placeholder={goal.unit} required /><input name="occurredOn" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required /><button type="submit">Log progress</button></form>}</div>
 }
