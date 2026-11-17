@@ -3,9 +3,16 @@ import type { Project, ProjectStatus } from '@/types/project'
 import { validateProjectName } from './project-validation'
 
 export async function listProjects(supabase: SupabaseClient, status?: ProjectStatus) {
-  let query = supabase.from('projects').select('id,user_id,name,description,status,created_at,updated_at').order('created_at', { ascending: false })
+  const { data: userData, error: userError } = await supabase.auth.getUser()
+  if (userError || !userData.user) throw new Error('Authentication required')
+
+  let query = supabase
+    .from('projects')
+    .select('id,user_id,name,description,status,created_at,updated_at')
+    .eq('user_id', userData.user.id)
   if (status) query = query.eq('status', status)
-  const { data, error } = await query
+
+  const { data, error } = await query.order('created_at', { ascending: false })
   if (error) throw error
   return (data ?? []) as Project[]
 }
