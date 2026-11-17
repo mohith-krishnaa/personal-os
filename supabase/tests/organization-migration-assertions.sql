@@ -118,6 +118,17 @@ BEGIN
 END
 $assert_schema$;
 
+
+-- Simulate a legacy malformed canonical row whose owner matches the caller
+-- but whose task belongs to the other owner. SELECT RLS must hide it.
+INSERT INTO public.checklist_items (id, user_id, task_id, title)
+VALUES (
+  '30000000-0000-4000-8000-000000000004',
+  '11111111-1111-4111-8111-111111111111',
+  '20000000-0000-4000-8000-000000000001',
+  'Malformed canonical cross-owner task link'
+);
+
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated, service_role;
 GRANT USAGE ON SCHEMA auth TO authenticated, service_role;
@@ -150,7 +161,7 @@ BEGIN
       visible_projects, visible_tasks, visible_checklists;
   END IF;
 
-  IF visible_legacy_checklists <> 2 THEN
+  IF visible_legacy_checklists <> 1 THEN
     RAISE EXCEPTION 'Owner A must see only its two legacy checklist rows; found %.',
       visible_legacy_checklists;
   END IF;
@@ -169,6 +180,16 @@ BEGIN
     WHERE id = '30000000-0000-4000-8000-000000000003'
   ) THEN
     RAISE EXCEPTION 'Owner A can read Owner B organization records.';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM public.task_checklist_items
+    WHERE id = '30000000-0000-4000-8000-000000000002'
+  ) OR EXISTS (
+    SELECT 1 FROM public.checklist_items
+    WHERE id = '30000000-0000-4000-8000-000000000004'
+  ) THEN
+    RAISE EXCEPTION 'Owner A can read a checklist row attached to Owner B task.';
   END IF;
 
   -- Both compatibility directions must work for the legacy title and app name.
