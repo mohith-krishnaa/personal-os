@@ -1,7 +1,7 @@
 # Personal-OS — Persistent Project State
 
 > Canonical recovery checkpoint. Read this before making project claims or changes.
-> Last code verification: 2026-11-17 (code-bearing commit `07c95f13a76435ec94976e61b8123143f46e4158`; CI #140 passed: 43 tests, typecheck, production build, 0 npm audit vulnerabilities). Documentation checkpoint `7f72caff39f4e4efba2bdf65fdcb11ff29163360` also passed CI #141 on the exact PR head. Live database inspection remains blocked by hibernation/timeouts despite project-list metadata reporting ACTIVE_HEALTHY).
+> Last code verification: 2026-11-17 (code-bearing commit `1106efd1b3a1be9e3b5aac18bd8a6e714476cb9f`; CI #143 passed: 45 tests, typecheck, production build, 0 vulnerabilities. Documentation checkpoint `b1569febbca708e3346ecf501066a5668cbe6aec` passed CI #146. Live database inspection remains blocked by migration/table/SQL timeouts and advisor hibernation despite project metadata reporting ACTIVE_HEALTHY.)
 
 ## Current verified state
 
@@ -12,8 +12,8 @@
 - Progress & Streaks V1 — **merged** (PR #8).
 - Security issue #6 — **closed/completed** after client execution was revoked for `public.rls_auto_enable()` and security verification reported 0 lints.
 - Open GitHub issue backlog — **0** at last verification.
-- Latest completed code CI — **successful** on code-bearing commit `07c95f13a76435ec94976e61b8123143f46e4158` (run #140, ID `43987021956`): **43 tests passed, 0 failed**; `npm run typecheck` and `npm run build` passed; npm install audited 43 packages with 0 vulnerabilities. No lint script/configuration exists.
-- Active feature branch: `feature/organization-v1`, in open PR #11 targeting `main`; current verified PR head at this checkpoint is `7f72caff39f4e4efba2bdf65fdcb11ff29163360`, open, unmerged, non-draft, and mergeable.
+- Latest completed code CI — **successful** on code-bearing commit `1106efd1b3a1be9e3b5aac18bd8a6e714476cb9f` (run #143, ID `43994197614`): **45 tests passed, 0 failed**; `npm run typecheck` and `npm run build` passed; install output reported 0 vulnerabilities. Documentation checkpoint `b1569febbca708e3346ecf501066a5668cbe6aec` passed CI #146 (ID `43994476468`) with the same 45-test, typecheck, build, and install results. No lint script/configuration exists.
+- Active feature branch: `feature/organization-v1`, in open PR #11 targeting `main`; the live PR page is the authority for the current head. At this checkpoint, PR #11 head is `b1569febbca708e3346ecf501066a5668cbe6aec`, open, unmerged, non-draft, and mergeable.
 
 ## Source-of-truth hierarchy
 

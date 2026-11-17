@@ -7,8 +7,8 @@ Date: 2026-11-17
 - Repository: `mohith-krishnaa/personal-os`.
 - Stable branch: `main` at `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`.
 - Organization branch: `feature/organization-v1`.
-- PR #11: open, unmerged, non-draft, mergeable, targeting `main`; current verified head at this checkpoint: `7f72caff39f4e4efba2bdf65fdcb11ff29163360`: https://github.com/mohith-krishnaa/personal-os/pull/11
-- Latest code-bearing checkpoint: `07c95f13a76435ec94976e61b8123143f46e4158`; documentation checkpoint `7f72caff39f4e4efba2bdf65fdcb11ff29163360` passed CI #141.
+- PR #11: open, unmerged, non-draft, mergeable, targeting `main`; current head at this checkpoint: `b1569febbca708e3346ecf501066a5668cbe6aec`: https://github.com/mohith-krishnaa/personal-os/pull/11
+- Latest code-bearing checkpoint: `1106efd1b3a1be9e3b5aac18bd8a6e714476cb9f` passed CI #143; documentation checkpoint `b1569febbca708e3346ecf501066a5668cbe6aec` passed CI #146.
 - PR #12 is an open draft explicitly superseded by PR #11; do not merge it separately.
 
 ## Work completed in this checkpoint
@@ -21,13 +21,10 @@ Date: 2026-11-17
 
 ## CI and quality
 
-- CI run #122 (ID `43959430815`) passed on implementation commit `3de585c8a2ba7e511f50ed0cd0be8c37d9bd1bf2`.
-- Test result: **35 passed, 0 failed**.
-- `npm run typecheck`: passed.
-- `npm run build`: passed.
-- `npm install` audit: 0 vulnerabilities.
-- The repository has no lint script or linter configuration; no lint pass is claimed.
-- Documentation-only checkpoint changes after the implementation commit trigger newer CI; verify the live PR checks on the latest head before merge.
+- Code-bearing commit `1106efd1b3a1be9e3b5aac18bd8a6e714476cb9f` passed CI #143 (ID `43994197614`): **45 passed, 0 failed**; `npm install`, `npm run typecheck`, and `npm run build` succeeded. Install output reported 0 vulnerabilities.
+- Documentation checkpoint `b1569febbca708e3346ecf501066a5668cbe6aec` passed CI #146 (ID `43994476468`) with the same checks and 45 passing tests.
+- No lint script or linter configuration exists; lint is not available and no lint pass is claimed.
+- The current workflow does not run live database integration or two-user RLS tests.
 
 ## Architecture / security boundaries
 
