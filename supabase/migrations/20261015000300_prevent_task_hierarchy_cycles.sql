@@ -11,7 +11,38 @@ declare
   parent_project uuid;
   project_user uuid;
   creates_cycle boolean;
+  old_owner_lock integer;
+  new_owner_lock integer;
 begin
+  -- Serialize relationship-changing writes for each owner. Without this
+  -- transaction-scoped lock, two concurrent transactions can each validate
+  -- against an incomplete ancestor chain and jointly create a cycle.
+  -- Hash collisions only cause extra serialization; they cannot bypass checks.
+  -- When an UPDATE changes owners, acquire both locks in key order to avoid
+  -- deadlocks between concurrent owner transfers.
+  if tg_op = 'UPDATE' and old.user_id is distinct from new.user_id then
+    old_owner_lock := case when old.user_id is null then null else hashtext(old.user_id::text) end;
+    new_owner_lock := case when new.user_id is null then null else hashtext(new.user_id::text) end;
+
+    if old_owner_lock is not null and new_owner_lock is not null then
+      if old_owner_lock < new_owner_lock then
+        perform pg_advisory_xact_lock(1347571533, old_owner_lock);
+        perform pg_advisory_xact_lock(1347571533, new_owner_lock);
+      elsif old_owner_lock > new_owner_lock then
+        perform pg_advisory_xact_lock(1347571533, new_owner_lock);
+        perform pg_advisory_xact_lock(1347571533, old_owner_lock);
+      else
+        perform pg_advisory_xact_lock(1347571533, new_owner_lock);
+      end if;
+    elsif old_owner_lock is not null then
+      perform pg_advisory_xact_lock(1347571533, old_owner_lock);
+    elsif new_owner_lock is not null then
+      perform pg_advisory_xact_lock(1347571533, new_owner_lock);
+    end if;
+  elsif new.user_id is not null then
+    perform pg_advisory_xact_lock(1347571533, hashtext(new.user_id::text));
+  end if;
+
   if new.parent_task_id is not null then
     if new.parent_task_id = new.id then
       raise exception 'A task cannot be its own parent.' using errcode = '23514';
