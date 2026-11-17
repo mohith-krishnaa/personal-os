@@ -7,7 +7,7 @@
 
 **Completed:** Core productivity, Recurring Tasks V1, Reminders V1, and Progress & Streaks V1.
 
-**In progress:** Organization V1 remains in PR #11. The dashboard supports projects, direct subtask listing/completion, and checklist create/list recovery. The latest code change hardens project-list reads by requiring an authenticated caller and explicitly filtering by that user's ID. CI #143 passed on code-bearing commit `1106efd1b3a1be9e3b5aac18bd8a6e714476cb9f` with 45 tests, typecheck, production build, and 0 vulnerabilities; CI #147 passed on latest documentation checkpoint `b86056d20ca3f9ed470709ad4baebcfa711e9ea6` with the same checks. No lint script/configuration exists. Live migration/schema inspection and authenticated end-to-end verification remain blocked.
+**In progress:** Organization V1 remains in PR #11. Task listing now resolves the authenticated server-side user on the query client and explicitly filters by `user_id`, preserving the optional project filter and existing ordering. CI #150 passed on code-bearing commit `8f5eac4fd9d314a9fb3125de46789fe7858beac3` with 48 tests, typecheck, production build, and 0 npm vulnerabilities. No lint script/configuration exists. Live migration/schema inspection and authenticated database isolation remain blocked.
 
 ## Mind map
 
@@ -111,7 +111,8 @@ PERSONAL OS
 
 ### P1 — Organization V1
 - Implementation exists in PR #11: owner-scoped projects, task/project association, subtasks, checklists, ownership validation, cycle prevention, compatibility migrations, tests, and dashboard UI. The dashboard subtask panel reads direct children on demand and supports completion updates through the existing owner-scoped task action.
-- Project-list reads now resolve the authenticated server-side user, reject unauthenticated calls before database access, and filter by user_id. Optional status filtering and newest-first ordering are preserved.
+- Project-list reads resolve the authenticated server-side user, reject unauthenticated calls before database access, and filter by `user_id`; optional status filtering and newest-first ordering are preserved.
+- Task-list reads now resolve the caller on the same server-side Supabase client used for the query and filter by authenticated `user_id`; optional `project_id` filtering and due-date/creation-time ordering are preserved. Three mocked-client tests cover the query contract.
 - CI #143 passed on code-bearing commit `1106efd1b3a1be9e3b5aac18bd8a6e714476cb9f`: 45/45 tests, typecheck, production build, and install output with 0 vulnerabilities. CI #147 passed on latest documentation checkpoint `b86056d20ca3f9ed470709ad4baebcfa711e9ea6` with the same checks. No lint script/configuration exists.
 - Highest-priority remaining work is live database verification and safe rollout, followed by authenticated CRUD and cross-user isolation tests. The current UI exposes one level of subtasks; recursive hierarchy UX is not claimed.
 - Do not start Analytics until Organization V1's database and authorization acceptance criteria are verified.
@@ -262,3 +263,16 @@ Organization remains the active milestone. Analytics must not start until live s
 - CI #144 passed on documentation checkpoint 2c618299c5bd3db2bf03aad7f4afecc6ab2521a7: 45/45 tests, typecheck, production build, and install audit output with 0 vulnerabilities.
 - No lint script/configuration exists. The live Supabase migration ledger/schema remain unverified because migration/table/SQL operations time out and advisors report hibernation despite ACTIVE_HEALTHY project metadata.
 - Organization V1 remains incomplete. Do not advance to Analytics until live database inspection, recovery readiness, migration review/rollout, advisors, authenticated CRUD and two-user RLS isolation pass.
+
+
+## Task-list ownership boundary — 2026-11-17
+
+- Organization task reads now apply an explicit application-level owner filter in addition to PostgreSQL RLS.
+- `listTasks` resolves the user with `auth.getUser()` on the same server-side Supabase client used for the query and fails closed when the session is missing or invalid.
+- The extracted `listTasksForUser` query applies `user_id = authenticated user id`, preserves the optional project filter, and retains the existing due-date ascending / creation-time descending ordering.
+- Added three mocked-client tests for owner + project filtering, optional project filtering, and rejecting a missing owner before database access. These tests verify query construction only; they do not prove PostgreSQL RLS or two-user isolation.
+- Code-bearing commit `8f5eac4fd9d314a9fb3125de46789fe7858beac3` passed CI #150 (run ID `44002396846`): 48 tests passed, 0 failed; TypeScript check and production build passed; npm install audited 43 packages and reported 0 vulnerabilities.
+- No lint script or linter configuration exists. No schema, migration, RLS policy, privilege, production data, or production infrastructure was changed.
+- Fresh Supabase inspection: project metadata remains `ACTIVE_HEALTHY`, while migration listing, verbose public-table introspection, and a read-only information_schema query time out. Security, performance, and health advisor calls report the project as hibernated. The live migration ledger and schema remain unknown.
+- PR #11 remains open and unmerged; PR #12 remains an open draft explicitly superseded by PR #11. The live PR page is authoritative for the current documentation head.
+- Next safe action: restore supported database connectivity, inspect the actual migration ledger and Organization tables, confirm backup/recovery readiness, then run authenticated CRUD and cross-user isolation against the live database before migration rollout or merge.
