@@ -25,3 +25,16 @@ Use the Supabase CLI migration list --remote command to verify local/remote vers
 The local-only `20261015000300_prevent_task_hierarchy_cycles.sql` migration now uses owner-scoped transaction advisory locks to serialize task relationship writes and prevent concurrent transactions from creating an indirect cycle. The lock is transaction-scoped and owner transfers acquire both lock keys in deterministic order. CI #173 validates this function against a disposable PostgreSQL 17 fixture, including a two-session READ COMMITTED race. This migration is still unapplied in the live project; the test does not replace full migration-chain, backup/restore, RLS, or authenticated two-user isolation checks.
 
 The trigger also prevents moving a parent task to a different owner or project when that would leave existing direct children inconsistent. CI #176 verifies these parent-mutation checks alongside the two-session concurrent-cycle test. The migration remains local-only and unapplied in the live project.
+
+
+## Full migration-chain verification
+
+CI now replays every numbered SQL migration in a disposable PostgreSQL 17 database. The fixture bootstraps the Supabase roles, `auth.users`, `auth.uid()`, and the platform-managed `rls_auto_enable()` function, then replays the eight live migrations followed by the six Organization migrations and the Progress metrics compatibility repair.
+
+The replay seeds legacy `projects.title` and `task_checklist_items` rows before the compatibility/reconciliation migrations. It verifies that the canonical checklist receives only same-owner task rows, that both checklist tables and the project title/name dual-write remain available, and that authenticated Owner A/Owner B sessions cannot read or mutate one another's Organization records. This is a disposable PostgreSQL test, not a production backup restore or a live PostgREST test.
+
+## Progress goal metrics compatibility repair
+
+The live core `goals` table was created before Progress V1 and lacks `unit` and `target`, while the original Progress V1 migration used `CREATE TABLE IF NOT EXISTS` and therefore did not add those columns to the existing table. The forward-only `20261117000100_reconcile_progress_goal_metrics.sql` migration adds nullable columns and validation checks without rewriting the already-applied migration or inventing metrics for legacy goals. New measurable goals continue to require both values in the application; legacy goals remain readable and do not expose progress logging until metrics exist.
+
+The migration is branch-only and has not been applied to Supabase production.
