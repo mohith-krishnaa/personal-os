@@ -8,7 +8,7 @@ Date: 2026-11-17
 - Stable branch: `main` at `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`.
 - Organization branch: `feature/organization-v1`.
 - PR #11: open, unmerged, non-draft, mergeable, targeting `main`; the live PR page is authoritative for the current head: https://github.com/mohith-krishnaa/personal-os/pull/11
-- Latest code-bearing commit on PR #11: `6217e100777543ecc65590dbc1156ebd4dfc0aca`; [CI #158](https://github.com/mohith-krishnaa/personal-os/actions/runs/44017017543) passed: **56 tests passed, 0 failed**; typecheck and production build passed; npm install reported 0 vulnerabilities. The subsequent documentation checkpoint `f5cdf41d3b42e95a9bee202f68db4d4ecd18b73d` passed [CI #159](https://github.com/mohith-krishnaa/personal-os/actions/runs/44017156115) with the same checks. CI actions now use Node 24-compatible v5 releases. Lint remains unavailable.
+- Latest PR #11 head: `30e490aaf1832d7003717473a0eb5b3d6a16ce8c`; [CI #163](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023466322) passed on this exact head: **56 tests passed, 0 failed**; typecheck and production build passed; npm install reported 0 vulnerabilities. No lint script/configuration exists.
 - PR #12 is an open draft explicitly superseded by PR #11; do not merge it separately.
 
 ## Work completed in this checkpoint
@@ -37,27 +37,33 @@ Date: 2026-11-17
 - `checklist_items` remains the canonical checklist table; the legacy `task_checklist_items` table is retained and reconciled forward.
 - Project compatibility preserves legacy `projects.title` while supporting application-facing `projects.name`.
 
-See [docs/architecture/organization-v1.md](docs/architecture/organization-v1.md) for the full trust boundaries and migration decisions.
+See [docs/architecture/organization-v1.md](docs/architecture/organization-v1.md) for the full trust boundaries and migration decisions. See [docs/operations/organization-v1-preflight.md](docs/operations/organization-v1-preflight.md) for the live schema, migration history, backup gate, and rollout sequence.
 
-## Live Supabase blocker
+## Live Supabase state — read-only verified 2026-11-17
 
-- Intended project: `gujzvkyytxsnervovvrt`.
-- Project metadata reports `ACTIVE_HEALTHY`.
-- Live migration listing and verbose table introspection fail with connection timeouts.
-- Read-only SQL probes also time out.
-- Security/performance advisor calls report that the project is hibernated.
-- The live migration ledger and actual schema are therefore **unknown**. Historical repository notes are not proof of current production state.
-- No Organization migration was applied; no production schema or data was changed.
+- Project gujzvkyytxsnervovvrt reports ACTIVE_HEALTHY, region ap-southeast-1, PostgreSQL 17.11.0.003. Read-only SQL, migration, table, policy, constraint, and advisor inspection now succeeds.
+- The live migration ledger has exactly 8 rows. The exact SQL statements have been restored into repository files with matching live versions/names. The migration directory now has 8 applied core migrations and 6 local-only Organization migrations; the duplicate non-ledger reminder migration was removed.
+- Live projects has title, goal_id, priority, start_date, and target_date, but no name. Its status constraint includes ACTIVE, COMPLETED, and ARCHIVED.
+- Live tasks has project_id and parent_task_id foreign keys, but the Organization validation trigger is absent.
+- Neither checklist_items nor task_checklist_items exists. All nine public application tables have RLS enabled.
+- Exact counts are zero for the nine public application tables, auth.users, and storage.objects.
+- Projects/tasks use legacy owner-wide policies. goals has overlapping owner-wide and command-specific policies.
+- Security and health advisors return no lints. Performance advisor reports 4 unindexed foreign keys, 14 auth_rls_initplan warnings, 13 unused-index findings, and 4 overlapping permissive-policy findings on goals.
+- The read-only preflight SQL file was executed against the live project; all 8 SELECT statements succeeded.
+- The Free Plan does not include scheduled backups. No manual backup has been created; the current automation runtime has no Docker daemon, pg_dump, or database password.
+- No production migration, DDL, RLS change, data write, or merge was performed.
+
+See [Organization V1 preflight and recovery runbook](docs/operations/organization-v1-preflight.md) and [read-only SQL preflight](supabase/operations/organization-v1-preflight.sql).
 
 ## Next safe actions
 
-1. Restore supported database connectivity and inspect the live migration ledger plus `projects`, `tasks`, `checklist_items`, and legacy checklist definitions.
-2. Reconcile repository migrations against that exact live state.
-3. Confirm backup/recovery readiness and document rollback or forward-fix steps.
-4. Apply only reviewed migrations after clean preflight.
-5. Run security and performance advisors.
-6. Test authenticated project, task association, subtask, and checklist CRUD with at least two users, including cross-user isolation.
-7. Merge PR #11 only after database, authorization, recovery, and current-head CI gates pass.
+1. Create a private schema/data/role dump using the Supabase CLI on an owner-controlled machine with Docker Desktop; keep it out of Git.
+2. Restore-test the dump against an isolated local database or disposable Supabase project. Recheck auth.users and storage.objects before backup because CLI db dump excludes managed schemas.
+3. Run supabase migration list --remote and confirm the eight applied versions match the reconstructed local files.
+4. Test the six Organization migrations against a disposable database matching the live legacy schema; do not run migration repair or migration up against production yet.
+5. After explicit rollout approval and verified recovery, apply only reviewed Organization migrations and re-run the SQL preflight plus advisors.
+6. Test authenticated project, task association, subtask, and checklist CRUD with two separate users, including direct API cross-user relationship attacks.
+7. Merge PR #11 only after backup/recovery, migration, RLS, authenticated isolation, and current-head CI gates pass.
 
 ## Roadmap gate
 
@@ -244,3 +250,13 @@ Next safe action: restore supported database connectivity, inspect the actual mi
 - Did not call `restore_project`, pause/restart/resize compute, change credentials/settings, run DDL, apply migrations, alter data/RLS, or merge PR #11. An unconditional restore is not justified while metadata says healthy.
 - Incident record and next safe diagnostic sequence: [Supabase connectivity incident](docs/operations/supabase-connectivity-incident-2026-11-17.md). Next, check Dashboard Database/Compute state and run `select now(), current_database(), version();` in the Dashboard SQL Editor. If Dashboard SQL succeeds, reconnect/re-authorize MCP; if it fails too, escalate to Supabase Support with project ref, region, timestamps, and exact errors.
 - Organization V1 remains blocked on live migration/schema inspection, recovery readiness, advisors, and authenticated two-user isolation. Analytics remains queued.
+
+
+## Latest verified checkpoint — migration-history reconciliation (2026-11-17)
+
+- Recovered the eight applied migration SQL statements directly from the live supabase_migrations.schema_migrations ledger and stored them under exact version/name filenames.
+- Removed six timestamp-drifted or duplicate local core migration files. The resulting migration directory contains the eight exact applied migrations followed by six unapplied Organization migrations.
+- Verified all eight local core migration files match the live ledger SQL statements exactly after trimming the trailing newline.
+- Added a migration-history README, an Organization rollout runbook, and an eight-query read-only SQL preflight. Executed all eight SQL statements against the live project successfully.
+- [CI #163](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023466322) passed on head 30e490aaf1832d7003717473a0eb5b3d6a16ce8c: 56 tests, typecheck, production build, and 0 npm audit vulnerabilities.
+- No production migration, DDL, RLS change, data write, or merge occurred. Backup/recovery remains the rollout blocker.

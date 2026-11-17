@@ -53,7 +53,7 @@ Behavior modeling, workload prediction, intelligent scheduling, and continuous i
 
 ## Verified status
 
-The current verified baseline on `main` includes core productivity, **Recurring Tasks V1**, **Reminders V1**, and **Progress & Streaks V1**. **Organization V1** is implemented on `feature/organization-v1` in open PR #11, but it is not merged. Live Supabase migration-ledger/schema verification and authenticated CRUD/cross-user-isolation checks remain blocked by database connectivity. See `PROJECT_STATE.md` and `PROJECT_HANDOFF.md` for the current checkpoint.
+The current verified baseline on `main` includes core productivity, **Recurring Tasks V1**, **Reminders V1**, and **Progress & Streaks V1**. **Organization V1** is implemented on `feature/organization-v1` in open PR #11, but it is not merged. Live Supabase read-only migration-ledger/schema inspection now succeeds, and the eight applied core migrations are reconciled in the repository. The six Organization migrations remain unapplied; production rollout and authenticated CRUD/cross-user-isolation checks are blocked by backup/recovery readiness and migration approval. See `PROJECT_STATE.md`, `PROJECT_HANDOFF.md`, and `docs/operations/organization-v1-preflight.md` for the current checkpoint.
 
 The V1 recurrence implementation includes daily, weekly, and monthly rules, next-occurrence generation, validation, activity events, and idempotency protection. Reminders include owner-scoped data access, upcoming-reminder queries, an in-app channel contract, authenticated delivery, durable notifications, and dashboard UI.
 
@@ -76,6 +76,8 @@ npm run build
 - `PROJECT_STATE.md` is the canonical verified checkpoint for current implementation status.
 - `PROJECT_ROADMAP.md` describes longer-term direction and may lag behind merged work; verify it against the actual repository and CI before making claims.
 - `docs/architecture/organization-v1.md` records Organization ownership boundaries, compatibility decisions, and production rollout gates.
+- `docs/operations/organization-v1-preflight.md` records live schema evidence, migration reconciliation, the Free Plan backup gate, and the safe rollout sequence.
+- `supabase/operations/organization-v1-preflight.sql` is a read-only SQL checklist for rechecking the live schema and policies.
 
 ## License
 
