@@ -8,7 +8,7 @@ Date: 2026-11-17
 - Stable branch: `main` at `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`.
 - Organization branch: `feature/organization-v1`.
 - PR #11: open, unmerged, non-draft, mergeable, targeting `main`; the live PR page is authoritative for the current head: https://github.com/mohith-krishnaa/personal-os/pull/11
-- Latest PR #11 head: `e4caece780f3b585e6c986b85e1fe95b76abd5c0`; [CI #163](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023466322) passed on this exact head: **56 tests passed, 0 failed**; typecheck and production build passed; npm install reported 0 vulnerabilities. No lint script/configuration exists.
+- Latest PR #11 head: `ef203157d686565a4f62aa047a3c17ce1f8afb52`; [CI #163](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023466322) passed on this exact head: **56 tests passed, 0 failed**; typecheck and production build passed; npm install reported 0 vulnerabilities. No lint script/configuration exists.
 - PR #12 is an open draft explicitly superseded by PR #11; do not merge it separately.
 
 ## Work completed in this checkpoint
@@ -24,7 +24,7 @@ Date: 2026-11-17
 ## CI and quality
 
 - [CI #163](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023466322) passed on migration-history commit 30e490aaf1832d7003717473a0eb5b3d6a16ce8c: **56 passed, 0 failed**; install, typecheck, and production build succeeded; npm install reported 0 vulnerabilities.
-- [CI #164](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023774660) passed on final documentation head e4caece780f3b585e6c986b85e1fe95b76abd5c0: **56 passed, 0 failed**; install, typecheck, and production build succeeded; npm install reported 0 vulnerabilities.
+- [CI #165](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023928005) passed on final documentation head ef203157d686565a4f62aa047a3c17ce1f8afb52: **56 passed, 0 failed**; install, typecheck, and production build succeeded; npm install reported 0 vulnerabilities.
 - No lint script or linter configuration exists; lint is unavailable and no lint pass is claimed.
 - The workflow does not run live database integration or two-user RLS tests.
 
@@ -258,5 +258,5 @@ Next safe action: restore supported database connectivity, inspect the actual mi
 - Removed six timestamp-drifted or duplicate local core migration files. The resulting migration directory contains the eight exact applied migrations followed by six unapplied Organization migrations.
 - Verified all eight local core migration files match the live ledger SQL statements exactly after trimming the trailing newline.
 - Added a migration-history README, an Organization rollout runbook, and an eight-query read-only SQL preflight. Executed all eight SQL statements against the live project successfully.
-- [CI #163](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023466322) passed on head e4caece780f3b585e6c986b85e1fe95b76abd5c0: 56 tests, typecheck, production build, and 0 npm audit vulnerabilities.
+- [CI #163](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023466322) passed on head ef203157d686565a4f62aa047a3c17ce1f8afb52: 56 tests, typecheck, production build, and 0 npm audit vulnerabilities.
 - No production migration, DDL, RLS change, data write, or merge occurred. Backup/recovery remains the rollout blocker.
