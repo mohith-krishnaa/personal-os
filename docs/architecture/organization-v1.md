@@ -231,3 +231,11 @@ Before rollout, test concurrent parent updates/inserts against disposable Postgr
 - CI #173 runs the actual migration function against a disposable PostgreSQL 17 fixture and orchestrates two concurrent READ COMMITTED writers. It verifies that the second writer waits for the first transaction and then rejects the inverse edge as a cycle. The same fixture covers direct self-parenting, foreign parents/projects, cross-project links, and a sequential indirect cycle.
 - CI #173 passed on `482e1921ada6bc723a65c167b3cbea72b916bcf4`: PostgreSQL integration passed, 56 application tests passed, typecheck and production build passed, and npm audit reported 0 vulnerabilities.
 - This is not a test of the complete six-migration sequence, the live Supabase trigger, RLS, or two-user PostgREST isolation. The migration remains unapplied in production; backup/restore and full rollout gates still apply.
+
+## Decision — preserve existing child links when a parent changes (2026-11-17)
+
+- Validating only a task's proposed parent/project links is insufficient: moving a parent task to another project or owner can invalidate already-existing direct children.
+- The cycle-prevention trigger now checks existing rows where `child.parent_task_id = new.id` and rejects a parent update if any child would no longer share the parent's owner and project.
+- The same owner-scoped advisory transaction lock serializes parent changes and child relationship changes, so the check is not raced by a concurrent child update under READ COMMITTED.
+- The PostgreSQL 17 integration fixture verifies both a parent project move and an owner transfer are rejected when a child would be left inconsistent. CI #176 passed this fixture, 56 application tests, typecheck, and production build; npm audit reported 0 vulnerabilities.
+- This migration remains unapplied in production. The test does not prove full migration-chain compatibility, live RLS, or two-user PostgREST isolation.
