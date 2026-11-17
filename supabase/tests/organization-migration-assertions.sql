@@ -441,6 +441,94 @@ BEGIN
   IF affected_rows <> 0 THEN
     RAISE EXCEPTION 'Owner B deleted Owner A legacy checklist item.';
   END IF;
+  -- Reciprocal direct-API insert and relationship-change attacks by Owner B.
+  BEGIN
+    INSERT INTO public.projects (id, user_id, name)
+    VALUES (
+      'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee1',
+      '11111111-1111-4111-8111-111111111111',
+      'Spoofed Owner A project from Owner B'
+    );
+    RAISE EXCEPTION 'RLS accepted a project insert for another owner from Owner B.';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+
+  BEGIN
+    INSERT INTO public.tasks (id, user_id, project_id, title)
+    VALUES (
+      '40000000-0000-4000-8000-000000000002',
+      auth.uid(),
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      'Owner B cross-owner project link'
+    );
+    RAISE EXCEPTION 'Task trigger accepted Owner A project for Owner B.';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+
+  BEGIN
+    INSERT INTO public.checklist_items (id, user_id, task_id, title)
+    VALUES (
+      '50000000-0000-4000-8000-000000000002',
+      auth.uid(),
+      '10000000-0000-4000-8000-000000000001',
+      'Owner B cross-owner canonical checklist'
+    );
+    RAISE EXCEPTION 'Canonical checklist RLS accepted Owner A task for Owner B.';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+
+  BEGIN
+    INSERT INTO public.task_checklist_items (id, user_id, task_id, title)
+    VALUES (
+      '60000000-0000-4000-8000-000000000002',
+      auth.uid(),
+      '10000000-0000-4000-8000-000000000001',
+      'Owner B cross-owner legacy checklist'
+    );
+    RAISE EXCEPTION 'Legacy checklist RLS accepted Owner A task for Owner B.';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+
+  BEGIN
+    UPDATE public.tasks
+    SET project_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+    WHERE id = '20000000-0000-4000-8000-000000000001';
+    RAISE EXCEPTION 'Task trigger accepted a project reassignment to another owner.';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+
+  BEGIN
+    UPDATE public.tasks
+    SET parent_task_id = '10000000-0000-4000-8000-000000000001'
+    WHERE id = '20000000-0000-4000-8000-000000000001';
+    RAISE EXCEPTION 'Task trigger accepted a parent reassignment to another owner.';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+
+  BEGIN
+    UPDATE public.checklist_items
+    SET task_id = '10000000-0000-4000-8000-000000000001'
+    WHERE id = '30000000-0000-4000-8000-000000000003';
+    RAISE EXCEPTION 'Canonical checklist RLS accepted reassignment to Owner A task.';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+
+  BEGIN
+    UPDATE public.task_checklist_items
+    SET task_id = '10000000-0000-4000-8000-000000000001'
+    WHERE id = '30000000-0000-4000-8000-000000000003';
+    RAISE EXCEPTION 'Legacy checklist RLS accepted reassignment to Owner A task.';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+
 END
 $owner_b$;
 
