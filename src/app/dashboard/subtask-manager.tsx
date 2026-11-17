@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { addSubtaskAction, listSubtasksAction } from './subtask-actions'
 import { toggleTaskAction } from './actions'
 import type { Task } from '@/types/task'
-import { afterSubtaskCreated } from '@/lib/subtask-state'
+import { afterSubtaskCreated, afterSubtaskListLoadFailed } from '@/lib/subtask-state'
 
 export default function SubtaskManager({ task }: { task: Task }) {
   const [title, setTitle] = useState('')
@@ -23,6 +23,9 @@ export default function SubtaskManager({ task }: { task: Task }) {
       setItems(await listSubtasksAction(task.id))
       setLoaded(true)
     } catch (err) {
+      const next = afterSubtaskListLoadFailed(items)
+      setItems(next.items)
+      setLoaded(next.listLoaded)
       setError(err instanceof Error ? err.message : 'Could not load subtasks.')
     } finally {
       setLoading(false)
