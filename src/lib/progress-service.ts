@@ -18,7 +18,7 @@ export async function logProgress(supabase: SupabaseClient, userId: string, inpu
 
 export function summarizeGoalProgress(goal: Pick<Goal, 'target'>, entries: ProgressEntry[]) {
   const total = entries.reduce((sum, entry) => sum + Number(entry.value), 0)
-  return { entries, total, percent: progressPercent(total, Number(goal.target)), streak: calculateStreak(entries) }
+  return { entries, total, percent: progressPercent(total, Number(goal.target ?? 0)), streak: calculateStreak(entries) }
 }
 
 export async function getGoalsWithProgress(supabase: SupabaseClient) {
