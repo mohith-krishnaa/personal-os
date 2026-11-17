@@ -1,7 +1,7 @@
 # Personal-OS — Persistent Project State
 
 > Canonical recovery checkpoint. Read this before making project claims or changes.
-> Last code verification: 2026-11-17 (code-bearing commit `8f5eac4fd9d314a9fb3125de46789fe7858beac3`; CI #150 passed: 48 tests, typecheck, production build, 0 vulnerabilities. No lint script/configuration exists. Live Supabase migration/table/catalog inspection still times out and advisors report hibernation despite ACTIVE_HEALTHY project metadata.)
+> Last code verification: 2026-11-17 (code-bearing commit `9bdaa29e60afddc893a7e6fa5a1e43ee37469a7d`; CI #153 passed: 54 tests, typecheck, production build, npm install audited 43 packages with 0 vulnerabilities. No lint script/configuration exists. Live Supabase migration/table/catalog inspection still times out and advisors report hibernation despite ACTIVE_HEALTHY project metadata.)
 
 ## Current verified state
 
@@ -346,6 +346,16 @@ Next safe action: verify CI on the updated PR head, then restore database-tool c
 - Task updates load the current task's relationship fields with both task ID and authenticated owner filters when either relationship field is changed; omitted relationship fields retain their current values for validation.
 - Direct self-parenting is rejected in application code. The database trigger remains authoritative for concurrent changes and indirect hierarchy cycles; this preflight does not replace it.
 - Added six mocked-client regression tests for valid links, foreign parents, cross-project parents, foreign projects, direct self-parenting, and missing owners. These tests verify query construction and fail-closed behavior only.
-- This change does not modify schema, migrations, RLS policies, credentials, or production data. Current PR-head CI is pending for the new code.
+- This change does not modify schema, migrations, RLS policies, credentials, or production data. [CI #153](https://github.com/mohith-krishnaa/personal-os/actions/runs/44009478456) passed on code-bearing commit `9bdaa29e60afddc893a7e6fa5a1e43ee37469a7d`: **54 tests passed, 0 failed**; `npm run typecheck` and `npm run build` passed; `npm install` audited 43 packages and reported 0 vulnerabilities. No lint script or linter configuration exists, so lint remains unavailable.
 - Supabase project metadata still reports `ACTIVE_HEALTHY`, but fresh migration listing and verbose table introspection timed out; read-only SQL timed out; security/performance/health advisor calls reported the project hibernated. The live migration ledger and schema remain unknown.
 - PR #11 remains open and unmerged; PR #12 remains a superseded draft. Do not merge until live schema/migration inspection, backup/recovery readiness, advisor review, authenticated CRUD, and two-user isolation pass.
+
+
+## Verification — task relationship ownership preflight (2026-11-17)
+
+- [CI #153](https://github.com/mohith-krishnaa/personal-os/actions/runs/44009478456) passed on code-bearing commit `9bdaa29e60afddc893a7e6fa5a1e43ee37469a7d`: **54 tests passed, 0 failed**; `npm run typecheck` and `npm run build` passed; `npm install` audited 43 packages and reported 0 vulnerabilities. No lint script or linter configuration exists, so lint remains unavailable.
+- The new tests verify the relationship preflight's owner filters, parent/project consistency, direct self-parent rejection, and fail-closed behavior. They do not exercise real authenticated sessions or PostgreSQL RLS/trigger behavior.
+- CI #153 completed successfully on PR #11 head `9bdaa29e60afddc893a7e6fa5a1e43ee37469a7d`. The workflow steps for install, test, typecheck, and production build all completed successfully.
+- PR #11 remains open, unmerged, non-draft, and mergeable at the time of this checkpoint. PR #12 remains a superseded open draft.
+- Supabase project metadata remains `ACTIVE_HEALTHY`, but migration listing, verbose table inspection, read-only SQL, and all three advisor calls failed with timeouts or hibernation responses. Live migration ledger and schema remain unknown.
+- No database migration, schema/RLS change, production data write, or PR merge was performed.

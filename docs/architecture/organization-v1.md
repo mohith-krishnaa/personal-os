@@ -151,3 +151,10 @@ Verification: CI #150 passed on code-bearing commit `8f5eac4fd9d314a9fb3125de467
 - Direct self-parenting is rejected in the application layer. The existing database trigger remains authoritative for concurrent writes and indirect cycles; do not remove or weaken it.
 - Six mocked-client tests assert the lookup filters and fail-closed behavior. They do not establish live RLS, trigger execution, or cross-user isolation.
 - No schema, migration, RLS, or production data change is part of this decision.
+
+
+## Verification — task relationship ownership preflight (2026-11-17)
+
+- CI #153 passed on `9bdaa29e60afddc893a7e6fa5a1e43ee37469a7d`: 54 mocked/unit tests passed, TypeScript check passed, and production build passed; npm install audited 43 packages with 0 vulnerabilities.
+- The tests cover application-level relationship lookup/query construction and fail-closed behavior. They do not establish PostgreSQL RLS, trigger execution, race behavior, or authenticated cross-user isolation.
+- Live Supabase migration/schema inspection remains unavailable; no production migration or schema/data write was made.

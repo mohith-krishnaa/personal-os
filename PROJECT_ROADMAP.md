@@ -286,3 +286,13 @@ Organization remains the active milestone. Analytics must not start until live s
 - Six mocked-client tests were added. They do not verify live PostgreSQL RLS or cross-user isolation. CI for the new PR head is pending.
 - The live Supabase migration ledger/schema remains unknown: project metadata is ACTIVE_HEALTHY, but migration listing, verbose table introspection and read-only SQL time out; advisors report hibernation.
 - Next: verify current-head CI; restore database access; inspect actual migrations/schema; confirm backup/recovery; then complete authenticated CRUD and two-user isolation. Analytics remains blocked behind Organization V1.
+
+
+## Verification checkpoint — task relationship ownership preflight (2026-11-17)
+
+- Organization V1 remains the highest-priority incomplete milestone.
+- Task creation and relationship-changing updates now validate project/parent ownership in application code before writing. The current task relationship is loaded with task ID + owner filters when an update changes either relationship field.
+- Six new mocked-client tests cover valid links, foreign parent, cross-project parent, foreign project, direct self-parent, and missing owner.
+- [CI #153](https://github.com/mohith-krishnaa/personal-os/actions/runs/44009478456) passed on code-bearing commit `9bdaa29e60afddc893a7e6fa5a1e43ee37469a7d`: **54 tests passed, 0 failed**; `npm run typecheck` and `npm run build` passed; `npm install` audited 43 packages and reported 0 vulnerabilities. No lint script or linter configuration exists, so lint remains unavailable.
+- The database trigger remains authoritative for concurrent writes and indirect hierarchy cycles. These tests do not prove live RLS or two-user isolation.
+- Live Supabase migration/schema inspection remains blocked by connection timeouts and advisor hibernation despite project metadata reporting ACTIVE_HEALTHY. Do not merge or begin Analytics until this is resolved and the remaining Organization acceptance criteria pass.
