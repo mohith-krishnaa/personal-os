@@ -121,3 +121,5 @@ Project list reads must enforce the same explicit application-level owner bounda
 4. Preserve optional status filtering and deterministic newest-first ordering.
 
 This is defense in depth, not a replacement for PostgreSQL RLS. The new unit tests assert the generated query filters and unauthenticated fail-closed behavior using mocked clients; they do not prove live RLS enforcement or cross-user isolation. Those still require authenticated tests against the actual database once connectivity is restored.
+
+Verification note (2026-11-17): CI #143 passed on code-bearing commit 1106efd1b3a1be9e3b5aac18bd8a6e714476cb9f with 45 tests, typecheck, and production build; CI #144 passed on documentation checkpoint 2c618299c5bd3db2bf03aad7f4afecc6ab2521a7. These are mocked application-service tests only; live PostgreSQL RLS and two-user isolation remain unverified.

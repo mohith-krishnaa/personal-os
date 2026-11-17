@@ -148,3 +148,11 @@ Next action: restore supported Supabase database access, inspect the live ledger
 - Supabase project metadata reports ACTIVE_HEALTHY, but migration listing, verbose table introspection and a read-only SQL probe fail with connection timeouts; advisor calls report hibernation. Live schema and migration ledger remain unknown. No production migration, schema/data change, or PR merge was performed.
 
 Next safe actions: verify CI on the updated PR head; restore supported Supabase database-tool connectivity; inspect the live migration ledger and Organization table definitions; confirm backup/recovery readiness; then run authenticated CRUD and two-user isolation tests before production rollout or merge.
+
+## Verification — project-list owner scoping (2026-11-17)
+
+- Code-bearing commit 1106efd1b3a1be9e3b5aac18bd8a6e714476cb9f passed CI #143 (run ID 43994197614): 45 tests passed, 0 failed; npm install, typecheck, and production build passed; install output reported 0 vulnerabilities.
+- Documentation checkpoint 2c618299c5bd3db2bf03aad7f4afecc6ab2521a7 passed CI #144 (run ID 43994283596) with the same checks and results.
+- Lint is not available: there is no lint script or linter configuration.
+- The project-list change is application-level defense in depth. Mocked tests do not establish PostgreSQL RLS behavior.
+- Current live DB blocker is unchanged: project metadata ACTIVE_HEALTHY, but migration listing, verbose table introspection and read-only SQL time out; advisor calls report hibernation. Do not apply DDL or merge until the actual ledger/schema and recovery readiness are verified.
