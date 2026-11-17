@@ -34,7 +34,7 @@ Read-only Supabase project, migration, table, policy, constraint, and advisor ca
 
 The SQL statement for each applied migration was read from supabase_migrations.schema_migrations. The repository's previous core migration filenames had timestamp drift; two applied migrations were missing locally, and a second reminder-notifications file was not represented in the live ledger. The branch now restores the eight exact ledger versions and removes the duplicate local-only core migration. See supabase/migrations/README.md.
 
-The six Organization migrations remain local-only and unapplied:
+The seven Organization migrations remain local-only and unapplied:
 
 1. 20260905170000_organization_v1.sql
 2. 20260905170100_organization_v1_checklists.sql
@@ -42,6 +42,7 @@ The six Organization migrations remain local-only and unapplied:
 4. 20261015000200_reconcile_checklist_tables.sql
 5. 20261015000300_prevent_task_hierarchy_cycles.sql
 6. 20261016000100_projects_name_title_compatibility.sql
+7. 20261117000200_harden_checklist_select_ownership.sql
 
 Do not run migration up or migration repair until the local/remote history has been reviewed using the Supabase CLI and the rollout plan has been approved.
 
@@ -93,7 +94,7 @@ Run supabase/operations/organization-v1-preflight.sql in the Supabase SQL Editor
 
 1. Produce and restore-test the manual backup described above.
 2. Run supabase migration list --remote and confirm the eight applied versions exactly match the reconstructed repository files. Resolve any discrepancy locally; do not repair the remote ledger by guesswork.
-3. Review all six Organization migrations against the live schema snapshot and test them against a disposable database matching that schema.
+3. Review all seven Organization migrations against the live schema snapshot and test them against a disposable database matching that schema.
 4. Confirm the intended order and recovery plan. In particular, verify the legacy projects.title to application projects.name compatibility path, checklist table creation/reconciliation, task relationship constraints/triggers, and RLS policy replacement.
 5. Apply only the reviewed Organization migrations after explicit production rollout approval.
 6. Re-run the SQL preflight and security/performance/health advisors.
@@ -161,3 +162,12 @@ CI #209 extends the disposable PostgreSQL 17 fixture beyond read visibility and 
 Each operation must raise insufficient_privilege; the test raises an uncaught exception if an operation is accepted. Owner A's corresponding insert/link tests and reciprocal UPDATE/DELETE checks remain in the fixture.
 
 [CI #209](https://github.com/mohith-krishnaa/personal-os/actions/runs/44064242592) passed the full 15-migration replay, task-hierarchy concurrency checks, 58 application tests, typecheck, and production build. This remains a disposable-database result, not a live PostgREST authorization test. The live database was not changed; the backup/restore and production approval gates remain mandatory.
+
+
+## Checklist SELECT ownership hardening — 2026-11-17
+
+The seventh Organization migration, 20261117000200_harden_checklist_select_ownership.sql, tightens SELECT policies on both canonical and legacy checklist tables. Visibility now requires the checklist row and its referenced task to belong to the authenticated caller.
+
+The disposable migration fixture seeds malformed canonical and legacy rows with Owner A's user_id but Owner B's task_id. Owner A must not see either row; each owner must still see their valid checklist rows. [CI #211](https://github.com/mohith-krishnaa/personal-os/actions/runs/44065216491) passed the full 16-migration PostgreSQL 17 replay and all configured application checks. [CI #212](https://github.com/mohith-krishnaa/personal-os/actions/runs/44065285214) passed the assertion-message correction.
+
+This migration is not applied to the live project. The live checklist tables are still absent, and no production DDL or policy change was performed.

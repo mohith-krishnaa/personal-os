@@ -8,7 +8,7 @@ Date: 2026-11-17
 - Stable branch: `main` at `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`.
 - Organization branch: `feature/organization-v1`.
 - PR #11 is the intended Organization V1 review path targeting `main`; this checkpoint did not merge it. Recheck the live PR page for current state/head before any merge: https://github.com/mohith-krishnaa/personal-os/pull/11
-- Latest code-bearing checkpoint: e9ea11a85e9145698900d876edf34f289ca76b2f; [CI #209](https://github.com/mohith-krishnaa/personal-os/actions/runs/44064242592) passed the 15-migration PostgreSQL 17 replay, reciprocal owner insert/link rejection checks, cross-owner UPDATE/DELETE isolation, hierarchy concurrency, 58 application tests, typecheck, and production build. No lint script/configuration exists.
+- Latest code-bearing checkpoint: 33982d2f8d29a048f4eab2d9d4113d6a88dc1a07; [CI #211](https://github.com/mohith-krishnaa/personal-os/actions/runs/44065216491) passed the full 16-migration PostgreSQL 17 replay, malformed checklist SELECT isolation, reciprocal owner insert/link rejection, cross-owner UPDATE/DELETE isolation, hierarchy concurrency, 58 application tests, typecheck, and production build. [CI #212](https://github.com/mohith-krishnaa/personal-os/actions/runs/44065285214) passed the assertion-message correction. No lint script/configuration exists.
 - PR #12 was previously marked as a draft superseded by PR #11; verify its live state before any action and do not merge it separately.
 
 ## Work completed in this checkpoint
@@ -350,7 +350,7 @@ Next safe action: create private schema/data/role exports, restore-test them in 
 - The authenticated RLS fixture now verifies each owner sees only their own projects, tasks, canonical checklist rows, and legacy checklist rows.
 - Both owners directly attempt UPDATE and DELETE against the other owner's project, task, canonical checklist item, and legacy checklist item. Each operation must affect zero rows; neither owner's rows may be changed or removed.
 - [CI #207](https://github.com/mohith-krishnaa/personal-os/actions/runs/44055203271) passed all configured steps on `a9f73bfc26de818679c101974544793a839f2c74`: migration replay, task hierarchy concurrency, application tests, TypeScript typecheck, and production build.
-- Live Supabase remains unchanged. The migration ledger still has 8 applied entries; 6 Organization migrations and 1 Progress compatibility migration remain unapplied. No manual backup/restore test exists.
+- Live Supabase remains unchanged. The migration ledger still has 8 applied entries; 7 Organization migrations and 1 Progress compatibility migration remain unapplied. No manual backup/restore test exists.
 
 
 ## 2026-11-17 — reciprocal insert and relationship isolation
@@ -360,3 +360,11 @@ Next safe action: create private schema/data/role exports, restore-test them in 
 - [CI #209](https://github.com/mohith-krishnaa/personal-os/actions/runs/44064242592) passed: all 15 SQL migrations replayed in PostgreSQL 17; Organization migration/RLS assertions and task-hierarchy concurrency checks passed; 58 application tests passed with 0 failures; typecheck and production build passed; npm install audited 43 packages and reported 0 vulnerabilities.
 - The live Supabase project was re-inspected read-only. It remains ACTIVE_HEALTHY with 8 applied migrations, 9 public application tables with RLS enabled, and zero rows in those tables, auth.users, and storage.objects. No production DDL, migration, RLS change, or data write was performed.
 - This remains disposable PostgreSQL verification. Production rollout is still blocked by the missing private backup/restore and live authenticated PostgREST checks.
+
+
+## 2026-11-17 — checklist SELECT ownership hardening
+
+- Added migration 20261117000200_harden_checklist_select_ownership.sql to require both checklist-row ownership and referenced-task ownership for SELECT on canonical and legacy checklist tables.
+- Added malformed canonical and legacy checklist fixtures owned by Owner A but attached to Owner B's task. Owner A must not see either; both owners retain access to valid checklist rows.
+- [CI #211](https://github.com/mohith-krishnaa/personal-os/actions/runs/44065216491) passed all 16 migrations, PostgreSQL RLS assertions, task hierarchy concurrency, 58 application tests, typecheck, and production build. [CI #212](https://github.com/mohith-krishnaa/personal-os/actions/runs/44065285214) passed the test-message correction.
+- The live Supabase database was not modified. The new migration is local-only; no production backup/restore or live PostgREST verification exists yet.

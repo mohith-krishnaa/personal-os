@@ -1,16 +1,16 @@
 # Personal-OS — Persistent Project State
 
 > Canonical recovery checkpoint. Read this before making project claims or changes.
-> Last reconciled: 2026-11-17. Code-bearing head e9ea11a85e9145698900d876edf34f289ca76b2f passed [CI #209](https://github.com/mohith-krishnaa/personal-os/actions/runs/44064242592): full 15-migration PostgreSQL 17 replay, reciprocal authenticated two-owner RLS checks for cross-owner project/task/checklist inserts, task project/parent reassignment and checklist-task reassignment rejection, cross-owner UPDATE/DELETE denial in both directions, hierarchy concurrency, 58 application tests, typecheck, and production build. No lint script/configuration exists.
+> Last reconciled: 2026-11-17. Code-bearing head 33982d2f8d29a048f4eab2d9d4113d6a88dc1a07 passed [CI #211](https://github.com/mohith-krishnaa/personal-os/actions/runs/44065216491): full 16-migration PostgreSQL 17 replay, authenticated RLS checks that hide malformed canonical and legacy checklist rows when their referenced task belongs to another owner, reciprocal cross-owner insert/link rejection, cross-owner UPDATE/DELETE denial, hierarchy concurrency, 58 application tests, typecheck, and production build. No lint script/configuration exists.
 
 ## Current verified state
 
 - Stable integration branch: `main` at `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`.
 - Recurring Tasks V1 and Reminders V1 are merged. Progress & Streaks V1 application code is present, but live schema compatibility is incomplete: the live `public.goals` table lacks `unit` and `target`.
 - Active development branch: `feature/organization-v1`. PR #11 is the intended Organization V1 review path; this run did not merge it. Recheck the live PR page for its current state/head before any merge. PR #12 was previously marked as superseded and should not be merged separately.
-- Latest code-bearing checkpoint e9ea11a85e9145698900d876edf34f289ca76b2f passed [CI #209](https://github.com/mohith-krishnaa/personal-os/actions/runs/44064242592). The run completed the full 15-migration PostgreSQL 17 replay, reciprocal authenticated two-owner RLS checks for cross-owner project/task/checklist inserts and relationship reassignment attempts, cross-owner UPDATE/DELETE denial in both directions, hierarchy concurrency, 58 application tests, TypeScript typecheck, and production build. No lint script/configuration exists; CI does not define a lint step.
+- Latest code-bearing checkpoint 33982d2f8d29a048f4eab2d9d4113d6a88dc1a07 passed [CI #211](https://github.com/mohith-krishnaa/personal-os/actions/runs/44065216491). The run replayed all 16 local SQL migrations in PostgreSQL 17, verified malformed canonical/legacy checklist rows are hidden when their task belongs to another owner, exercised reciprocal insert/link and UPDATE/DELETE isolation, checked hierarchy concurrency, and passed 58 application tests, typecheck, and production build. No lint script/configuration exists.
 - Live Supabase project `gujzvkyytxsnervovvrt`: `ACTIVE_HEALTHY`, region ap-southeast-1, PostgreSQL 17.11.0.003.
-- Live migration ledger: 8 applied core migrations. The branch contains 15 numbered SQL migrations: 8 matching the live ledger, 6 Organization migrations, and 1 Progress goal-metrics compatibility migration. The latter 7 are unapplied in production.
+- Live migration ledger: 8 applied core migrations. The branch contains 16 numbered SQL migrations: 8 matching the live ledger, 7 Organization migrations, and 1 Progress goal-metrics compatibility migration. The latter 8 are unapplied in production.
 - Live public schema: 9 application tables, all RLS-enabled and all reporting zero rows. `projects` has `title` but no `name`; `checklist_items` and `task_checklist_items` are absent; the Organization task validation trigger is absent; `goals` lacks `unit` and `target`.
 - Security advisor returned no lints. Performance advisor findings: 4 unindexed foreign keys, 14 auth RLS initialization-plan warnings, 13 unused-index findings, and 4 overlapping permissive policies on `goals`.
 - The Free Plan has no scheduled backups. No private schema/data/role export or successful isolated restore test exists.
@@ -399,7 +399,7 @@ Next safe action: verify CI on the updated PR head, then restore database-tool c
 - [CI #163](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023466322), [CI #164](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023774660), [CI #165](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023928005), [CI #166](https://github.com/mohith-krishnaa/personal-os/actions/runs/44024104158), [CI #167](https://github.com/mohith-krishnaa/personal-os/actions/runs/44024323363), [CI #168](https://github.com/mohith-krishnaa/personal-os/actions/runs/44030918679), [CI #169](https://github.com/mohith-krishnaa/personal-os/actions/runs/44031107574), and [CI #170](https://github.com/mohith-krishnaa/personal-os/actions/runs/44031496258) passed on successive migration/documentation checkpoints; each run completed 56 tests, typecheck, production build, and npm audit with 0 vulnerabilities. The workflow has no lint step; the repository has no lint script/configuration.
 - Supabase project gujzvkyytxsnervovvrt is ACTIVE_HEALTHY in ap-southeast-1 on PostgreSQL 17.11.0.003. Read-only migration, schema, policy, constraint, and advisor queries now succeed.
 - The live migration ledger has 8 entries. Their exact SQL statements were recovered from supabase_migrations.schema_migrations into files with matching version/name filenames. The migration directory now contains 8 applied core migrations plus 6 local-only Organization migrations. The duplicate 20260830181600 reminder-notifications migration was removed because it is not in the live ledger.
-- The six Organization migrations remain unapplied. The live schema has projects.title but no projects.name; tasks has project_id and parent_task_id foreign keys but no Organization validation trigger; checklist_items and task_checklist_items are absent.
+- The seven Organization migrations remain unapplied. The live schema has projects.title but no projects.name; tasks has project_id and parent_task_id foreign keys but no Organization validation trigger; checklist_items and task_checklist_items are absent.
 - RLS is enabled on all 9 public application tables. Exact row counts are zero in those tables, auth.users, and storage.objects. This does not replace a backup.
 - Current projects and tasks policies are legacy owner-wide policies. goals has an owner-wide policy overlapping four command-specific policies.
 - Security and health advisors report no lints. Performance advisor reports 4 unindexed foreign keys, 14 auth_rls_initplan warnings, 13 unused-index findings, and 4 multiple-permissive-policy findings on goals. Do not drop unused indexes or alter policies without review.
@@ -407,7 +407,7 @@ Next safe action: verify CI on the updated PR head, then restore database-tool c
 - The Free Plan does not include scheduled backups. No manual backup was produced. The current automation environment has no Docker daemon, pg_dump binary, or database password.
 - No production DDL, migration, RLS change, data write, or merge was performed.
 
-Next safe action: create and restore-test a private logical backup using the Supabase CLI and Docker; then test the six Organization migrations against a disposable database matching the live legacy schema. Complete authenticated CRUD and two-user direct-API isolation before any production rollout or PR merge. Keep Analytics V1 queued.
+Next safe action: create and restore-test a private logical backup using the Supabase CLI and Docker; then test the seven Organization migrations against a disposable database matching the live legacy schema. Complete authenticated CRUD and two-user direct-API isolation before any production rollout or PR merge. Keep Analytics V1 queued.
 
 
 ## Latest automation checkpoint — 2026-11-17 11:49 IST
@@ -462,7 +462,7 @@ Next safe action: create and restore-test the private logical backup on an owner
 
 ### Repository implementation
 
-- Added `supabase/tests/organization-migrations.sh` plus bootstrap, seed, and assertion SQL. CI replays all 15 numbered SQL migrations in a separate disposable PostgreSQL 17 database.
+- Added `supabase/tests/organization-migrations.sh` plus bootstrap, seed, and assertion SQL. CI replays all 16 numbered SQL migrations in a separate disposable PostgreSQL 17 database.
 - The replay seeds two users, legacy `projects.title` records, tasks, and legacy checklist rows before reconciliation. It verifies that only same-owner checklist associations copy into the canonical table, both checklist tables remain, project `title`/`name` dual-write works, client roles cannot execute `rls_auto_enable()`, and authenticated Owner A/Owner B sessions cannot read or mutate each other's Organization records.
 - Existing hierarchy integration remains separate and verifies the owner-scoped advisory lock under a two-session READ COMMITTED cycle race, plus invalid parent owner/project mutations.
 - Added forward-only migration `20261117000100_reconcile_progress_goal_metrics.sql`. It repairs a live mismatch without rewriting applied migration history: the original core migration created `goals` before Progress V1, so the later `CREATE TABLE IF NOT EXISTS` did not add `unit` or `target`.
@@ -504,3 +504,12 @@ Next safe action: create private schema/data/role exports, restore-test them in 
 - [CI #209](https://github.com/mohith-krishnaa/personal-os/actions/runs/44064242592) passed: all 15 SQL migrations replayed in PostgreSQL 17; Organization migration/RLS assertions and task-hierarchy concurrency checks passed; 58 application tests passed with 0 failures; typecheck and production build passed; npm install audited 43 packages and reported 0 vulnerabilities.
 - The live Supabase project was re-inspected read-only. It remains ACTIVE_HEALTHY with 8 applied migrations, 9 public application tables with RLS enabled, and zero rows in those tables, auth.users, and storage.objects. No production DDL, migration, RLS change, or data write was performed.
 - This remains disposable PostgreSQL verification. Production rollout is still blocked by the missing private backup/restore and live authenticated PostgREST checks.
+
+
+## 2026-11-17 — checklist SELECT ownership hardening
+
+- Added forward-only migration 20261117000200_harden_checklist_select_ownership.sql. Both canonical and legacy checklist SELECT policies now require the checklist row owner and referenced task owner to match auth.uid(). This hides malformed rows that were retained in the legacy table or otherwise present in the canonical table but point at another user's task.
+- The migration replay seeds one malformed legacy row and one malformed canonical row owned by Owner A but attached to Owner B's task. Under Owner A's JWT, both rows must be invisible while each owner's valid checklist remains readable.
+- The migration directory now contains 16 SQL files: 8 matching the live ledger, 7 Organization migrations, and 1 Progress compatibility repair. The 8 local-only migrations remain unapplied in production.
+- [CI #211](https://github.com/mohith-krishnaa/personal-os/actions/runs/44065216491) passed the full 16-migration PostgreSQL 17 replay, hierarchy concurrency, 58 application tests, typecheck, and production build. [CI #212](https://github.com/mohith-krishnaa/personal-os/actions/runs/44065285214) passed the follow-up assertion-message correction with all configured steps successful.
+- Live Supabase was not changed. The canonical/legacy tables and new SELECT policies are still absent in production because the Organization migrations have not been applied. Backup/restore and live authenticated PostgREST gates remain open.

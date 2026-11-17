@@ -268,3 +268,12 @@ The disposable PostgreSQL migration fixture now tests both authenticated owner c
 The test catches the expected insufficient_privilege error and fails if the operation succeeds. [CI #209](https://github.com/mohith-krishnaa/personal-os/actions/runs/44064242592) passed the full 15-migration PostgreSQL 17 replay, hierarchy concurrency, 58 application tests, typecheck, and production build.
 
 This does not establish live Supabase/PostgREST behavior. Production acceptance still requires a private backup that has been restored successfully and separate authenticated API checks against the live project or a verified restored snapshot.
+
+
+## Checklist SELECT ownership invariant — 2026-11-17
+
+Checklist visibility now requires two independent ownership conditions: the checklist row's user_id must equal auth.uid(), and the referenced task must also belong to auth.uid(). This is enforced for both public.checklist_items and the retained public.task_checklist_items table.
+
+The extra task-owner predicate matters for malformed legacy rows. A row can carry a caller-owned user_id while referencing another user's task; row-owner-only SELECT policies would expose the foreign task UUID and associated checklist payload. The forward-only migration 20261117000200_harden_checklist_select_ownership.sql replaces both SELECT policies with owner-plus-task checks. It uses the ordinary authenticated role and the tasks table's own RLS policy; it does not introduce SECURITY DEFINER privileges or service-role access.
+
+CI #211 verifies this against a disposable PostgreSQL 17 database by seeding malformed canonical and legacy rows for Owner A that reference Owner B's task. Owner A must not see either row, while valid rows remain visible. This does not replace live PostgREST JWT checks or the backup/restore gate.

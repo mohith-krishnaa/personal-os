@@ -13,7 +13,7 @@ The filenames below use the exact live version and name. Do not change their tim
 - 20260830141616_progress_goals_v1.sql
 - 20260905162251_restrict_rls_auto_enable_execute.sql
 
-The six Organization V1 migrations that follow these versions are local-only and are not present in the live ledger as of the inspection date. They must not be applied until a verified backup exists and the migration sequence has been tested against the live legacy schema.
+The seven Organization V1 migrations that follow these versions are local-only and are not present in the live ledger as of the inspection date. They must not be applied until a verified backup exists and the migration sequence has been tested against the live legacy schema.
 
 The duplicate 20260830181600_reminder_notifications.sql file was not present in the live ledger and was removed. Its additional policy/index definitions must not be reintroduced without a reviewed migration.
 
@@ -29,9 +29,9 @@ The trigger also prevents moving a parent task to a different owner or project w
 
 ## Full migration-chain verification
 
-CI now replays every numbered SQL migration in a disposable PostgreSQL 17 database. The fixture bootstraps the Supabase roles, `auth.users`, `auth.uid()`, and the platform-managed `rls_auto_enable()` function, then replays the eight live migrations followed by the six Organization migrations and the Progress metrics compatibility repair.
+CI now replays every numbered SQL migration in a disposable PostgreSQL 17 database. The fixture bootstraps the Supabase roles, `auth.users`, `auth.uid()`, and the platform-managed `rls_auto_enable()` function, then replays the eight live migrations followed by the seven Organization migrations and the Progress metrics compatibility repair.
 
-The replay seeds legacy `projects.title` and `task_checklist_items` rows before the compatibility/reconciliation migrations. It verifies that the canonical checklist receives only same-owner task rows, that both checklist tables and the project title/name dual-write remain available, and that authenticated Owner A/Owner B sessions cannot read or mutate one another's Organization records. This is a disposable PostgreSQL test, not a production backup restore or a live PostgREST test.
+The replay seeds legacy `projects.title` and `task_checklist_items` rows before the compatibility/reconciliation migrations. It verifies that canonical reconciliation copies only same-owner task rows, malformed canonical and legacy checklist rows attached to another owner's task are hidden by SELECT RLS, the project title/name dual-write remains available, and authenticated Owner A/Owner B sessions cannot read or mutate one another's Organization records. This is a disposable PostgreSQL test, not a production backup restore or a live PostgREST test.
 
 ## Progress goal metrics compatibility repair
 
@@ -45,3 +45,10 @@ The migration is branch-only and has not been applied to Supabase production.
 The full migration replay fixture now seeds valid legacy checklist rows for Owner A and Owner B plus one malformed Owner A row attached to Owner B's task. It asserts that both valid rows reconcile and the malformed row does not. Separate authenticated JWT subjects verify reciprocal visibility and that neither owner can UPDATE or DELETE the other's project, task, canonical checklist row, or legacy checklist row. Each cross-owner mutation must affect zero rows.
 
 [CI #207](https://github.com/mohith-krishnaa/personal-os/actions/runs/44055203271) passed the full 15-migration PostgreSQL 17 replay, hierarchy integration, application tests, typecheck, and production build on a9f73bfc26de818679c101974544793a839f2c74. This remains disposable-database verification only; no production migration was applied.
+
+
+## Checklist SELECT ownership hardening
+
+The local-only 20261117000200_harden_checklist_select_ownership.sql migration replaces SELECT policies on both checklist tables. A visible row must have the authenticated caller as its user_id and reference a task owned by that same caller. This prevents malformed legacy or canonical rows from exposing a foreign task association through PostgREST.
+
+CI #211 replays all 16 migrations in disposable PostgreSQL 17 and verifies that malformed canonical and legacy checklist rows owned by Owner A but attached to Owner B's task are invisible to Owner A. Valid rows remain visible. The migration is not applied to production; backup/restore and live JWT/API verification remain required.
