@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-export PGHOST="\${PGHOST:-127.0.0.1}"
-export PGPORT="\${PGPORT:-5432}"
-export PGUSER="\${PGUSER:-postgres}"
-export PGPASSWORD="\${PGPASSWORD:-postgres}"
-export PGDATABASE="\${PGDATABASE:-personal_os_test}"
+export PGHOST="${PGHOST:-127.0.0.1}"
+export PGPORT="${PGPORT:-5432}"
+export PGUSER="${PGUSER:-postgres}"
+export PGPASSWORD="${PGPASSWORD:-postgres}"
+export PGDATABASE="${PGDATABASE:-personal_os_test}"
 
 psql -X -v ON_ERROR_STOP=1 -c 'select 1' >/dev/null
 psql -X -v ON_ERROR_STOP=1 -f supabase/tests/organization-task-hierarchy.sql
