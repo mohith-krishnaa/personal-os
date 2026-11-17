@@ -168,3 +168,29 @@ Verification: CI #150 passed on code-bearing commit `8f5eac4fd9d314a9fb3125de467
 - Two tests cover omitted-field preservation and explicit-null clearing. They verify application semantics only; they do not prove live RLS or trigger behavior.
 - CI #156 passed on code head `b2526b832281e55c3feaaf854341dbf11af94e97`: 56 tests, typecheck, and production build passed.
 - Live Supabase migration/schema inspection remains blocked by connection timeouts and advisor hibernation responses. No production migration or data/schema change was made.
+
+## Live Supabase verification — 2026-11-17
+
+Read-only inspection of project gujzvkyytxsnervovvrt now succeeds. The project reports ACTIVE_HEALTHY in ap-southeast-1 on PostgreSQL 17.11.0.003.
+
+- All nine public application tables have RLS enabled. Exact row counts are zero in those tables, auth.users, and storage.objects.
+- The live projects table has title, goal_id, priority, start_date, and target_date, but no name column. Its status constraint permits ACTIVE, COMPLETED, and ARCHIVED.
+- The live tasks table already has project_id and parent_task_id foreign keys. The public task-organization validation trigger is absent.
+- Neither checklist_items nor task_checklist_items exists in the live schema.
+- Current project and task policies are legacy owner-wide policies. goals has overlapping owner-wide and command-specific policies.
+- The live migration ledger contains eight core migrations. Their exact statements were recovered into version-matched repository files. The six Organization migrations remain unapplied.
+
+The current schema therefore does not satisfy the Organization V1 application contract. In particular, project name compatibility, checklist tables, and the task relationship validation trigger are missing. Application-level owner checks do not replace the missing database enforcement for direct authenticated API writes.
+
+The Free Plan does not include scheduled backups, and no manual logical backup has been produced. No production DDL, migration, RLS change, data write, or merge was performed.
+
+## Decision — fail closed until backup and migration rollout are verified
+
+- Keep PR #11 open and unmerged.
+- Do not start Analytics V1.
+- Produce a private schema/data/role dump and test its restore before production DDL.
+- Reconcile the live migration ledger with repository files before applying Organization migrations.
+- Test the Organization migration sequence against a disposable database matching the live legacy schema.
+- Verify two-user RLS and direct API relationship isolation after the approved rollout.
+- Review the current advisor findings before changing policies or indexes.
+
