@@ -47,7 +47,7 @@ See [docs/architecture/organization-v1.md](docs/architecture/organization-v1.md)
 ## Live Supabase state — read-only verified 2026-11-17
 
 - Project gujzvkyytxsnervovvrt reports ACTIVE_HEALTHY, region ap-southeast-1, PostgreSQL 17.11.0.003. Read-only SQL, migration, table, policy, constraint, and advisor inspection now succeeds.
-- The live migration ledger has exactly 8 rows. The exact SQL statements have been restored into repository files with matching live versions/names. The migration directory now has 8 applied core migrations and 6 local-only Organization migrations; the duplicate non-ledger reminder migration was removed.
+- The live migration ledger has exactly 8 rows. The exact SQL statements have been restored into repository files with matching live versions/names. The migration directory now has 8 applied core migrations, 7 local-only Organization migrations, and 1 local-only Progress compatibility migration; the duplicate non-ledger reminder migration was removed.
 - Live projects has title, goal_id, priority, start_date, and target_date, but no name. Its status constraint includes ACTIVE, COMPLETED, and ARCHIVED.
 - Live tasks has project_id and parent_task_id foreign keys, but the Organization validation trigger is absent.
 - Neither checklist_items nor task_checklist_items exists. All nine public application tables have RLS enabled.
@@ -65,7 +65,7 @@ See [Organization V1 preflight and recovery runbook](docs/operations/organizatio
 1. Create a private schema/data/role dump using the Supabase CLI on an owner-controlled machine with Docker Desktop; keep it out of Git.
 2. Restore-test the dump against an isolated local database or disposable Supabase project. Recheck auth.users and storage.objects before backup because CLI db dump excludes managed schemas.
 3. Run supabase migration list --remote and confirm the eight applied versions match the reconstructed local files.
-4. Test the six Organization migrations against a disposable database matching the live legacy schema; do not run migration repair or migration up against production yet.
+4. Test the seven Organization migrations against a disposable database matching the live legacy schema; do not run migration repair or migration up against production yet.
 5. After explicit rollout approval and verified recovery, apply only reviewed Organization migrations and re-run the SQL preflight plus advisors.
 6. Test authenticated project, task association, subtask, and checklist CRUD with two separate users, including direct API cross-user relationship attacks.
 7. Merge PR #11 only after backup/recovery, migration, RLS, authenticated isolation, and current-head CI gates pass.
