@@ -8,7 +8,7 @@ Date: 2026-11-17
 - Stable branch: `main` at `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`.
 - Organization branch: `feature/organization-v1`.
 - PR #11: open, unmerged, non-draft, mergeable, targeting `main`; the live PR page is authoritative for the current head: https://github.com/mohith-krishnaa/personal-os/pull/11
-- Latest verified PR #11 head: `6217e100777543ecc65590dbc1156ebd4dfc0aca`; [CI #158](https://github.com/mohith-krishnaa/personal-os/actions/runs/44017017543) passed: **56 tests passed, 0 failed**; `npm run typecheck` and `npm run build` passed; npm install reported 0 vulnerabilities. CI actions now use Node 24-compatible v5 releases. Lint remains unavailable.
+- Latest code-bearing commit on PR #11: `6217e100777543ecc65590dbc1156ebd4dfc0aca`; [CI #158](https://github.com/mohith-krishnaa/personal-os/actions/runs/44017017543) passed: **56 tests passed, 0 failed**; typecheck and production build passed; npm install reported 0 vulnerabilities. The subsequent documentation checkpoint `f5cdf41d3b42e95a9bee202f68db4d4ecd18b73d` passed [CI #159](https://github.com/mohith-krishnaa/personal-os/actions/runs/44017156115) with the same checks. CI actions now use Node 24-compatible v5 releases. Lint remains unavailable.
 - PR #12 is an open draft explicitly superseded by PR #11; do not merge it separately.
 
 ## Work completed in this checkpoint
@@ -223,4 +223,12 @@ Next safe action: restore supported database connectivity, inspect the actual mi
 - No application, database, migration, or RLS behavior changed in this workflow-only follow-up.
 - Lint remains unavailable; no lint script/configuration or package lockfile exists.
 - Supabase migration listing, verbose table inspection, and read-only SQL still time out; security/performance advisors report hibernation despite ACTIVE_HEALTHY project metadata. Live schema and migration ledger remain unknown.
+
+
+
+## Documentation verification — 2026-11-17
+
+- Documentation checkpoint `f5cdf41d3b42e95a9bee202f68db4d4ecd18b73d` passed [CI #159](https://github.com/mohith-krishnaa/personal-os/actions/runs/44017156115): 56 tests, 0 failures; typecheck and production build passed; npm install reported 0 vulnerabilities.
+- CI #159 ran with `actions/checkout@v5` and `actions/setup-node@v5`; no Node 20 deprecation warning was emitted.
+- This checkpoint changed documentation only. The latest application/workflow implementation remains code-bearing commit `6217e100777543ecc65590dbc1156ebd4dfc0aca`, verified by CI #158.
 

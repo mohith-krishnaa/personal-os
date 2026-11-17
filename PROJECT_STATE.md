@@ -1,7 +1,7 @@
 # Personal-OS — Persistent Project State
 
 > Canonical recovery checkpoint. Read this before making project claims or changes.
-> Last code verification: 2026-11-17 (PR #11 head `6217e100777543ecc65590dbc1156ebd4dfc0aca`; CI #158 passed: 56 tests, typecheck, and production build; npm install reported 0 vulnerabilities. GitHub Actions upgraded to Node 24-compatible v5 actions; the prior Node 20 deprecation warning is gone. Lint is not configured. Live Supabase migration/table/SQL inspection still times out and security/performance advisors report hibernation despite ACTIVE_HEALTHY project metadata.)
+> Last code verification: 2026-11-17 (latest code-bearing commit `6217e100777543ecc65590dbc1156ebd4dfc0aca`; CI #158 passed: 56 tests, typecheck, and production build; npm install reported 0 vulnerabilities. Documentation checkpoint `f5cdf41d3b42e95a9bee202f68db4d4ecd18b73d` also passed CI #159 with the same checks. GitHub Actions use Node 24-compatible v5 actions; no Node 20 deprecation warning remains. Lint is not configured. Live Supabase migration/table/SQL inspection still times out and security/performance advisors report hibernation despite ACTIVE_HEALTHY project metadata.)
 
 ## Current verified state
 
@@ -12,7 +12,7 @@
 - Progress & Streaks V1 — **merged** (PR #8).
 - Security issue #6 — **closed/completed** after client execution was revoked for `public.rls_auto_enable()` and security verification reported 0 lints.
 - Open GitHub issue backlog — **0** at last verification.
-- Latest completed code CI — successful on PR #11 head `6217e100777543ecc65590dbc1156ebd4dfc0aca` (CI #158, run ID `44017017543`): **56 tests passed, 0 failed**; `npm run typecheck` and `npm run build` passed; npm install reported 0 vulnerabilities. CI uses `actions/checkout@v5` and `actions/setup-node@v5` (Node 24); the Node 20 deprecation warning observed in CI #157 is no longer present. Lint remains unavailable.
+- Latest completed code CI — successful on code-bearing commit `6217e100777543ecc65590dbc1156ebd4dfc0aca` (CI #158, run ID `44017017543`): **56 tests passed, 0 failed**; `npm run typecheck` and `npm run build` passed; npm install reported 0 vulnerabilities. Documentation checkpoint `f5cdf41d3b42e95a9bee202f68db4d4ecd18b73d` passed CI #159 (run ID `44017156115`) with the same 56-test, typecheck, build, and install checks. CI uses Node 24-compatible v5 actions. Lint remains unavailable.
 - Active feature branch: `feature/organization-v1`, in open PR #11 targeting `main`; consult the live PR page for the current head and mergeability.
 
 ## Source-of-truth hierarchy
