@@ -345,6 +345,7 @@ DECLARE
   visible_tasks integer;
   visible_checklists integer;
   visible_legacy_checklists integer;
+  affected_rows integer;
 BEGIN
   IF auth.uid() <> '22222222-2222-4222-8222-222222222222'::uuid THEN
     RAISE EXCEPTION 'The second test JWT subject was not resolved.';
@@ -379,6 +380,66 @@ BEGIN
     WHERE id = '30000000-0000-4000-8000-000000000001'
   ) THEN
     RAISE EXCEPTION 'Owner B can read Owner A organization records.';
+  END IF;
+
+  UPDATE public.projects
+  SET name = 'Owner B unauthorized project update'
+  WHERE id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 0 THEN
+    RAISE EXCEPTION 'Owner B updated Owner A project.';
+  END IF;
+
+  DELETE FROM public.projects
+  WHERE id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 0 THEN
+    RAISE EXCEPTION 'Owner B deleted Owner A project.';
+  END IF;
+
+  UPDATE public.tasks
+  SET title = 'Owner B unauthorized task update'
+  WHERE id = '10000000-0000-4000-8000-000000000001';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 0 THEN
+    RAISE EXCEPTION 'Owner B updated Owner A task.';
+  END IF;
+
+  DELETE FROM public.tasks
+  WHERE id = '10000000-0000-4000-8000-000000000001';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 0 THEN
+    RAISE EXCEPTION 'Owner B deleted Owner A task.';
+  END IF;
+
+  UPDATE public.checklist_items
+  SET title = 'Owner B unauthorized canonical checklist update'
+  WHERE id = '30000000-0000-4000-8000-000000000001';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 0 THEN
+    RAISE EXCEPTION 'Owner B updated Owner A canonical checklist item.';
+  END IF;
+
+  DELETE FROM public.checklist_items
+  WHERE id = '30000000-0000-4000-8000-000000000001';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 0 THEN
+    RAISE EXCEPTION 'Owner B deleted Owner A canonical checklist item.';
+  END IF;
+
+  UPDATE public.task_checklist_items
+  SET title = 'Owner B unauthorized legacy checklist update'
+  WHERE id = '30000000-0000-4000-8000-000000000001';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 0 THEN
+    RAISE EXCEPTION 'Owner B updated Owner A legacy checklist item.';
+  END IF;
+
+  DELETE FROM public.task_checklist_items
+  WHERE id = '30000000-0000-4000-8000-000000000001';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 0 THEN
+    RAISE EXCEPTION 'Owner B deleted Owner A legacy checklist item.';
   END IF;
 END
 $owner_b$;
