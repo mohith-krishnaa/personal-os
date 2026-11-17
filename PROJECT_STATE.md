@@ -1,7 +1,7 @@
 # Personal-OS — Persistent Project State
 
 > Canonical recovery checkpoint. Read this before making project claims or changes.
-> Last code verification: 2026-11-17 (PR #11 head `b2526b832281e55c3feaaf854341dbf11af94e97`; CI #156 passed: 56 tests, typecheck, and production build. Lint is not configured. Live Supabase migration/table/SQL inspection still times out and security/performance advisors report hibernation despite ACTIVE_HEALTHY project metadata.)
+> Last code verification: 2026-11-17 (PR #11 head `6217e100777543ecc65590dbc1156ebd4dfc0aca`; CI #158 passed: 56 tests, typecheck, and production build; npm install reported 0 vulnerabilities. GitHub Actions upgraded to Node 24-compatible v5 actions; the prior Node 20 deprecation warning is gone. Lint is not configured. Live Supabase migration/table/SQL inspection still times out and security/performance advisors report hibernation despite ACTIVE_HEALTHY project metadata.)
 
 ## Current verified state
 
@@ -12,7 +12,7 @@
 - Progress & Streaks V1 — **merged** (PR #8).
 - Security issue #6 — **closed/completed** after client execution was revoked for `public.rls_auto_enable()` and security verification reported 0 lints.
 - Open GitHub issue backlog — **0** at last verification.
-- Latest completed code CI — successful on PR #11 head `b2526b832281e55c3feaaf854341dbf11af94e97` (CI #156, run ID `44016733596`): **56 tests passed, 0 failed**; `npm run typecheck` and `npm run build` passed. The CI workflow has no lint step and the repository has no lint script/configuration.
+- Latest completed code CI — successful on PR #11 head `6217e100777543ecc65590dbc1156ebd4dfc0aca` (CI #158, run ID `44017017543`): **56 tests passed, 0 failed**; `npm run typecheck` and `npm run build` passed; npm install reported 0 vulnerabilities. CI uses `actions/checkout@v5` and `actions/setup-node@v5` (Node 24); the Node 20 deprecation warning observed in CI #157 is no longer present. Lint remains unavailable.
 - Active feature branch: `feature/organization-v1`, in open PR #11 targeting `main`; consult the live PR page for the current head and mergeability.
 
 ## Source-of-truth hierarchy
@@ -52,6 +52,15 @@ Branches are not PRs. A Compare & pull request button only means a branch has ch
 - No production migration, schema/data write, RLS change, or PR merge was performed.
 
 Next safe action: restore supported database connectivity, inspect the live migration ledger and Organization tables, confirm backup/recovery readiness, then complete authenticated CRUD and two-user isolation before merge. Keep Analytics queued until Organization's production gates pass.
+
+## Latest checkpoint — CI action runtime upgrade (2026-11-17)
+
+- Upgraded `.github/workflows/ci.yml` from `actions/checkout@v4` and `actions/setup-node@v4` to v5. The upstream action manifests declare `runs.using: node24`.
+- This removes the Node 20 deprecation warning observed in CI #157 while retaining the explicit Node 24 setup.
+- [CI #158](https://github.com/mohith-krishnaa/personal-os/actions/runs/44017017543) passed on PR #11 head `6217e100777543ecc65590dbc1156ebd4dfc0aca`: **56 tests passed, 0 failed**; typecheck and production build passed; npm install reported 0 vulnerabilities. The current workflow's install, test, typecheck, and build steps all succeeded.
+- No application code, schema, migration, RLS policy, or production data changed in this CI-only follow-up.
+- No lint script/configuration or package lockfile exists. Exact dependency versions therefore remain unpinned.
+- Supabase live schema/migration inspection remains blocked by connection timeouts and advisor hibernation responses.
 
 ## Completed milestones
 

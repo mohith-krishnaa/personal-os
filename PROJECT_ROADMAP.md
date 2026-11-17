@@ -7,7 +7,7 @@
 
 **Completed:** Core productivity, Recurring Tasks V1, Reminders V1, and Progress & Streaks V1.
 
-**In progress:** Organization V1 remains in PR #11. The task update path now resolves partial project/parent relationship patches through a tested helper: omitted fields preserve the current relationship, while explicit `null` clears only that field. CI #156 passed on PR head `b2526b832281e55c3feaaf854341dbf11af94e97` with 56 tests, typecheck, and production build. Lint is not configured. Supabase project metadata reports `ACTIVE_HEALTHY`, but live migration listing, table inspection, and read-only SQL time out; security/performance advisors report hibernation. Production schema and migration ledger remain unknown.
+**In progress:** Organization V1 remains in PR #11. Task updates now resolve partial project/parent relationship patches through a tested helper, preserving omitted links and honoring explicit `null` unlinks. CI #158 passed on current PR head `6217e100777543ecc65590dbc1156ebd4dfc0aca`: 56 tests, typecheck, production build, and npm install with 0 vulnerabilities. GitHub Actions now use Node 24-compatible v5 actions; the Node 20 deprecation warning is resolved. Lint is not configured. Supabase metadata reports `ACTIVE_HEALTHY`, but live migration listing, table inspection, and read-only SQL time out; security/performance advisors report hibernation. Production schema and migration ledger remain unknown.
 
 ## Mind map
 
@@ -110,9 +110,9 @@ PERSONAL OS
 - Maintain regression coverage for task, recurrence, reminder and progress flows.
 
 ### P1 — Organization V1
-- Active review: PR #11 (`feature/organization-v1`) remains open and unmerged. Latest verified head is `b2526b832281e55c3feaaf854341dbf11af94e97`; PR #12 remains a superseded draft and must not be merged separately.
+- Active review: PR #11 (`feature/organization-v1`) remains open and unmerged. Latest verified head is `6217e100777543ecc65590dbc1156ebd4dfc0aca`; PR #12 remains a superseded draft and must not be merged separately.
 - Application implementation includes owner-scoped projects/tasks, task/project association, subtasks, checklists, dashboard failure-state recovery, and task relationship preflight. The latest code checkpoint extracts partial-update resolution so omitted project/parent fields are preserved and explicit `null` clears are handled intentionally.
-- [CI #156](https://github.com/mohith-krishnaa/personal-os/actions/runs/44016733596) passed on the current code head: 56/56 tests, TypeScript check, and production build. No lint script/configuration exists.
+- [CI #158](https://github.com/mohith-krishnaa/personal-os/actions/runs/44017017543) passed on the current PR head: 56/56 tests, TypeScript check, production build, and npm install with 0 vulnerabilities. CI actions are now Node 24-compatible v5 releases; the Node 20 deprecation warning is resolved. No lint script/configuration exists.
 - Production rollout is still blocked: project metadata is `ACTIVE_HEALTHY`, but migration listing, verbose table introspection, and read-only SQL time out; security/performance advisors report hibernation. The live migration ledger/schema remain unknown.
 - No production migration, data/schema write, RLS change, or merge has been performed. Mocked service tests do not prove PostgreSQL RLS or two-user isolation.
 - Next: restore database connectivity; inspect the actual migration ledger and Organization tables; confirm backup/recovery readiness; review/apply migrations safely; run advisors and authenticated CRUD/cross-user isolation; then merge only after current-head CI and all production gates pass.

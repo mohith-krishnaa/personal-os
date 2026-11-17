@@ -8,7 +8,7 @@ Date: 2026-11-17
 - Stable branch: `main` at `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`.
 - Organization branch: `feature/organization-v1`.
 - PR #11: open, unmerged, non-draft, mergeable, targeting `main`; the live PR page is authoritative for the current head: https://github.com/mohith-krishnaa/personal-os/pull/11
-- Latest code-bearing checkpoint: PR #11 head `b2526b832281e55c3feaaf854341dbf11af94e97` passed [CI #156](https://github.com/mohith-krishnaa/personal-os/actions/runs/44016733596): **56 tests passed, 0 failed**; `npm run typecheck` and `npm run build` passed. Lint is unavailable because no script/configuration exists. The current PR page remains authoritative for branch state.
+- Latest verified PR #11 head: `6217e100777543ecc65590dbc1156ebd4dfc0aca`; [CI #158](https://github.com/mohith-krishnaa/personal-os/actions/runs/44017017543) passed: **56 tests passed, 0 failed**; `npm run typecheck` and `npm run build` passed; npm install reported 0 vulnerabilities. CI actions now use Node 24-compatible v5 releases. Lint remains unavailable.
 - PR #12 is an open draft explicitly superseded by PR #11; do not merge it separately.
 
 ## Work completed in this checkpoint
@@ -212,4 +212,15 @@ Next safe actions: verify CI on the updated PR head; restore supported Supabase 
 - No production migrations, schema/data changes, RLS changes, or merge were performed.
 
 Next safe action: restore supported database connectivity, inspect the actual migration ledger/schema, confirm backup/recovery readiness, and run authenticated CRUD plus two-user isolation before merge. Analytics remains queued behind Organization.
+
+
+
+## Latest checkpoint — CI action runtime upgrade (2026-11-17)
+
+- Upgraded `.github/workflows/ci.yml` to `actions/checkout@v5` and `actions/setup-node@v5`; upstream action manifests confirm both run on Node 24.
+- [CI #158](https://github.com/mohith-krishnaa/personal-os/actions/runs/44017017543) passed on the exact workflow head `6217e100777543ecc65590dbc1156ebd4dfc0aca`: 56 tests, 0 failures; typecheck and production build passed; npm install reported 0 vulnerabilities.
+- The Node 20 deprecation warning observed in CI #157 is absent from CI #158.
+- No application, database, migration, or RLS behavior changed in this workflow-only follow-up.
+- Lint remains unavailable; no lint script/configuration or package lockfile exists.
+- Supabase migration listing, verbose table inspection, and read-only SQL still time out; security/performance advisors report hibernation despite ACTIVE_HEALTHY project metadata. Live schema and migration ledger remain unknown.
 
