@@ -126,3 +126,17 @@ Verification note (2026-11-17): CI #143 passed on code-bearing commit 1106efd1b3
 
 
 Latest verification (2026-11-17): code-bearing commit 1106efd1b3a1be9e3b5aac18bd8a6e714476cb9f passed CI #143 (45 tests, typecheck, production build); latest documentation checkpoint b86056d20ca3f9ed470709ad4baebcfa711e9ea6 passed CI #147. Live PostgreSQL RLS and authenticated two-user isolation remain unverified.
+
+
+## Decision — authenticated task-list reads (2026-11-17)
+
+Task listing must enforce the same explicit application-level owner boundary as project, subtask, and checklist reads:
+
+1. Resolve the caller with `auth.getUser()` on the same authenticated server-side Supabase client used for the read.
+2. Reject a missing or invalid session before querying tasks.
+3. Filter task rows by `user_id = authenticated user id`.
+4. Preserve the optional project filter and existing due-date / creation-time ordering.
+
+The query is isolated in `src/lib/task-queries.ts` so owner filtering and ordering can be regression-tested without importing the Next.js server runtime. Tests use mocked Supabase clients and establish query construction only. PostgreSQL RLS and cross-user isolation still require live authenticated database tests.
+
+Verification: CI #150 passed on code-bearing commit `8f5eac4fd9d314a9fb3125de46789fe7858beac3` with 48 tests, typecheck, and production build. No database schema or policy was changed.
