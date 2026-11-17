@@ -1,6 +1,6 @@
 # Supabase migration history
 
-The eight migrations already recorded in the live project were reconstructed from the exact SQL statements stored in public.supabase_migrations.schema_migrations on 2026-11-17.
+The eight migrations already recorded in the live project were reconstructed from the exact SQL statements stored in supabase_migrations.schema_migrations on 2026-11-17.
 
 The filenames below use the exact live version and name. Do not change their timestamps or rewrite their SQL without a deliberate migration-history decision.
 
