@@ -137,3 +137,14 @@ Next action: restore supported Supabase database access, inspect the live ledger
 
  
 - Final documentation-head verification: [CI #141](https://github.com/mohith-krishnaa/personal-os/actions/runs/43987217774) passed on `7f72caff39f4e4efba2bdf65fdcb11ff29163360`: 43 tests passed, 0 failed; typecheck and production build passed; 43 packages audited, 0 vulnerabilities.
+
+
+## 2026-11-17 — Project-list owner scoping
+
+- PR #11 is the active Organization V1 review; it was open, unmerged, non-draft and mergeable at the start of this change. PR #12 remains an open draft superseded by PR #11. Stable main was 2b42dd17796b75dca79434a81d4e1f0cbf0fa043.
+- Before this change, listProjects relied on database RLS without an explicit authenticated-owner filter. It now calls auth.getUser(), fails closed if no authenticated user is returned, and constrains project reads with .eq('user_id', user.id). Optional status filter and descending creation-time ordering remain intact.
+- Added two tests covering owner/status filters and unauthenticated rejection before database access. These use mocked Supabase clients and do not establish PostgreSQL RLS or live cross-user isolation.
+- Latest prior CI #142 passed on dd18922b228f0bb44a6a01e404e33d3b4d0444bd. New code CI is pending; verify the latest PR head before making a completion claim. The workflow currently runs install, tests, typecheck, and production build. No lint script/configuration exists.
+- Supabase project metadata reports ACTIVE_HEALTHY, but migration listing, verbose table introspection and a read-only SQL probe fail with connection timeouts; advisor calls report hibernation. Live schema and migration ledger remain unknown. No production migration, schema/data change, or PR merge was performed.
+
+Next safe actions: verify CI on the updated PR head; restore supported Supabase database-tool connectivity; inspect the live migration ledger and Organization table definitions; confirm backup/recovery readiness; then run authenticated CRUD and two-user isolation tests before production rollout or merge.
