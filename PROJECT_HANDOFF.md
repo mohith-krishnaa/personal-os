@@ -8,7 +8,7 @@ Date: 2026-11-17
 - Stable branch: `main` at `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`.
 - Organization branch: `feature/organization-v1`.
 - PR #11: open, unmerged, non-draft, mergeable, targeting `main`; the live PR page is authoritative for the current head: https://github.com/mohith-krishnaa/personal-os/pull/11
-- Latest verified PR #11 head: `b8879c55a9439ea7586ea7400a73534ebd547ea8`; [CI #167](https://github.com/mohith-krishnaa/personal-os/actions/runs/44024323363) passed on this exact head: **56 tests passed, 0 failed**; typecheck and production build passed; npm install reported 0 vulnerabilities. No lint script/configuration exists.
+- Latest verified documentation checkpoint: `0ad4b9dd5acbcdf5542cb70e0a7c11bb3a03ee49`; [CI #168](https://github.com/mohith-krishnaa/personal-os/actions/runs/44030918679) passed on this exact commit with **56 tests passed, 0 failed**, typecheck and production build passed, and npm install reported 0 vulnerabilities. The preceding code-bearing checkpoint `b8879c55a9439ea7586ea7400a73534ebd547ea8` passed CI #167. Consult the live PR page for the exact current head. No lint script/configuration exists.
 - PR #12 is an open draft explicitly superseded by PR #11; do not merge it separately.
 
 ## Work completed in this checkpoint
@@ -26,7 +26,8 @@ Date: 2026-11-17
 - [CI #163](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023466322) passed on migration-history commit 30e490aaf1832d7003717473a0eb5b3d6a16ce8c: **56 passed, 0 failed**; install, typecheck, and production build succeeded; npm install reported 0 vulnerabilities.
 - [CI #165](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023928005) passed on documentation checkpoint ef203157d686565a4f62aa047a3c17ce1f8afb52: **56 passed, 0 failed**; install, typecheck, and production build succeeded; npm install reported 0 vulnerabilities.
 - [CI #166](https://github.com/mohith-krishnaa/personal-os/actions/runs/44024104158) passed on documentation checkpoint `7f85384b0a89f5447f55d34b6bb367e9d8f527b3` with 56 tests, typecheck, production build, and 0 npm audit vulnerabilities.
-- [CI #167](https://github.com/mohith-krishnaa/personal-os/actions/runs/44024323363) passed on the current exact PR head `b8879c55a9439ea7586ea7400a73534ebd547ea8` with 56 tests, typecheck, production build, and 0 npm audit vulnerabilities.
+- [CI #167](https://github.com/mohith-krishnaa/personal-os/actions/runs/44024323363) passed on code/documentation head `b8879c55a9439ea7586ea7400a73534ebd547ea8`: 56 tests, typecheck, production build, and 0 npm audit vulnerabilities.
+- [CI #168](https://github.com/mohith-krishnaa/personal-os/actions/runs/44030918679) passed on documentation checkpoint `0ad4b9dd5acbcdf5542cb70e0a7c11bb3a03ee49`: 56 tests passed, 0 failed; typecheck and production build passed; npm install audited 43 packages and reported 0 vulnerabilities.
 - No lint script or linter configuration exists; lint is unavailable and no lint pass is claimed.
 - The workflow does not run live database integration or two-user RLS tests.
 
@@ -266,7 +267,7 @@ Next safe action: restore supported database connectivity, inspect the actual mi
 
 ## Latest verified checkpoint — 2026-11-17 11:49 IST
 
-- Exact PR #11 head: `b8879c55a9439ea7586ea7400a73534ebd547ea8`; PR remains open, unmerged, non-draft, and mergeable. CI #167 passed on that exact commit: 56 tests, typecheck, production build, and npm audit with 0 vulnerabilities. Lint is not configured.
+- Latest verified code-bearing checkpoint: `b8879c55a9439ea7586ea7400a73534ebd547ea8` (CI #167). Latest verified documentation checkpoint: `0ad4b9dd5acbcdf5542cb70e0a7c11bb3a03ee49` (CI #168 passed: 56 tests, typecheck, production build, 0 npm audit vulnerabilities). PR #11 remains open, unmerged, non-draft, and mergeable; consult the live PR page for the exact current head. Lint is not configured.
 - Live Supabase read-only access is working in this checkpoint. Project status is ACTIVE_HEALTHY; PostgreSQL is 17.11.0.003 in ap-southeast-1. The live migration ledger has 8 entries matching the 8 reconstructed core migration files.
 - All 9 public application tables have RLS enabled and zero rows; `auth.users` and `storage.objects` also have zero rows. `projects.title` exists and `projects.name` does not. Both checklist tables and the task Organization validation trigger are absent.
 - Security and health advisors return no lints. Performance advisor still reports 4 unindexed foreign keys, 14 auth_rls_initplan warnings, 13 unused-index findings, and 4 overlapping permissive-policy findings on goals.
