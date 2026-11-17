@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createSubtask, listSubtasks } from './subtasks'
-import { afterSubtaskCreated } from './subtask-state'
+import { afterSubtaskCreated, afterSubtaskListLoadFailed } from './subtask-state'
 
 function unreachableDatabase() {
   return { from: () => { throw new Error('database should not be reached') } } as any
@@ -161,5 +161,17 @@ test('appends to a loaded subtask list without requiring another read', () => {
   assert.deepEqual(afterSubtaskCreated(existing, created, true), {
     items: [...existing, created],
     shouldReload: false,
+  })
+})
+ 
+test('marks a subtask list incomplete after a failed refresh and retries canonical loading after the next create', () => {
+  const existing = [{ id: 'existing' }]
+  const created = { id: 'created' }
+  const failed = afterSubtaskListLoadFailed(existing)
+
+  assert.deepEqual(failed, { items: existing, listLoaded: false })
+  assert.deepEqual(afterSubtaskCreated(failed.items, created, failed.listLoaded), {
+    items: [...existing, created],
+    shouldReload: true,
   })
 })
