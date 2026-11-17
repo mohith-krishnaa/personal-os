@@ -380,3 +380,14 @@ Next safe action: verify CI on the updated PR head, then restore database-tool c
 - PR #11 remains open, unmerged, non-draft, and mergeable at the time of this checkpoint. PR #12 remains a superseded open draft.
 - Supabase project metadata remains `ACTIVE_HEALTHY`, but migration listing, verbose table inspection, read-only SQL, and all three advisor calls failed with timeouts or hibernation responses. Live migration ledger and schema remain unknown.
 - No database migration, schema/RLS change, production data write, or PR merge was performed.
+
+
+## Supabase connectivity incident — 2026-11-17
+
+- Fresh project metadata/listing for `gujzvkyytxsnervovvrt` reports `ACTIVE_HEALTHY`, region `ap-southeast-1`, PostgreSQL `17.6.1.155`; project URL lookup succeeds.
+- Read-only SQL and migration listing time out. Security, performance, and health advisors report a contradictory hibernation state. Unified logs query returned no sources/rows in the queried window, so no Postgres error evidence was available there.
+- Official Supabase status page reports all systems operational on Nov 17 and marks the Nov 12 database connection incident resolved. Current evidence does not support calling this a platform-wide outage.
+- Root cause remains unproven: project-specific database runtime/connection failure versus stale/inconsistent MCP integration state. Do not treat the project as paused while `get_project` says `ACTIVE_HEALTHY`.
+- No restore/pause/restart/resize, credentials/config changes, DDL, migrations, RLS changes, production data writes, or PR merge were performed.
+- See [connectivity incident record](docs/operations/supabase-connectivity-incident-2026-11-17.md) for exact results and safe next actions. User-side next check: Supabase Dashboard > Database/Compute state, then run `select now(), current_database(), version();` in Dashboard SQL Editor. Use that result to distinguish database runtime failure from MCP connection-path failure.
+- Organization V1 remains blocked; Analytics remains queued.
