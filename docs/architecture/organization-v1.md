@@ -109,3 +109,15 @@ Status: implementation is under review in PR #11. This document records reposito
 - If a refresh fails, keep already-visible rows for continuity but mark the list incomplete. A subsequent create must request the canonical owner-scoped list again rather than treating the retained rows as exhaustive.
 - The state transition is covered by a pure helper regression test and does not alter server authorization, ownership checks, or the PostgreSQL RLS boundary.
 - This UI rule applies to recovery from transient read failures; it is not evidence of live database availability or cross-user isolation.
+
+
+## Decision — authenticated project-list reads (2026-11-17)
+
+Project list reads must enforce the same explicit application-level owner boundary as project writes:
+
+1. Resolve the caller from the server-side Supabase session using auth.getUser().
+2. Reject the request before querying if the session is missing or invalid.
+3. Add an explicit user_id = authenticated user id filter to the projects query.
+4. Preserve optional status filtering and deterministic newest-first ordering.
+
+This is defense in depth, not a replacement for PostgreSQL RLS. The new unit tests assert the generated query filters and unauthenticated fail-closed behavior using mocked clients; they do not prove live RLS enforcement or cross-user isolation. Those still require authenticated tests against the actual database once connectivity is restored.
