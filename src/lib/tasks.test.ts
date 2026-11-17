@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { listTasksForUser } from './task-queries'
-import { assertTaskOrganizationLinks } from './task-relationships'
+import { assertTaskOrganizationLinks, resolveTaskOrganizationLinks } from './task-relationships'
 
 test('listTasksForUser scopes reads to the owner and optional project while preserving task ordering', async () => {
   const filters: Array<[string, string]> = []
@@ -191,4 +191,29 @@ test('task link preflight rejects a missing owner before database access', async
     /Unauthorized/,
   )
   assert.equal(calls.length, 0)
+})
+
+
+test('partial task relationship updates preserve the omitted existing link', () => {
+  const links = resolveTaskOrganizationLinks(
+    { project_id: 'project-1', parent_task_id: 'parent-1' },
+    { parent_task_id: 'parent-2' },
+  )
+
+  assert.deepEqual(links, {
+    projectId: 'project-1',
+    parentTaskId: 'parent-2',
+  })
+})
+
+test('explicit null clears a task relationship without clearing the omitted link', () => {
+  const links = resolveTaskOrganizationLinks(
+    { project_id: 'project-1', parent_task_id: 'parent-1' },
+    { parent_task_id: null },
+  )
+
+  assert.deepEqual(links, {
+    projectId: 'project-1',
+    parentTaskId: null,
+  })
 })

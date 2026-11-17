@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { nextOccurrence, validateRecurrence } from '@/lib/recurrence'
 import type { RecurrenceRule, Task, TaskPriority, TaskStatus } from '@/types/task'
 import { listTasksForUser } from './task-queries'
-import { assertTaskOrganizationLinks } from './task-relationships'
+import { assertTaskOrganizationLinks, resolveTaskOrganizationLinks } from './task-relationships'
 
 export async function getCurrentUser() {
   const supabase = await createClient()
@@ -70,11 +70,8 @@ export async function updateTask(id: string, input: { title: string; priority: T
       .eq('user_id', user.id)
       .single()
     if (currentTaskError) throw currentTaskError
-    await assertTaskOrganizationLinks(supabase, user.id, {
-      projectId: input.project_id !== undefined ? input.project_id : currentTask.project_id,
-      parentTaskId: input.parent_task_id !== undefined ? input.parent_task_id : currentTask.parent_task_id,
-      taskId: id,
-    })
+    const links = resolveTaskOrganizationLinks(currentTask, input)
+    await assertTaskOrganizationLinks(supabase, user.id, { ...links, taskId: id })
   }
   // Build an explicit update allowlist. Server-action arguments are runtime input;
   // spreading them could let extra properties overwrite protected task columns.

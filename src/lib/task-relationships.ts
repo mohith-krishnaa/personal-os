@@ -6,6 +6,16 @@ export type TaskOrganizationLinks = {
   taskId?: string
 }
 
+export function resolveTaskOrganizationLinks(
+  current: { project_id: string | null; parent_task_id: string | null },
+  patch: { project_id?: string | null; parent_task_id?: string | null },
+) {
+  return {
+    projectId: patch.project_id !== undefined ? patch.project_id : current.project_id,
+    parentTaskId: patch.parent_task_id !== undefined ? patch.parent_task_id : current.parent_task_id,
+  }
+}
+
 /**
  * Preflight task links against the authenticated owner before a task write.
  * Database constraints/triggers remain authoritative for races and indirect cycles.
