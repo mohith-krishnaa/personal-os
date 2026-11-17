@@ -241,3 +241,14 @@ CI #183 replayed the then-current 14-migration chain. CI #189 and #195 subsequen
 - The same owner-scoped advisory transaction lock serializes parent changes and child relationship changes, so the check is not raced by a concurrent child update under READ COMMITTED.
 - The PostgreSQL 17 integration fixture verifies both a parent project move and an owner transfer are rejected when a child would be left inconsistent. CI #176 passed this fixture, 56 application tests, typecheck, and production build; npm audit reported 0 vulnerabilities.
 - This migration remains unapplied in production. The test does not prove full migration-chain compatibility, live RLS, or two-user PostgREST isolation.
+
+## Direct API mutation isolation regression contract — 2026-11-17
+
+The disposable PostgreSQL migration fixture now exercises both authenticated owners rather than only proving that a foreign row is hidden from SELECT:
+
+- Seed one valid legacy checklist row for each owner and one malformed Owner A checklist row attached to Owner B's task.
+- Replay the canonical checklist reconciliation migration; both valid rows must be copied, while the malformed association must be excluded.
+- Under separate authenticated JWT subjects, verify each owner sees only its own projects, tasks, canonical checklist rows, and legacy checklist rows.
+- As Owner A, issue UPDATE and DELETE statements targeting Owner B's project, task, canonical checklist item, and legacy checklist item. Every statement must affect zero rows; Owner B must still see its rows afterward.
+
+CI #204 passed this fixture on 8d3667ae8aa843ef6e6fe6a62c9df2480cd63265. This is a PostgreSQL 17 disposable-database test, not a live Supabase/PostgREST test. Production acceptance still requires a restore-tested backup and separate live JWT/API checks.

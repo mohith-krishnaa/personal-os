@@ -8,7 +8,7 @@ Date: 2026-11-17
 - Stable branch: `main` at `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`.
 - Organization branch: `feature/organization-v1`.
 - PR #11 is the intended Organization V1 review path targeting `main`; this checkpoint did not merge it. Recheck the live PR page for current state/head before any merge: https://github.com/mohith-krishnaa/personal-os/pull/11
-- Latest code-bearing checkpoint: `3c23e01e3574b4fc91d15a1929e7c5e37eb16988`; [CI #189](https://github.com/mohith-krishnaa/personal-os/actions/runs/44047023836) passed 15-migration PostgreSQL 17 replay, authenticated two-owner RLS, hierarchy concurrency, **58 tests passed / 0 failed**, typecheck, production build, and 0 npm audit vulnerabilities. The architecture/migration documentation checkpoint `d7c5fc12b40afc1f69b28591bca0db0c77039ce9` passed [CI #191](https://github.com/mohith-krishnaa/personal-os/actions/runs/44047078890); the subsequent project-state/roadmap/handoff/runbook checkpoint `ef49a03e948e27617f5522beb1370167e936555b` passed [CI #195](https://github.com/mohith-krishnaa/personal-os/actions/runs/44047497661). No lint script/configuration exists.
+- Latest code-bearing checkpoint: 8d3667ae8aa843ef6e6fe6a62c9df2480cd63265; [CI #204](https://github.com/mohith-krishnaa/personal-os/actions/runs/44054528518) passed the 15-migration PostgreSQL 17 replay, authenticated two-owner RLS checks including cross-owner UPDATE/DELETE denial for projects, tasks, canonical checklists, and legacy checklists, hierarchy concurrency, application test suite, typecheck, and production build. No lint script/configuration exists.
 - PR #12 was previously marked as a draft superseded by PR #11; verify its live state before any action and do not merge it separately.
 
 ## Work completed in this checkpoint
@@ -342,3 +342,12 @@ Next safe action: create and restore-test the private logical backup on an owner
 - No production DDL, migration, RLS change, data write, restore, or PR merge was performed.
 
 Next safe action: create private schema/data/role exports, restore-test them in an isolated database, replay the 15 migrations against that restored snapshot, and run authenticated direct-API isolation tests. Keep production read-only until recovery is proven and rollout is explicitly approved. Organization remains the highest-priority incomplete roadmap milestone; Analytics stays queued.
+
+
+## Latest Organization test improvement — 2026-11-17
+
+- Added a valid Owner B legacy checklist row to the migration fixture; both owners' valid rows must reconcile, while the malformed Owner A-to-Owner B task association must not be copied.
+- The authenticated RLS fixture now verifies each owner sees only their own projects, tasks, canonical checklist rows, and legacy checklist rows.
+- Owner A directly attempts UPDATE and DELETE against Owner B's project, task, canonical checklist item, and legacy checklist item. Each operation must affect zero rows; Owner B's rows must remain intact.
+- [CI #204](https://github.com/mohith-krishnaa/personal-os/actions/runs/44054528518) passed all configured steps on `8d3667ae8aa843ef6e6fe6a62c9df2480cd63265`: migration replay, task hierarchy concurrency, application tests, TypeScript typecheck, and production build.
+- Live Supabase remains unchanged. The migration ledger still has 8 applied entries; 6 Organization migrations and 1 Progress compatibility migration remain unapplied. No manual backup/restore test exists.

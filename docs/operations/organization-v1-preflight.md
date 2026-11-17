@@ -132,3 +132,17 @@ This closes the disposable full-chain and simulated two-owner RLS test gap. It d
 ## Related live Progress V1 schema mismatch
 
 The same live schema inspection found that `public.goals` lacks `unit` and `target`, although the dashboard progress service selects both columns. The original Progress V1 migration used `CREATE TABLE IF NOT EXISTS` after the core migration had already created `goals`, so those columns were not added. A forward-only branch migration, `20261117000100_reconcile_progress_goal_metrics.sql`, adds nullable columns and checks without inventing metrics for legacy goals. The dashboard now handles legacy rows without those metrics. This migration is also unapplied in production and must be included in the backup/restore-tested rollout.
+
+
+## Disposable authenticated mutation verification — 2026-11-17
+
+CI #204 passed the full local migration replay and now includes stronger two-owner RLS assertions:
+
+- Both owners have valid legacy checklist records; the reconciliation migration must copy both to checklist_items.
+- A malformed Owner A checklist row attached to Owner B's task must not be copied.
+- Each owner sees only its own projects, tasks, canonical checklist rows, and legacy checklist rows.
+- Owner A's UPDATE and DELETE attempts against Owner B's project, task, canonical checklist item, and legacy checklist item must each affect zero rows.
+
+This is a disposable PostgreSQL 17 test. It does not replace a private production backup/restore, a live PostgREST JWT test, or approval to apply migrations. The live database was not changed.
+
+CI: [run #204](https://github.com/mohith-krishnaa/personal-os/actions/runs/44054528518) on code-bearing head 8d3667ae8aa843ef6e6fe6a62c9df2480cd63265.
