@@ -1,5 +1,6 @@
 -- Assert that the complete migration chain can be replayed against the legacy
 -- core schema and that the resulting Organization boundary holds under RLS.
+-- Each owner session also verifies that the other owner cannot UPDATE or DELETE its records.
 DO $assert_schema$
 DECLARE
   project_name_nullable text;
