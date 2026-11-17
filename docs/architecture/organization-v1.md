@@ -284,3 +284,10 @@ CI #211 verifies this against a disposable PostgreSQL 17 database by seeding mal
 Organization policies are intentionally granted to `authenticated`, not `anon`. The migration integration fixture now explicitly grants `anon` the same table-level SELECT/INSERT/UPDATE/DELETE privileges used by the authenticated test role, then switches to `anon` with an empty JWT subject. This prevents a false-positive test caused by missing SQL grants and verifies the RLS boundary itself: zero visible rows across projects, tasks, canonical checklists, and legacy checklists; denied inserts; and zero-row updates/deletes.
 
 [CI #216](https://github.com/mohith-krishnaa/personal-os/actions/runs/44072614729) passed this check on disposable PostgreSQL 17 together with the full migration replay and existing authenticated owner-isolation tests. This does not establish live Supabase/PostgREST anonymous behavior; production API checks and the backup/restore gate remain required.
+
+
+## Anonymous Organization CRUD denial matrix — 2026-11-17
+
+The disposable migration fixture now verifies all four RLS operations for the anonymous role on each Organization table. It grants `anon` table-level SELECT/INSERT/UPDATE/DELETE privileges first, sets an empty JWT subject, and asserts: SELECT returns zero rows; INSERT is rejected; UPDATE affects zero rows; DELETE affects zero rows for `projects`, `tasks`, `checklist_items`, and `task_checklist_items`. This closes the earlier test-coverage gap where anonymous UPDATE and DELETE checks covered only a subset of tables.
+
+Code commit [fba0eee](https://github.com/mohith-krishnaa/personal-os/commit/fba0eeeda2b824afd8525d9f941050dca08e6a6a) passed [GitHub Actions run 44082207231](https://github.com/mohith-krishnaa/personal-os/actions/runs/44082207231), including the full 16-migration PostgreSQL 17 replay, hierarchy concurrency, 58 application tests, typecheck, and production build. The result is not a live PostgREST test and does not satisfy the backup/restore gate.
