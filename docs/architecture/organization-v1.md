@@ -210,11 +210,13 @@ The following is a read-only snapshot of the live project, not a statement that 
 
 **Security consequence:** current application services preflight project/parent ownership, but those checks do not protect direct PostgREST writes. Until the reviewed Organization migrations are applied and two-user direct-API tests pass, do not claim database-enforced project/parent relationship isolation in production.
 
-## Additional migration-review requirement — concurrent hierarchy writes
+## Hierarchy concurrency verification — 2026-11-17
 
-The cycle-prevention migration recursively checks the proposed parent chain, but the trigger body does not acquire a transaction-level lock to serialize hierarchy writes for the same owner. Two concurrent transactions may each inspect a pre-commit snapshot and create a cycle that neither transaction sees. This is a static-review risk, not a reproduced production incident.
+The earlier static-review concern about concurrent hierarchy writes is addressed in the branch migration. The trigger acquires a transaction-scoped owner lock before relationship validation; owner transfers acquire both owner keys in deterministic order. Parent owner/project changes are rejected when they would leave existing direct children inconsistent.
 
-Before rollout, test concurrent parent updates/inserts against disposable PostgreSQL. If the race is reproduced, add an owner-scoped transaction lock or another serialization strategy and verify it with a two-session integration test. Do not infer race safety from the existing single-transaction unit tests.
+CI #176 passed a PostgreSQL 17 two-session READ COMMITTED race: the second writer waits on the advisory lock and is rejected when its inverse edge would create a cycle. The fixture also checks direct self-parenting, foreign parents/projects, cross-project links, and invalid parent mutations.
+
+CI #183 subsequently replayed the complete migration history in a separate disposable PostgreSQL 17 database and verified Organization RLS behavior with two authenticated test identities. These tests do not restore a production backup or exercise live Supabase/PostgREST; the migration remains unapplied in production.
 
 ## Decision — 2026-11-17
 
