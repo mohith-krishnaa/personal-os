@@ -8,3 +8,12 @@ export function afterSubtaskCreated<T>(
     shouldReload: !listLoaded,
   }
 }
+
+export function afterSubtaskListLoadFailed<T>(
+  currentItems: T[],
+): { items: T[]; listLoaded: false } {
+  return {
+    items: currentItems,
+    listLoaded: false,
+  }
+}
