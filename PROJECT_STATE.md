@@ -1,7 +1,7 @@
 # Personal-OS — Persistent Project State
 
 > Canonical recovery checkpoint. Read this before making project claims or changes.
-> Last code verification: 2026-11-17 (code-bearing commit `1106efd1b3a1be9e3b5aac18bd8a6e714476cb9f`; CI #143 passed: 45 tests, typecheck, production build, 0 vulnerabilities. Latest documentation checkpoint `b86056d20ca3f9ed470709ad4baebcfa711e9ea6` passed CI #147. Live database inspection remains blocked by migration/table/SQL timeouts and advisor hibernation despite project metadata reporting ACTIVE_HEALTHY.)
+> Last code verification: 2026-11-17 (code-bearing commit `8f5eac4fd9d314a9fb3125de46789fe7858beac3`; CI #150 passed: 48 tests, typecheck, production build, 0 vulnerabilities. No lint script/configuration exists. Live Supabase migration/table/catalog inspection still times out and advisors report hibernation despite ACTIVE_HEALTHY project metadata.)
 
 ## Current verified state
 
@@ -12,8 +12,8 @@
 - Progress & Streaks V1 — **merged** (PR #8).
 - Security issue #6 — **closed/completed** after client execution was revoked for `public.rls_auto_enable()` and security verification reported 0 lints.
 - Open GitHub issue backlog — **0** at last verification.
-- Latest completed code CI — **successful** on code-bearing commit `1106efd1b3a1be9e3b5aac18bd8a6e714476cb9f` (run #143, ID `43994197614`): **45 tests passed, 0 failed**; `npm run typecheck` and `npm run build` passed; install output reported 0 vulnerabilities. Latest documentation checkpoint `b86056d20ca3f9ed470709ad4baebcfa711e9ea6` passed CI #147 (ID `43994686893`) with the same 45-test, typecheck, build, and install results. No lint script/configuration exists.
-- Active feature branch: `feature/organization-v1`, in open PR #11 targeting `main`; the live PR page is the authority for the current head. At this checkpoint, PR #11 head is `b86056d20ca3f9ed470709ad4baebcfa711e9ea6`, open, unmerged, non-draft, and mergeable.
+- Latest completed code CI — successful on commit `8f5eac4fd9d314a9fb3125de46789fe7858beac3` (CI #150, run ID `44002396846`): **48 tests passed, 0 failed**; `npm run typecheck` and `npm run build` passed; install audited 43 packages and reported 0 vulnerabilities. No lint script/configuration exists.
+- Active feature branch: `feature/organization-v1`, in open PR #11 targeting `main`; consult the live PR page for the current head and mergeability.
 
 ## Source-of-truth hierarchy
 
@@ -324,3 +324,16 @@ Next safe action: verify CI on the updated PR head, then restore database-tool c
 - Documentation checkpoint 2c618299c5bd3db2bf03aad7f4afecc6ab2521a7 passed CI #144 (run ID 43994283596) with the same 45/45 tests, typecheck, production build, and 0-vulnerability install output.
 - CI workflow has no lint step because package.json has no lint script and the repository has no linter configuration. Lint is not claimed.
 - Current PR #11 head is updated by this documentation reconciliation; verify its new head and CI before any merge decision. PR #11 remains open/unmerged; PR #12 remains a superseded draft.
+
+
+## Task-list ownership boundary — 2026-11-17
+
+- Organization task reads now apply an explicit application-level owner filter in addition to PostgreSQL RLS.
+- `listTasks` resolves the user with `auth.getUser()` on the same server-side Supabase client used for the query and fails closed when the session is missing or invalid.
+- The extracted `listTasksForUser` query applies `user_id = authenticated user id`, preserves the optional project filter, and retains the existing due-date ascending / creation-time descending ordering.
+- Added three mocked-client tests for owner + project filtering, optional project filtering, and rejecting a missing owner before database access. These tests verify query construction only; they do not prove PostgreSQL RLS or two-user isolation.
+- Code-bearing commit `8f5eac4fd9d314a9fb3125de46789fe7858beac3` passed CI #150 (run ID `44002396846`): 48 tests passed, 0 failed; TypeScript check and production build passed; npm install audited 43 packages and reported 0 vulnerabilities.
+- No lint script or linter configuration exists. No schema, migration, RLS policy, privilege, production data, or production infrastructure was changed.
+- Fresh Supabase inspection: project metadata remains `ACTIVE_HEALTHY`, while migration listing, verbose public-table introspection, and a read-only information_schema query time out. Security, performance, and health advisor calls report the project as hibernated. The live migration ledger and schema remain unknown.
+- PR #11 remains open and unmerged; PR #12 remains an open draft explicitly superseded by PR #11. The live PR page is authoritative for the current documentation head.
+- Next safe action: restore supported database connectivity, inspect the actual migration ledger and Organization tables, confirm backup/recovery readiness, then run authenticated CRUD and cross-user isolation against the live database before migration rollout or merge.
