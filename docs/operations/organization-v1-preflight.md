@@ -171,3 +171,16 @@ The seventh Organization migration, 20261117000200_harden_checklist_select_owner
 The disposable migration fixture seeds malformed canonical and legacy rows with Owner A's user_id but Owner B's task_id. Owner A must not see either row; each owner must still see their valid checklist rows. [CI #211](https://github.com/mohith-krishnaa/personal-os/actions/runs/44065216491) passed the full 16-migration PostgreSQL 17 replay and all configured application checks. [CI #212](https://github.com/mohith-krishnaa/personal-os/actions/runs/44065285214) passed the assertion-message correction.
 
 This migration is not applied to the live project. The live checklist tables are still absent, and no production DDL or policy change was performed.
+
+
+## Anonymous-role verification — CI evidence only (2026-11-17)
+
+The migration assertion fixture now grants `anon` table-level SELECT/INSERT/UPDATE/DELETE privileges before switching to the anonymous role with an empty JWT subject. It verifies:
+
+- Zero visible rows in projects, tasks, canonical checklist items, and legacy checklist items.
+- Anonymous INSERT attempts are rejected for each of those four tables.
+- Anonymous UPDATE/DELETE attempts cannot affect authenticated records.
+
+[CI #216](https://github.com/mohith-krishnaa/personal-os/actions/runs/44072614729) passed the full 16-migration PostgreSQL 17 replay, authenticated two-owner isolation, anonymous denial, task-hierarchy concurrency, application tests, typecheck, and production build.
+
+This is not a live PostgREST test. The live project still has no Organization tables or Organization migrations applied, and no backup/restore has been completed. During production acceptance, test anonymous and two separate authenticated identities against a restored snapshot before applying migrations to the live project.

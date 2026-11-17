@@ -277,3 +277,10 @@ Checklist visibility now requires two independent ownership conditions: the chec
 The extra task-owner predicate matters for malformed legacy rows. A row can carry a caller-owned user_id while referencing another user's task; row-owner-only SELECT policies would expose the foreign task UUID and associated checklist payload. The forward-only migration 20261117000200_harden_checklist_select_ownership.sql replaces both SELECT policies with owner-plus-task checks. It uses the ordinary authenticated role and the tasks table's own RLS policy; it does not introduce SECURITY DEFINER privileges or service-role access.
 
 CI #211 verifies this against a disposable PostgreSQL 17 database by seeding malformed canonical and legacy rows for Owner A that reference Owner B's task. Owner A must not see either row, while valid rows remain visible. This does not replace live PostgREST JWT checks or the backup/restore gate.
+
+
+## Anonymous-role isolation decision — 2026-11-17
+
+Organization policies are intentionally granted to `authenticated`, not `anon`. The migration integration fixture now explicitly grants `anon` the same table-level SELECT/INSERT/UPDATE/DELETE privileges used by the authenticated test role, then switches to `anon` with an empty JWT subject. This prevents a false-positive test caused by missing SQL grants and verifies the RLS boundary itself: zero visible rows across projects, tasks, canonical checklists, and legacy checklists; denied inserts; and zero-row updates/deletes.
+
+[CI #216](https://github.com/mohith-krishnaa/personal-os/actions/runs/44072614729) passed this check on disposable PostgreSQL 17 together with the full migration replay and existing authenticated owner-isolation tests. This does not establish live Supabase/PostgREST anonymous behavior; production API checks and the backup/restore gate remain required.

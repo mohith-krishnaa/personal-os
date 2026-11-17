@@ -1,14 +1,14 @@
 # Personal-OS — Persistent Project State
 
 > Canonical recovery checkpoint. Read this before making project claims or changes.
-> Last reconciled: 2026-11-17. Code-bearing head 33982d2f8d29a048f4eab2d9d4113d6a88dc1a07 passed [CI #211](https://github.com/mohith-krishnaa/personal-os/actions/runs/44065216491): full 16-migration PostgreSQL 17 replay, authenticated RLS checks that hide malformed canonical and legacy checklist rows when their referenced task belongs to another owner, reciprocal cross-owner insert/link rejection, cross-owner UPDATE/DELETE denial, hierarchy concurrency, 58 application tests, typecheck, and production build. No lint script/configuration exists.
+> Last reconciled: 2026-11-17. Code-bearing head 254e6cbf350a0a2d02f75d9a99154ae3fd8d7540 passed [CI #216](https://github.com/mohith-krishnaa/personal-os/actions/runs/44072614729): full 16-migration PostgreSQL 17 replay, authenticated two-owner isolation, anonymous-role denial across projects/tasks/canonical and legacy checklists, task-hierarchy concurrency, application tests, TypeScript typecheck, and production build. No lint script/configuration exists.
 
 ## Current verified state
 
 - Stable integration branch: `main` at `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`.
 - Recurring Tasks V1 and Reminders V1 are merged. Progress & Streaks V1 application code is present, but live schema compatibility is incomplete: the live `public.goals` table lacks `unit` and `target`.
 - Active development branch: `feature/organization-v1`. PR #11 is the intended Organization V1 review path; this run did not merge it. Recheck the live PR page for its current state/head before any merge. PR #12 was previously marked as superseded and should not be merged separately.
-- Latest code-bearing checkpoint 33982d2f8d29a048f4eab2d9d4113d6a88dc1a07 passed [CI #211](https://github.com/mohith-krishnaa/personal-os/actions/runs/44065216491). The run replayed all 16 local SQL migrations in PostgreSQL 17, verified malformed canonical/legacy checklist rows are hidden when their task belongs to another owner, exercised reciprocal insert/link and UPDATE/DELETE isolation, checked hierarchy concurrency, and passed 58 application tests, typecheck, and production build. No lint script/configuration exists.
+- Latest code-bearing checkpoint 254e6cbf350a0a2d02f75d9a99154ae3fd8d7540 passed [CI #216](https://github.com/mohith-krishnaa/personal-os/actions/runs/44072614729). In addition to the existing authenticated two-owner, malformed-checklist, relationship, and hierarchy checks, the fixture now grants table privileges to `anon` and verifies that RLS still hides all Organization rows and rejects anonymous inserts/updates/deletes. All configured migration, integration, application-test, typecheck, and production-build steps passed. No lint script/configuration exists.
 - Live Supabase project `gujzvkyytxsnervovvrt`: `ACTIVE_HEALTHY`, region ap-southeast-1, PostgreSQL 17.11.0.003.
 - Live migration ledger: 8 applied core migrations. The branch contains 16 numbered SQL migrations: 8 matching the live ledger, 7 Organization migrations, and 1 Progress goal-metrics compatibility migration. The latter 8 are unapplied in production.
 - Live public schema: 9 application tables, all RLS-enabled and all reporting zero rows. `projects` has `title` but no `name`; `checklist_items` and `task_checklist_items` are absent; the Organization task validation trigger is absent; `goals` lacks `unit` and `target`.
@@ -513,3 +513,12 @@ Next safe action: create private schema/data/role exports, restore-test them in 
 - The migration directory now contains 16 SQL files: 8 matching the live ledger, 7 Organization migrations, and 1 Progress compatibility repair. The 8 local-only migrations remain unapplied in production.
 - [CI #211](https://github.com/mohith-krishnaa/personal-os/actions/runs/44065216491) passed the full 16-migration PostgreSQL 17 replay, hierarchy concurrency, 58 application tests, typecheck, and production build. [CI #212](https://github.com/mohith-krishnaa/personal-os/actions/runs/44065285214) passed the follow-up assertion-message correction with all configured steps successful.
 - Live Supabase was not changed. The canonical/legacy tables and new SELECT policies are still absent in production because the Organization migrations have not been applied. Backup/restore and live authenticated PostgREST gates remain open.
+
+
+## Latest checkpoint — anonymous Organization role isolation (2026-11-17)
+
+- Extended `supabase/tests/organization-migration-assertions.sql` so the disposable fixture grants SELECT/INSERT/UPDATE/DELETE privileges on public tables to `anon`, `authenticated`, and `service_role`. This ensures anonymous denial is exercised by RLS rather than by absent SQL grants.
+- Under the `anon` role with an empty JWT subject, the fixture verifies zero visible rows across `projects`, `tasks`, `checklist_items`, and `task_checklist_items`; anonymous inserts into all four tables are rejected; updates/deletes cannot affect authenticated records.
+- [CI #216](https://github.com/mohith-krishnaa/personal-os/actions/runs/44072614729) passed: full 16-migration PostgreSQL 17 replay, authenticated two-owner isolation, anonymous-role denial, task-hierarchy concurrency, application tests, TypeScript typecheck, and production build.
+- Live Supabase was rechecked read-only: `ACTIVE_HEALTHY`, PostgreSQL 17.11.0.003, 8 migration-ledger entries, 9 public application tables with RLS enabled and zero rows. The Organization tables and migrations remain absent/unapplied in production.
+- This is disposable PostgreSQL RLS verification, not a live anonymous PostgREST test. No production DDL, migration, policy, data, restore, or merge was performed. Private backup/restore and live authenticated/anonymous API checks remain open.

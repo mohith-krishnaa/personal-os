@@ -8,7 +8,7 @@ Date: 2026-11-17
 - Stable branch: `main` at `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`.
 - Organization branch: `feature/organization-v1`.
 - PR #11 is the intended Organization V1 review path targeting `main`; this checkpoint did not merge it. Recheck the live PR page for current state/head before any merge: https://github.com/mohith-krishnaa/personal-os/pull/11
-- Latest code-bearing checkpoint: 33982d2f8d29a048f4eab2d9d4113d6a88dc1a07; [CI #211](https://github.com/mohith-krishnaa/personal-os/actions/runs/44065216491) passed the full 16-migration PostgreSQL 17 replay, malformed checklist SELECT isolation, reciprocal owner insert/link rejection, cross-owner UPDATE/DELETE isolation, hierarchy concurrency, 58 application tests, typecheck, and production build. [CI #212](https://github.com/mohith-krishnaa/personal-os/actions/runs/44065285214) passed the assertion-message correction. Latest documentation checkpoint: 3be2ae4145dbde49ee5eab9d8b63ef69c1279e5b; [CI #214](https://github.com/mohith-krishnaa/personal-os/actions/runs/44065824087) passed all configured steps. No lint script/configuration exists.
+- Latest code-bearing checkpoint: 254e6cbf350a0a2d02f75d9a99154ae3fd8d7540; [CI #216](https://github.com/mohith-krishnaa/personal-os/actions/runs/44072614729) passed the full 16-migration PostgreSQL 17 replay, authenticated two-owner isolation, anonymous-role denial across all four Organization tables, hierarchy concurrency, application tests, typecheck, and production build. The current documentation checkpoint is the branch head after this handoff update; recheck PR #11 for its exact SHA. No lint script/configuration exists.
 - PR #12 was previously marked as a draft superseded by PR #11; verify its live state before any action and do not merge it separately.
 
 ## Work completed in this checkpoint
@@ -368,3 +368,12 @@ Next safe action: create private schema/data/role exports, restore-test them in 
 - Added malformed canonical and legacy checklist fixtures owned by Owner A but attached to Owner B's task. Owner A must not see either; both owners retain access to valid checklist rows.
 - [CI #211](https://github.com/mohith-krishnaa/personal-os/actions/runs/44065216491) passed all 16 migrations, PostgreSQL RLS assertions, task hierarchy concurrency, 58 application tests, typecheck, and production build. [CI #212](https://github.com/mohith-krishnaa/personal-os/actions/runs/44065285214) passed the test-message correction.
 - The live Supabase database was not modified. The new migration is local-only; no production backup/restore or live PostgREST verification exists yet.
+
+
+## 2026-11-17 — anonymous Organization role isolation
+
+- Extended the PostgreSQL 17 migration assertion fixture to grant table-level privileges to `anon` and then verify that RLS denies access independently of SQL grants.
+- Anonymous role reads return zero rows across projects, tasks, canonical checklists, and legacy checklists. Anonymous inserts are rejected on all four tables; attempted updates/deletes cannot affect authenticated rows.
+- [CI #216](https://github.com/mohith-krishnaa/personal-os/actions/runs/44072614729) passed the complete 16-migration replay, authenticated RLS checks, anonymous denial, hierarchy concurrency, application tests, TypeScript check, and production build.
+- Live Supabase remains ACTIVE_HEALTHY with 8 applied migrations and 9 RLS-enabled public application tables. The Organization migrations remain unapplied. No production database change or PR merge occurred.
+- Next safe action remains a private schema/data/role backup plus successful isolated restore, followed by migration replay and live PostgREST tests using anonymous and two distinct authenticated identities.
