@@ -1,19 +1,21 @@
 # Personal-OS — Persistent Project State
 
 > Canonical recovery checkpoint. Read this before making project claims or changes.
-> Last reconciled: 2026-11-17. Code head `3c23e01e3574b4fc91d15a1929e7c5e37eb16988` passed CI #189; architecture/migration docs checkpoint `d7c5fc12b40afc1f69b28591bca0db0c77039ce9` passed CI #191. Both passed 15-migration replay, authenticated two-owner RLS, hierarchy concurrency, 58 tests, typecheck, production build, and 0 npm audit vulnerabilities. A later documentation reconciliation is being verified separately.
+> Last reconciled: 2026-11-17. Code-bearing head `3c23e01e3574b4fc91d15a1929e7c5e37eb16988` passed CI #189; the project documentation checkpoint `ef49a03e948e27617f5522beb1370167e936555b` passed CI #195. Both passed 15-migration replay, authenticated two-owner RLS, hierarchy concurrency, 58 tests, typecheck, production build, and 0 npm audit vulnerabilities. This state-summary refresh is documentation-only.
 
 ## Current verified state
 
-- Stable integration branch: `main`
-- Current `main` commit: `2b42dd17796b75dca79434a81d4e1f0cbf0fa043` (`docs: reconcile roadmap after V1 completion`).
-- Recurring Tasks V1 — **merged** (PR #5).
-- Reminders V1 — **merged** (PR #7).
-- Progress & Streaks V1 — **merged** (PR #8).
-- Security issue #6 — **closed/completed** after client execution was revoked for `public.rls_auto_enable()` and security verification reported 0 lints.
-- Open GitHub issue backlog — **0** at last verification.
-- Latest verified PR #11 documentation CI — [CI #170](https://github.com/mohith-krishnaa/personal-os/actions/runs/44031496258) passed on exact checkpoint `0fe10995fbd3d5cb2e74c5a07d2257bc8ff623cc`: **56 tests passed, 0 failed**; `npm run typecheck` and `npm run build` passed; npm install audited 43 packages and reported 0 vulnerabilities. No lint script/configuration exists.
-- Active feature branch: `feature/organization-v1`, in open PR #11 targeting `main`; latest verified documentation checkpoint is `0fe10995fbd3d5cb2e74c5a07d2257bc8ff623cc` (CI #170). Consult the live PR page for the exact current head. PR #12 remains a superseded open draft.
+- Stable integration branch: `main` at `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`.
+- Recurring Tasks V1 and Reminders V1 are merged. Progress & Streaks V1 application code is present, but live schema compatibility is incomplete: the live `public.goals` table lacks `unit` and `target`.
+- Active development branch: `feature/organization-v1`. PR #11 is the intended Organization V1 review path; this run did not merge it. Recheck the live PR page for its current state/head before any merge. PR #12 was previously marked as superseded and should not be merged separately.
+- Latest code-bearing checkpoint `3c23e01e3574b4fc91d15a1929e7c5e37eb16988` passed [CI #189](https://github.com/mohith-krishnaa/personal-os/actions/runs/44047023836). The project documentation checkpoint `ef49a03e948e27617f5522beb1370167e936555b` passed [CI #195](https://github.com/mohith-krishnaa/personal-os/actions/runs/44047497661). Both passed the full 15-migration PostgreSQL 17 replay, authenticated two-owner RLS checks, hierarchy concurrency integration, 58/58 tests, typecheck, production build, and npm audit with 0 vulnerabilities. No lint script/configuration exists.
+- Live Supabase project `gujzvkyytxsnervovvrt`: `ACTIVE_HEALTHY`, region ap-southeast-1, PostgreSQL 17.11.0.003.
+- Live migration ledger: 8 applied core migrations. The branch contains 15 numbered SQL migrations: 8 matching the live ledger, 6 Organization migrations, and 1 Progress goal-metrics compatibility migration. The latter 7 are unapplied in production.
+- Live public schema: 9 application tables, all RLS-enabled and all reporting zero rows. `projects` has `title` but no `name`; `checklist_items` and `task_checklist_items` are absent; the Organization task validation trigger is absent; `goals` lacks `unit` and `target`.
+- Security advisor returned no lints. Performance advisor findings: 4 unindexed foreign keys, 14 auth RLS initialization-plan warnings, 13 unused-index findings, and 4 overlapping permissive policies on `goals`.
+- The Free Plan has no scheduled backups. No private schema/data/role export or successful isolated restore test exists.
+- No production DDL, migration, RLS change, data write, restore, or PR merge was performed in this checkpoint.
+- Roadmap priority: Organization V1 remains the highest-priority incomplete milestone. Analytics remains queued until recovery is proven and authenticated direct-API isolation is tested against a restored snapshot.
 
 ## Source-of-truth hierarchy
 
