@@ -119,7 +119,7 @@ This remains branch-only migration coverage. The live database has no Organizati
 
 ## Full migration replay and authenticated isolation — 2026-11-17
 
-CI #189 and #191 replayed all 15 local SQL migration files against a disposable PostgreSQL 17 database. The fixture bootstraps the Supabase roles and auth helpers, seeds legacy `projects.title` rows and legacy checklist items before the reconciliation migration, then verifies:
+CI #189, #191, and #195 replayed all 15 local SQL migration files against a disposable PostgreSQL 17 database. CI #195 also verified the final project-state, roadmap, handoff, and runbook documentation checkpoint. The fixture bootstraps the Supabase roles and auth helpers, seeds legacy `projects.title` rows and legacy checklist items before the reconciliation migration, then verifies:
 
 - both checklist tables remain present and the canonical table receives only checklist rows whose task owner matches the item owner;
 - the legacy project `title` and application `name` columns remain synchronized in both directions;
