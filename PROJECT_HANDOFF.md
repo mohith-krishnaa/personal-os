@@ -7,8 +7,8 @@ Date: 2026-11-17
 - Repository: `mohith-krishnaa/personal-os`.
 - Stable branch: `main` at `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`.
 - Organization branch: `feature/organization-v1`.
-- PR #11: open, unmerged, non-draft, mergeable, targeting `main`; current head at this checkpoint: `b1569febbca708e3346ecf501066a5668cbe6aec`: https://github.com/mohith-krishnaa/personal-os/pull/11
-- Latest code-bearing checkpoint: `1106efd1b3a1be9e3b5aac18bd8a6e714476cb9f` passed CI #143; documentation checkpoint `b1569febbca708e3346ecf501066a5668cbe6aec` passed CI #146.
+- PR #11: open, unmerged, non-draft, mergeable, targeting `main`; current head at this checkpoint: `b86056d20ca3f9ed470709ad4baebcfa711e9ea6`: https://github.com/mohith-krishnaa/personal-os/pull/11
+- Latest code-bearing checkpoint: `1106efd1b3a1be9e3b5aac18bd8a6e714476cb9f` passed CI #143; documentation checkpoint `b86056d20ca3f9ed470709ad4baebcfa711e9ea6` passed CI #147.
 - PR #12 is an open draft explicitly superseded by PR #11; do not merge it separately.
 
 ## Work completed in this checkpoint
@@ -18,12 +18,13 @@ Date: 2026-11-17
 - Updated the dashboard subtask panel to lazy-load direct children, display them, and toggle completion using the existing task-status server action.
 - Preserved existing subtask creation behavior.
 - Added tests for owner/parent filtering and rejection of a foreign-owned parent.
+- Hardened project listing: resolve the authenticated user, fail closed when unauthenticated, and explicitly filter project reads by user_id. Added tests for owner/status filtering and unauthenticated rejection.
 
 ## CI and quality
 
-- Code-bearing commit `1106efd1b3a1be9e3b5aac18bd8a6e714476cb9f` passed CI #143 (ID `43994197614`): **45 passed, 0 failed**; `npm install`, `npm run typecheck`, and `npm run build` succeeded. Install output reported 0 vulnerabilities.
-- Documentation checkpoint `b1569febbca708e3346ecf501066a5668cbe6aec` passed CI #146 (ID `43994476468`) with the same checks and 45 passing tests.
-- No lint script or linter configuration exists; lint is not available and no lint pass is claimed.
+- Code-bearing commit `1106efd1b3a1be9e3b5aac18bd8a6e714476cb9f` passed CI #143 (ID `43994197614`): **45 passed, 0 failed**; install, typecheck, and production build succeeded; install output reported 0 vulnerabilities.
+- Latest PR-head documentation checkpoint `b86056d20ca3f9ed470709ad4baebcfa711e9ea6` passed CI #147 (ID `43994686893`) with the same checks and 45 passing tests.
+- No lint script or linter configuration exists; lint is unavailable and no lint pass is claimed.
 - The current workflow does not run live database integration or two-user RLS tests.
 
 ## Architecture / security boundaries

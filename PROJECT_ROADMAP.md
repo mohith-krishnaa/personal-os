@@ -7,7 +7,7 @@
 
 **Completed:** Core productivity, Recurring Tasks V1, Reminders V1, and Progress & Streaks V1.
 
-**In progress:** Organization V1 remains in PR #11. The dashboard supports projects, direct subtask listing/completion, and checklist create/list recovery. The latest code change hardens project-list reads by requiring an authenticated caller and explicitly filtering by that user's ID. CI #143 passed on code-bearing commit `1106efd1b3a1be9e3b5aac18bd8a6e714476cb9f` with 45 tests, typecheck, production build, and 0 vulnerabilities; CI #146 passed on documentation checkpoint `b1569febbca708e3346ecf501066a5668cbe6aec` with the same checks. No lint script/configuration exists. Live migration/schema inspection and authenticated end-to-end verification remain blocked.
+**In progress:** Organization V1 remains in PR #11. The dashboard supports projects, direct subtask listing/completion, and checklist create/list recovery. The latest code change hardens project-list reads by requiring an authenticated caller and explicitly filtering by that user's ID. CI #143 passed on code-bearing commit `1106efd1b3a1be9e3b5aac18bd8a6e714476cb9f` with 45 tests, typecheck, production build, and 0 vulnerabilities; CI #147 passed on latest documentation checkpoint `b86056d20ca3f9ed470709ad4baebcfa711e9ea6` with the same checks. No lint script/configuration exists. Live migration/schema inspection and authenticated end-to-end verification remain blocked.
 
 ## Mind map
 
@@ -112,7 +112,7 @@ PERSONAL OS
 ### P1 — Organization V1
 - Implementation exists in PR #11: owner-scoped projects, task/project association, subtasks, checklists, ownership validation, cycle prevention, compatibility migrations, tests, and dashboard UI. The dashboard subtask panel reads direct children on demand and supports completion updates through the existing owner-scoped task action.
 - Project-list reads now resolve the authenticated server-side user, reject unauthenticated calls before database access, and filter by user_id. Optional status filtering and newest-first ordering are preserved.
-- CI #143 passed on code-bearing commit `1106efd1b3a1be9e3b5aac18bd8a6e714476cb9f`: 45/45 tests, typecheck, production build, and install output with 0 vulnerabilities. CI #146 passed on documentation checkpoint `b1569febbca708e3346ecf501066a5668cbe6aec` with the same checks. No lint script/configuration exists.
+- CI #143 passed on code-bearing commit `1106efd1b3a1be9e3b5aac18bd8a6e714476cb9f`: 45/45 tests, typecheck, production build, and install output with 0 vulnerabilities. CI #147 passed on latest documentation checkpoint `b86056d20ca3f9ed470709ad4baebcfa711e9ea6` with the same checks. No lint script/configuration exists.
 - Highest-priority remaining work is live database verification and safe rollout, followed by authenticated CRUD and cross-user isolation tests. The current UI exposes one level of subtasks; recursive hierarchy UX is not claimed.
 - Do not start Analytics until Organization V1's database and authorization acceptance criteria are verified.
 
