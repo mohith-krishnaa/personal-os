@@ -1,7 +1,7 @@
 # Personal-OS — Persistent Project State
 
 > Canonical recovery checkpoint. Read this before making project claims or changes.
-> Last reconciled: 2026-11-17 11:49 IST. Live Supabase read-only inspection succeeds. The latest verified PR #11 documentation checkpoint `0ad4b9dd5acbcdf5542cb70e0a7c11bb3a03ee49` passed CI #168 (56 tests, typecheck, production build, 0 npm audit vulnerabilities); the preceding code-bearing checkpoint `b8879c55a9439ea7586ea7400a73534ebd547ea8` passed CI #167. Consult the live PR page for any later docs-only head. Organization production acceptance remains blocked by backup/restore, unapplied migrations, and live database authorization gaps.
+> Last reconciled: 2026-11-17 11:49 IST. Live Supabase read-only inspection succeeds. Latest verified PR #11 documentation checkpoint `18c814b26054e474a4c84c2bf6a0efb103b166b2` passed CI #169 (56 tests, typecheck, production build, 0 npm audit vulnerabilities); the preceding code-bearing checkpoint `b8879c55a9439ea7586ea7400a73534ebd547ea8` passed CI #167. Consult the live PR page for any later docs-only head. Organization production acceptance remains blocked by backup/restore, unapplied migrations, and live database authorization gaps.
 
 ## Current verified state
 
@@ -12,8 +12,8 @@
 - Progress & Streaks V1 — **merged** (PR #8).
 - Security issue #6 — **closed/completed** after client execution was revoked for `public.rls_auto_enable()` and security verification reported 0 lints.
 - Open GitHub issue backlog — **0** at last verification.
-- Latest verified PR #11 documentation CI — [CI #168](https://github.com/mohith-krishnaa/personal-os/actions/runs/44030918679) passed on documentation checkpoint `0ad4b9dd5acbcdf5542cb70e0a7c11bb3a03ee49`: 56 tests passed, 0 failed; typecheck and production build passed; npm install audited 43 packages and reported 0 vulnerabilities.
-- Active feature branch: `feature/organization-v1`, in open PR #11 targeting `main`; latest verified documentation checkpoint is `0ad4b9dd5acbcdf5542cb70e0a7c11bb3a03ee49` (CI #168). Consult the live PR page for the exact current head. PR #12 remains a superseded open draft.
+- Latest verified PR #11 documentation CI — [CI #169](https://github.com/mohith-krishnaa/personal-os/actions/runs/44031107574) passed on exact checkpoint `18c814b26054e474a4c84c2bf6a0efb103b166b2`: **56 tests passed, 0 failed**; `npm run typecheck` and `npm run build` passed; npm install audited 43 packages and reported 0 vulnerabilities. No lint script/configuration exists.
+- Active feature branch: `feature/organization-v1`, in open PR #11 targeting `main`; latest verified documentation checkpoint is `18c814b26054e474a4c84c2bf6a0efb103b166b2` (CI #169). Consult the live PR page for the exact current head. PR #12 remains a superseded open draft.
 
 ## Source-of-truth hierarchy
 
@@ -393,8 +393,8 @@ Next safe action: verify CI on the updated PR head, then restore database-tool c
 
 ## Latest checkpoint — live Supabase reconciliation (2026-11-17)
 
-- Latest verified code-bearing PR #11 checkpoint: `b8879c55a9439ea7586ea7400a73534ebd547ea8` (CI #167). Latest verified documentation checkpoint: `0ad4b9dd5acbcdf5542cb70e0a7c11bb3a03ee49` (CI #168). PR #11 remains open, unmerged, non-draft, and mergeable; consult the live PR page for the current head. PR #12 remains a superseded draft.
-- [CI #163](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023466322), [CI #164](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023774660), [CI #165](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023928005), [CI #166](https://github.com/mohith-krishnaa/personal-os/actions/runs/44024104158), [CI #167](https://github.com/mohith-krishnaa/personal-os/actions/runs/44024323363), and [CI #168](https://github.com/mohith-krishnaa/personal-os/actions/runs/44030918679) passed on successive migration/documentation checkpoints; each run completed 56 tests, typecheck, production build, and npm audit with 0 vulnerabilities. The workflow has no lint step; the repository has no lint script/configuration.
+- Latest verified code-bearing PR #11 checkpoint: `b8879c55a9439ea7586ea7400a73534ebd547ea8` (CI #167). Latest verified documentation checkpoint: `18c814b26054e474a4c84c2bf6a0efb103b166b2` (CI #169). PR #11 remains open, unmerged, non-draft, and mergeable; consult the live PR page for the current head. PR #12 remains a superseded draft.
+- [CI #163](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023466322), [CI #164](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023774660), [CI #165](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023928005), [CI #166](https://github.com/mohith-krishnaa/personal-os/actions/runs/44024104158), [CI #167](https://github.com/mohith-krishnaa/personal-os/actions/runs/44024323363), [CI #168](https://github.com/mohith-krishnaa/personal-os/actions/runs/44030918679), and [CI #169](https://github.com/mohith-krishnaa/personal-os/actions/runs/44031107574) passed on successive migration/documentation checkpoints; each run completed 56 tests, typecheck, production build, and npm audit with 0 vulnerabilities. The workflow has no lint step; the repository has no lint script/configuration.
 - Supabase project gujzvkyytxsnervovvrt is ACTIVE_HEALTHY in ap-southeast-1 on PostgreSQL 17.11.0.003. Read-only migration, schema, policy, constraint, and advisor queries now succeed.
 - The live migration ledger has 8 entries. Their exact SQL statements were recovered from supabase_migrations.schema_migrations into files with matching version/name filenames. The migration directory now contains 8 applied core migrations plus 6 local-only Organization migrations. The duplicate 20260830181600 reminder-notifications migration was removed because it is not in the live ledger.
 - The six Organization migrations remain unapplied. The live schema has projects.title but no projects.name; tasks has project_id and parent_task_id foreign keys but no Organization validation trigger; checklist_items and task_checklist_items are absent.
@@ -410,7 +410,7 @@ Next safe action: create and restore-test a private logical backup using the Sup
 
 ## Latest automation checkpoint — 2026-11-17 11:49 IST
 
-- GitHub confirms PR #11 is open, unmerged, non-draft, mergeable, and targets `main`. Latest verified code-bearing checkpoint `b8879c55a9439ea7586ea7400a73534ebd547ea8` passed CI #167; latest verified documentation checkpoint `0ad4b9dd5acbcdf5542cb70e0a7c11bb3a03ee49` passed CI #168. Both runs passed 56 tests, typecheck, and production build; npm audit reported 0 vulnerabilities. The workflow has no lint step, and the repository has no lint script/configuration. Consult the live PR page for any later docs-only head.
+- GitHub confirms PR #11 is open, unmerged, non-draft, mergeable, and targets `main`. Latest verified code-bearing checkpoint `b8879c55a9439ea7586ea7400a73534ebd547ea8` passed CI #167; latest verified documentation checkpoint `18c814b26054e474a4c84c2bf6a0efb103b166b2` passed CI #169. Both runs passed 56 tests, typecheck, and production build; npm audit reported 0 vulnerabilities. The workflow has no lint step, and the repository has no lint script/configuration. Consult the live PR page for any later docs-only head.
 - PR #12 remains an open draft explicitly superseded by PR #11. Do not merge it separately.
 - Supabase reports ACTIVE_HEALTHY, region ap-southeast-1, PostgreSQL 17.11.0.003. The live ledger contains exactly 8 applied core migrations; the repository has 8 exact matching core migration files and 6 local-only Organization migrations.
 - All 9 public application tables have RLS enabled. Exact row counts are 0 in those 9 tables, `auth.users`, and `storage.objects`.

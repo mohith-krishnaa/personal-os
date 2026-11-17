@@ -80,3 +80,10 @@ The earlier connector failure stopped reproducing in the current checkpoint:
 - The Dashboard confirms the Free Plan does not include scheduled backups. No manual logical export or restore test has been created.
 
 This follow-up does not establish the root cause of the earlier timeout/hibernation contradiction. No restore, restart, pause, resize, credential change, DDL, migration, RLS change, data write, or merge was performed.
+
+
+## Official status-page cross-check — 2026-11-17 11:49 IST
+
+The Dashboard's generic technical-issue banner was cross-checked against the official [Supabase status incident](https://status.supabase.com/incidents/01M7KTJ9JF2ZX7934BENS430HX). The listed incident was delayed event ingestion for projects in `sa-east-1`; its November 16 update says the issue was recovered and that project health/uptime had not been impacted. This project's region is `ap-southeast-1`, so the published incident does not explain the earlier connector timeouts and is not evidence of an outage affecting this project.
+
+The banner alone should not trigger a project restart, restore, or other infrastructure operation. Continue to rely on direct project/database checks and the live status page rather than the banner wording.
