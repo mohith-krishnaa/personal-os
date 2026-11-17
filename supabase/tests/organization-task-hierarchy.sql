@@ -109,7 +109,7 @@ end;
 $$;
 
 -- A parent cannot move projects while it has children in the old project.
-do $
+do $$
 begin
   begin
     update public.tasks
@@ -120,10 +120,10 @@ begin
     null;
   end;
 end;
-$;
+$$;
 
 -- A parent cannot change owners while existing children remain with the old owner.
-do $
+do $$
 begin
   begin
     update public.tasks
@@ -135,7 +135,7 @@ begin
     null;
   end;
 end;
-$;
+$$;
 
 -- Rows 6 and 7 remain roots for the two-session concurrency test.
 select 'organization hierarchy trigger fixture ready' as result;
