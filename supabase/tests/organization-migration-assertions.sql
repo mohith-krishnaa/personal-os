@@ -162,7 +162,7 @@ BEGIN
   END IF;
 
   IF visible_legacy_checklists <> 1 THEN
-    RAISE EXCEPTION 'Owner A must see only its two legacy checklist rows; found %.',
+    RAISE EXCEPTION 'Owner A must see only its one valid legacy checklist row; found %.',
       visible_legacy_checklists;
   END IF;
 
