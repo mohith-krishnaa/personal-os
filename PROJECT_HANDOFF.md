@@ -179,7 +179,7 @@ Next safe actions: verify CI on the updated PR head; restore supported Supabase 
 - Six mocked-client tests cover valid links, foreign parent, mismatched project, foreign project, direct self-parent, and missing owner.
 - The database trigger remains necessary for races and indirect cycles; mocked tests do not prove live RLS/trigger behavior.
 - No database migration, schema/RLS change, production write, or merge was performed.
-- [CI #153](https://github.com/mohith-krishnaa/personal-os/actions/runs/44009478456) passed on code-bearing commit `9bdaa29e60afddc893a7e6fa5a1e43ee37469a7d`: **54 tests passed, 0 failed**; `npm run typecheck` and `npm run build` passed; `npm install` audited 43 packages and reported 0 vulnerabilities. No lint script or linter configuration exists, so lint remains unavailable. No lint script/configuration exists.
+- [CI #153](https://github.com/mohith-krishnaa/personal-os/actions/runs/44009478456) passed on code-bearing commit `9bdaa29e60afddc893a7e6fa5a1e43ee37469a7d`: **54 tests passed, 0 failed**; `npm run typecheck` and `npm run build` passed; `npm install` audited 43 packages and reported 0 vulnerabilities. No lint script or linter configuration exists, so lint remains unavailable.
 - Supabase project `gujzvkyytxsnervovvrt` reports `ACTIVE_HEALTHY`, but migration listing, verbose public-table introspection, and a read-only SQL query time out; security/performance/health advisors report hibernation. The live migration ledger/schema remain unknown.
 - Next safe actions: verify CI on the new PR head; restore supported Supabase connectivity; inspect the live migration ledger and Organization tables; confirm recovery readiness; then run authenticated CRUD and two-user isolation before rollout/merge.
 
@@ -193,3 +193,9 @@ Next safe actions: verify CI on the updated PR head; restore supported Supabase 
 - Current PR #11 remains open and unmerged. The latest CI does not satisfy the database rollout gate.
 - Supabase project metadata is ACTIVE_HEALTHY, but migrations, table introspection, read-only SQL, and security/performance/health advisors remain unavailable due timeouts/hibernation. The live migration ledger and schema are unknown.
 - Next safe action: restore supported database access, inspect the actual migration ledger/schema, confirm backup/recovery readiness, then run authenticated CRUD and two-user isolation before migration rollout or merge.
+
+
+## Latest PR-head check — 2026-11-17
+
+- Documentation head `f02a2145e7dc7aa05b8914188dee6ae322457650` passed [CI #154](https://github.com/mohith-krishnaa/personal-os/actions/runs/44009629263): 54 tests passed, TypeScript check passed, production build passed, and npm install reported 0 vulnerabilities.
+- PR #11 remains open, unmerged, non-draft, and mergeable. This docs-only handoff cleanup will trigger a new current-head CI run; verify that run before any merge decision.
