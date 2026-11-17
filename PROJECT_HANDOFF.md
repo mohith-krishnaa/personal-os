@@ -232,3 +232,15 @@ Next safe action: restore supported database connectivity, inspect the actual mi
 - CI #159 ran with `actions/checkout@v5` and `actions/setup-node@v5`; no Node 20 deprecation warning was emitted.
 - This checkpoint changed documentation only. The latest application/workflow implementation remains code-bearing commit `6217e100777543ecc65590dbc1156ebd4dfc0aca`, verified by CI #158.
 
+
+
+## 2026-11-17 — Supabase connectivity investigation
+
+- Fresh diagnostics confirm the intended project `gujzvkyytxsnervovvrt` is listed as `ACTIVE_HEALTHY` in Supabase project metadata (region `ap-southeast-1`, PostgreSQL `17.6.1.155`). Project listing and API URL lookup succeed.
+- A minimal read-only SQL probe (`SELECT 1`) and migration listing still fail with connection timeouts. Security/performance/health advisor calls return a contradictory “project is currently hibernated” response.
+- Unified logs query endpoint responds, but the queried window returned no sources/rows. This is not evidence that the database has no errors; there are no log records available to diagnose the connection failure from this query.
+- Official Supabase status page reports all systems operational on 2026-11-17; the Nov 12 database connection incident is marked resolved. This is not a platform-wide outage according to current status, but does not exclude a project-specific issue.
+- Root cause is not proven. Current leading possibilities are project-specific Postgres runtime/connectivity trouble or stale/inconsistent state in the Supabase MCP/management integration. Do not assert that the project is paused: the authoritative project metadata says `ACTIVE_HEALTHY`.
+- Did not call `restore_project`, pause/restart/resize compute, change credentials/settings, run DDL, apply migrations, alter data/RLS, or merge PR #11. An unconditional restore is not justified while metadata says healthy.
+- Incident record and next safe diagnostic sequence: [Supabase connectivity incident](docs/operations/supabase-connectivity-incident-2026-11-17.md). Next, check Dashboard Database/Compute state and run `select now(), current_database(), version();` in the Dashboard SQL Editor. If Dashboard SQL succeeds, reconnect/re-authorize MCP; if it fails too, escalate to Supabase Support with project ref, region, timestamps, and exact errors.
+- Organization V1 remains blocked on live migration/schema inspection, recovery readiness, advisors, and authenticated two-user isolation. Analytics remains queued.
