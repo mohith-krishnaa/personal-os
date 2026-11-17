@@ -85,6 +85,20 @@ begin
     end if;
   end if;
 
+  -- Moving a parent must not leave existing children owned by another user
+  -- or attached to a different project. Child writes take the same owner lock.
+  if exists (
+    select 1
+      from public.tasks as child
+     where child.parent_task_id = new.id
+       and (
+         child.user_id is distinct from new.user_id
+         or child.project_id is distinct from new.project_id
+       )
+  ) then
+    raise exception 'Task changes cannot invalidate existing subtasks.' using errcode = '23514';
+  end if;
+
   return new;
 end;
 $$;

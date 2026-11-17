@@ -108,5 +108,34 @@ begin
 end;
 $$;
 
+-- A parent cannot move projects while it has children in the old project.
+do $
+begin
+  begin
+    update public.tasks
+       set project_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+     where id = '10000000-0000-4000-8000-000000000001';
+    raise exception 'Expected a parent project change to be rejected while children exist.';
+  exception when check_violation then
+    null;
+  end;
+end;
+$;
+
+-- A parent cannot change owners while existing children remain with the old owner.
+do $
+begin
+  begin
+    update public.tasks
+       set user_id = '22222222-2222-4222-8222-222222222222',
+           project_id = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
+     where id = '10000000-0000-4000-8000-000000000001';
+    raise exception 'Expected a parent owner change to be rejected while children exist.';
+  exception when check_violation then
+    null;
+  end;
+end;
+$;
+
 -- Rows 6 and 7 remain roots for the two-session concurrency test.
 select 'organization hierarchy trigger fixture ready' as result;
