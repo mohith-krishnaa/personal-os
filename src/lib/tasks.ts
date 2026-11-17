@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { nextOccurrence, validateRecurrence } from '@/lib/recurrence'
 import type { RecurrenceRule, Task, TaskPriority, TaskStatus } from '@/types/task'
+import { listTasksForUser } from './task-queries'
 
 export async function getCurrentUser() {
   const supabase = await createClient()
@@ -11,13 +12,10 @@ export async function getCurrentUser() {
 
 export async function listTasks(projectId?: string | null): Promise<Task[]> {
   const supabase = await createClient()
-  const user = await getCurrentUser()
-  if (!user) throw new Error('Unauthorized')
-  let query = supabase.from('tasks').select('*').order('due_at', { ascending: true, nullsFirst: false }).order('created_at', { ascending: false })
-  if (projectId) query = query.eq('project_id', projectId)
-  const { data, error } = await query
+  const { data, error } = await supabase.auth.getUser()
   if (error) throw error
-  return (data ?? []) as Task[]
+  if (!data.user) throw new Error('Unauthorized')
+  return listTasksForUser(supabase, data.user.id, projectId)
 }
 
 type RecurrenceInput = { recurrence_rule?: RecurrenceRule | null; recurrence_until?: string | null }
