@@ -7,8 +7,8 @@ Date: 2026-11-17
 - Repository: `mohith-krishnaa/personal-os`.
 - Stable branch: `main` at `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`.
 - Organization branch: `feature/organization-v1`.
-- PR #11: open, unmerged, non-draft, mergeable, targeting `main`; current head at this checkpoint: `b86056d20ca3f9ed470709ad4baebcfa711e9ea6`: https://github.com/mohith-krishnaa/personal-os/pull/11
-- Latest code-bearing checkpoint: `1106efd1b3a1be9e3b5aac18bd8a6e714476cb9f` passed CI #143; documentation checkpoint `b86056d20ca3f9ed470709ad4baebcfa711e9ea6` passed CI #147.
+- PR #11: open, unmerged, non-draft, mergeable, targeting `main`; the live PR page is authoritative for the current head: https://github.com/mohith-krishnaa/personal-os/pull/11
+- Latest code-bearing checkpoint: `8f5eac4fd9d314a9fb3125de46789fe7858beac3` passed CI #150 (run ID `44002396846`): 48 tests, typecheck, and production build passed; npm install reported 0 vulnerabilities. The current PR page is authoritative for later documentation commits.
 - PR #12 is an open draft explicitly superseded by PR #11; do not merge it separately.
 
 ## Work completed in this checkpoint
@@ -18,7 +18,8 @@ Date: 2026-11-17
 - Updated the dashboard subtask panel to lazy-load direct children, display them, and toggle completion using the existing task-status server action.
 - Preserved existing subtask creation behavior.
 - Added tests for owner/parent filtering and rejection of a foreign-owned parent.
-- Hardened project listing: resolve the authenticated user, fail closed when unauthenticated, and explicitly filter project reads by user_id. Added tests for owner/status filtering and unauthenticated rejection.
+- Hardened project listing: resolve the authenticated user, fail closed when unauthenticated, and explicitly filter project reads by `user_id`. Added tests for owner/status filtering and unauthenticated rejection.
+- Hardened task listing: resolve the user on the same server-side Supabase client used for the query, reject missing sessions, and explicitly filter task reads by `user_id`; optional project filtering and due-date/creation-time ordering are preserved. Added three mocked-client tests.
 
 ## CI and quality
 
@@ -154,3 +155,16 @@ Next safe actions: verify CI on the updated PR head; restore supported Supabase 
 - Lint is not available: there is no lint script or linter configuration.
 - The project-list change is application-level defense in depth. Mocked tests do not establish PostgreSQL RLS behavior.
 - Current live DB blocker is unchanged: project metadata ACTIVE_HEALTHY, but migration listing, verbose table introspection and read-only SQL time out; advisor calls report hibernation. Do not apply DDL or merge until the actual ledger/schema and recovery readiness are verified.
+
+
+## Task-list ownership boundary — 2026-11-17
+
+- Organization task reads now apply an explicit application-level owner filter in addition to PostgreSQL RLS.
+- `listTasks` resolves the user with `auth.getUser()` on the same server-side Supabase client used for the query and fails closed when the session is missing or invalid.
+- The extracted `listTasksForUser` query applies `user_id = authenticated user id`, preserves the optional project filter, and retains the existing due-date ascending / creation-time descending ordering.
+- Added three mocked-client tests for owner + project filtering, optional project filtering, and rejecting a missing owner before database access. These tests verify query construction only; they do not prove PostgreSQL RLS or two-user isolation.
+- Code-bearing commit `8f5eac4fd9d314a9fb3125de46789fe7858beac3` passed CI #150 (run ID `44002396846`): 48 tests passed, 0 failed; TypeScript check and production build passed; npm install audited 43 packages and reported 0 vulnerabilities.
+- No lint script or linter configuration exists. No schema, migration, RLS policy, privilege, production data, or production infrastructure was changed.
+- Fresh Supabase inspection: project metadata remains `ACTIVE_HEALTHY`, while migration listing, verbose public-table introspection, and a read-only information_schema query time out. Security, performance, and health advisor calls report the project as hibernated. The live migration ledger and schema remain unknown.
+- PR #11 remains open and unmerged; PR #12 remains an open draft explicitly superseded by PR #11. The live PR page is authoritative for the current documentation head.
+- Next safe action: restore supported database connectivity, inspect the actual migration ledger and Organization tables, confirm backup/recovery readiness, then run authenticated CRUD and cross-user isolation against the live database before migration rollout or merge.
