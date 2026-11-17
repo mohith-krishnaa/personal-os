@@ -8,8 +8,8 @@ Date: 2026-11-17
 - Stable branch: `main` at `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`.
 - Organization branch: `feature/organization-v1`.
 - PR #11 is the intended Organization V1 review path targeting `main`; this checkpoint did not merge it. Recheck the live PR page for current state/head before any merge: https://github.com/mohith-krishnaa/personal-os/pull/11
-- Latest code-bearing checkpoint: `3c23e01e3574b4fc91d15a1929e7c5e37eb16988`; [CI #189](https://github.com/mohith-krishnaa/personal-os/actions/runs/44047023836) passed 15-migration PostgreSQL 17 replay, authenticated two-owner RLS, hierarchy concurrency, **58 tests passed / 0 failed**, typecheck, production build, and 0 npm audit vulnerabilities. The architecture/migration documentation checkpoint `d7c5fc12b40afc1f69b28591bca0db0c77039ce9` passed [CI #191](https://github.com/mohith-krishnaa/personal-os/actions/runs/44047078890). No lint script/configuration exists.
-- PR #12 is an open draft explicitly superseded by PR #11; do not merge it separately.
+- Latest code-bearing checkpoint: `3c23e01e3574b4fc91d15a1929e7c5e37eb16988`; [CI #189](https://github.com/mohith-krishnaa/personal-os/actions/runs/44047023836) passed 15-migration PostgreSQL 17 replay, authenticated two-owner RLS, hierarchy concurrency, **58 tests passed / 0 failed**, typecheck, production build, and 0 npm audit vulnerabilities. The architecture/migration documentation checkpoint `d7c5fc12b40afc1f69b28591bca0db0c77039ce9` passed [CI #191](https://github.com/mohith-krishnaa/personal-os/actions/runs/44047078890); the subsequent project-state/roadmap/handoff/runbook checkpoint `ef49a03e948e27617f5522beb1370167e936555b` passed [CI #195](https://github.com/mohith-krishnaa/personal-os/actions/runs/44047497661). No lint script/configuration exists.
+- PR #12 was previously marked as a draft superseded by PR #11; verify its live state before any action and do not merge it separately.
 
 ## Work completed in this checkpoint
 
@@ -327,8 +327,8 @@ Next safe action: create and restore-test the private logical backup on an owner
 ### Verification
 
 - CI #189 passed on code head `3c23e01e3574b4fc91d15a1929e7c5e37eb16988`.
-- CI #191 passed on the subsequent architecture/migration documentation head.
-- Both runs passed the 15-migration replay, authenticated two-owner RLS checks, hierarchy concurrency, 58/58 application tests, typecheck, production build, and npm audit with 0 vulnerabilities.
+- CI #191 passed on the architecture/migration documentation head; CI #195 passed on the subsequent project-state/roadmap/handoff/runbook documentation checkpoint.
+- All three runs (#189, #191, #195) passed the 15-migration replay, authenticated two-owner RLS checks, hierarchy concurrency, 58/58 application tests, typecheck, production build, and npm audit with 0 vulnerabilities.
 - Lint remains unavailable because the repository has no lint script/configuration.
 
 ### Live Supabase — read-only and unchanged
