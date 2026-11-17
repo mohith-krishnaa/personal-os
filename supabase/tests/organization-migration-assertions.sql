@@ -130,7 +130,7 @@ VALUES (
 );
 
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
 GRANT USAGE ON SCHEMA auth TO authenticated, service_role;
 GRANT SELECT ON auth.users TO authenticated, service_role;
 
@@ -553,6 +553,118 @@ BEGIN
 END
 $owner_b$;
 
+
+RESET ROLE;
+SET request.jwt.claim.sub = '';
+SET ROLE anon;
+
+-- Anonymous clients receive table privileges in Supabase, so RLS itself must
+-- deny access rather than relying on missing SQL grants.
+DO $anonymous$
+DECLARE
+  visible_projects integer;
+  visible_tasks integer;
+  visible_checklists integer;
+  visible_legacy_checklists integer;
+  affected_rows integer;
+BEGIN
+  IF auth.uid() IS NOT NULL THEN
+    RAISE EXCEPTION 'Anonymous session unexpectedly resolved an authenticated user.';
+  END IF;
+
+  SELECT count(*) INTO visible_projects FROM public.projects;
+  SELECT count(*) INTO visible_tasks FROM public.tasks;
+  SELECT count(*) INTO visible_checklists FROM public.checklist_items;
+  SELECT count(*) INTO visible_legacy_checklists FROM public.task_checklist_items;
+
+  IF visible_projects <> 0
+     OR visible_tasks <> 0
+     OR visible_checklists <> 0
+     OR visible_legacy_checklists <> 0 THEN
+    RAISE EXCEPTION 'Anonymous role can read Organization rows: projects %, tasks %, checklists %, legacy checklists %.',
+      visible_projects, visible_tasks, visible_checklists, visible_legacy_checklists;
+  END IF;
+
+  BEGIN
+    INSERT INTO public.projects (id, user_id, name)
+    VALUES (
+      'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee2',
+      '11111111-1111-4111-8111-111111111111',
+      'Anonymous project'
+    );
+    RAISE EXCEPTION 'RLS accepted an anonymous project insert.';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+
+  BEGIN
+    INSERT INTO public.tasks (id, user_id, title)
+    VALUES (
+      '40000000-0000-4000-8000-000000000003',
+      '11111111-1111-4111-8111-111111111111',
+      'Anonymous task'
+    );
+    RAISE EXCEPTION 'RLS accepted an anonymous task insert.';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+
+  BEGIN
+    INSERT INTO public.checklist_items (id, user_id, task_id, title)
+    VALUES (
+      '50000000-0000-4000-8000-000000000003',
+      '11111111-1111-4111-8111-111111111111',
+      '10000000-0000-4000-8000-000000000001',
+      'Anonymous canonical checklist'
+    );
+    RAISE EXCEPTION 'RLS accepted an anonymous canonical checklist insert.';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+
+  BEGIN
+    INSERT INTO public.task_checklist_items (id, user_id, task_id, title)
+    VALUES (
+      '60000000-0000-4000-8000-000000000003',
+      '11111111-1111-4111-8111-111111111111',
+      '10000000-0000-4000-8000-000000000001',
+      'Anonymous legacy checklist'
+    );
+    RAISE EXCEPTION 'RLS accepted an anonymous legacy checklist insert.';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+
+  UPDATE public.projects SET name = 'Anonymous update'
+  WHERE id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 0 THEN
+    RAISE EXCEPTION 'Anonymous role updated an authenticated project.';
+  END IF;
+
+  UPDATE public.tasks SET title = 'Anonymous update'
+  WHERE id = '10000000-0000-4000-8000-000000000001';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 0 THEN
+    RAISE EXCEPTION 'Anonymous role updated an authenticated task.';
+  END IF;
+
+  DELETE FROM public.checklist_items
+  WHERE id = '30000000-0000-4000-8000-000000000001';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 0 THEN
+    RAISE EXCEPTION 'Anonymous role deleted an authenticated checklist item.';
+  END IF;
+
+  DELETE FROM public.task_checklist_items
+  WHERE id = '30000000-0000-4000-8000-000000000001';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 0 THEN
+    RAISE EXCEPTION 'Anonymous role deleted an authenticated legacy checklist item.';
+  END IF;
+END
+$anonymous$;
+
 RESET ROLE;
 
-SELECT 'Organization migration replay and authenticated isolation checks passed.' AS result;
+SELECT 'Organization migration replay, authenticated isolation, and anonymous denial checks passed.' AS result;
