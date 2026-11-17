@@ -216,7 +216,7 @@ The earlier static-review concern about concurrent hierarchy writes is addressed
 
 CI #176 passed a PostgreSQL 17 two-session READ COMMITTED race: the second writer waits on the advisory lock and is rejected when its inverse edge would create a cycle. The fixture also checks direct self-parenting, foreign parents/projects, cross-project links, and invalid parent mutations.
 
-CI #183 subsequently replayed the complete migration history in a separate disposable PostgreSQL 17 database and verified Organization RLS behavior with two authenticated test identities. These tests do not restore a production backup or exercise live Supabase/PostgREST; the migration remains unapplied in production.
+CI #183 replayed the then-current 14-migration chain. CI #189 and #195 subsequently replayed all 15 local migrations in a disposable PostgreSQL 17 database and verified Organization RLS behavior with two authenticated test identities, including legacy checklist reconciliation and project title/name compatibility. These tests do not restore a production backup or exercise live Supabase/PostgREST; the Organization migrations remain unapplied in production.
 
 ## Decision — 2026-11-17
 
