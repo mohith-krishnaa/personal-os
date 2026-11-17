@@ -66,3 +66,17 @@ Do not label this as a Supabase-wide outage. The current evidence points to eith
 ## Roadmap impact
 
 Organization V1 remains the highest-priority incomplete milestone. Live schema/migration verification, backup/recovery readiness, database advisor review, and authenticated two-user RLS isolation remain blocked. Analytics stays queued behind Organization.
+
+
+## Follow-up verification — 2026-11-17 11:49 IST
+
+The earlier connector failure stopped reproducing in the current checkpoint:
+
+- `get_project` reports ACTIVE_HEALTHY, region `ap-southeast-1`, PostgreSQL `17.11.0.003`.
+- Migration listing returned all 8 live ledger entries.
+- Verbose table inspection succeeded; all 9 public application tables have RLS enabled.
+- Read-only SQL succeeded, including exact counts for all 9 public application tables, `auth.users`, and `storage.objects`; all counts were zero.
+- Security and health advisors returned no lints. The performance advisor returned the findings recorded in `docs/operations/organization-v1-preflight.md`.
+- The Dashboard confirms the Free Plan does not include scheduled backups. No manual logical export or restore test has been created.
+
+This follow-up does not establish the root cause of the earlier timeout/hibernation contradiction. No restore, restart, pause, resize, credential change, DDL, migration, RLS change, data write, or merge was performed.

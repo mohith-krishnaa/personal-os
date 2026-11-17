@@ -1,7 +1,7 @@
 # Personal-OS — Persistent Project State
 
 > Canonical recovery checkpoint. Read this before making project claims or changes.
-> Last reconciled: 2026-11-17. Live Supabase read-only inspection now succeeds; the eight applied core migration statements have been restored into exact versioned repository files. Latest verified PR #11 checkpoint 7f85384b0a89f5447f55d34b6bb367e9d8f527b3 passed CI #166 (56 tests, typecheck, production build, 0 npm audit vulnerabilities); the live PR page is authoritative for the exact current head. Organization migrations remain unapplied; the Free Plan has no scheduled backups and no manual backup has been created.
+> Last reconciled: 2026-11-17 11:49 IST. Live Supabase read-only inspection succeeds. PR #11 is open at head `b8879c55a9439ea7586ea7400a73534ebd547ea8`; CI #167 passed on that exact head with 56 tests, typecheck, production build, and 0 npm audit vulnerabilities. Organization production acceptance remains blocked by the missing manual backup/restore test, unapplied migrations, and live database authorization gaps.
 
 ## Current verified state
 
@@ -12,8 +12,8 @@
 - Progress & Streaks V1 — **merged** (PR #8).
 - Security issue #6 — **closed/completed** after client execution was revoked for `public.rls_auto_enable()` and security verification reported 0 lints.
 - Open GitHub issue backlog — **0** at last verification.
-- Latest verified CI — [CI #166](https://github.com/mohith-krishnaa/personal-os/actions/runs/44024104158) passed on checkpoint `7f85384b0a89f5447f55d34b6bb367e9d8f527b3`: **56 tests passed, 0 failed**; `npm run typecheck` and `npm run build` passed; npm install audited 43 packages and reported 0 vulnerabilities. No lint script/configuration exists.
-- Active feature branch: `feature/organization-v1`, in open PR #11 targeting `main`; consult the live PR page for its exact current head. Latest verified CI checkpoint: `7f85384b0a89f5447f55d34b6bb367e9d8f527b3` (CI #166). PR #12 remains a superseded open draft.
+- Latest verified PR #11 CI — [CI #167](https://github.com/mohith-krishnaa/personal-os/actions/runs/44024323363) passed on exact head `b8879c55a9439ea7586ea7400a73534ebd547ea8`: **56 tests passed, 0 failed**; `npm run typecheck` and `npm run build` passed; npm install audited 43 packages and reported 0 vulnerabilities. No lint script/configuration exists.
+- Active feature branch: `feature/organization-v1`, in open PR #11 targeting `main`; current head `b8879c55a9439ea7586ea7400a73534ebd547ea8`, CI #167 passed on that exact head. PR #12 remains a superseded open draft.
 
 ## Source-of-truth hierarchy
 
@@ -382,21 +382,19 @@ Next safe action: verify CI on the updated PR head, then restore database-tool c
 - No database migration, schema/RLS change, production data write, or PR merge was performed.
 
 
-## Supabase connectivity incident — 2026-11-17
+## Supabase connectivity incident — status update (2026-11-17)
 
-- Fresh project metadata/listing for `gujzvkyytxsnervovvrt` reports `ACTIVE_HEALTHY`, region `ap-southeast-1`, PostgreSQL `17.6.1.155`; project URL lookup succeeds.
-- Read-only SQL and migration listing time out. Security, performance, and health advisors report a contradictory hibernation state. Unified logs query returned no sources/rows in the queried window, so no Postgres error evidence was available there.
-- Official Supabase status page reports all systems operational on Nov 17 and marks the Nov 12 database connection incident resolved. Current evidence does not support calling this a platform-wide outage.
-- Root cause remains unproven: project-specific database runtime/connection failure versus stale/inconsistent MCP integration state. Do not treat the project as paused while `get_project` says `ACTIVE_HEALTHY`.
-- No restore/pause/restart/resize, credentials/config changes, DDL, migrations, RLS changes, production data writes, or PR merge were performed.
-- See [connectivity incident record](docs/operations/supabase-connectivity-incident-2026-11-17.md) for exact results and safe next actions. User-side next check: Supabase Dashboard > Database/Compute state, then run `select now(), current_database(), version();` in Dashboard SQL Editor. Use that result to distinguish database runtime failure from MCP connection-path failure.
-- Organization V1 remains blocked; Analytics remains queued.
+- Earlier read-only SQL and migration calls timed out while advisor calls returned a contradictory hibernation response. The initial evidence and diagnostic sequence are preserved in `docs/operations/supabase-connectivity-incident-2026-11-17.md`.
+- At 11:49 IST, the current read-only path succeeded: project metadata, migration listing, verbose table inspection, direct SQL, and security/performance/health advisor calls all returned results. The project reports ACTIVE_HEALTHY in ap-southeast-1 on PostgreSQL 17.11.0.003. The earlier failure is not currently reproducing; its root cause remains unproven.
+- Do not call this a Supabase-wide outage, and do not infer that the earlier incident was caused by project hibernation.
+- The Free Plan has no scheduled project backups. No manual schema/data/role export or restore test exists. The live schema still lacks the Organization checklist tables and task relationship trigger.
+- No restore, pause, restart, resize, credentials/configuration change, production DDL, migration, RLS change, data write, or PR merge was performed.
 
 
 ## Latest checkpoint — live Supabase reconciliation (2026-11-17)
 
-- Latest verified PR #11 checkpoint: 7f85384b0a89f5447f55d34b6bb367e9d8f527b3 (CI #166). PR #11 remains open and unmerged; the live PR page is authoritative for any later documentation-only head. PR #12 remains a superseded draft.
-- [CI #163](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023466322), [CI #164](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023774660), [CI #165](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023928005), and [CI #166](https://github.com/mohith-krishnaa/personal-os/actions/runs/44024104158) passed on successive migration/documentation checkpoints; each run completed 56 tests, typecheck, production build, and npm audit with 0 vulnerabilities. The workflow has no lint step; the repository has no lint script/configuration.
+- Latest verified PR #11 head: `b8879c55a9439ea7586ea7400a73534ebd547ea8` (CI #167 passed on this exact commit). PR #11 remains open, unmerged, non-draft, and mergeable. PR #12 remains a superseded draft.
+- [CI #163](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023466322), [CI #164](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023774660), [CI #165](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023928005), [CI #166](https://github.com/mohith-krishnaa/personal-os/actions/runs/44024104158), and [CI #167](https://github.com/mohith-krishnaa/personal-os/actions/runs/44024323363) passed on successive migration/documentation checkpoints; each run completed 56 tests, typecheck, production build, and npm audit with 0 vulnerabilities. The workflow has no lint step; the repository has no lint script/configuration.
 - Supabase project gujzvkyytxsnervovvrt is ACTIVE_HEALTHY in ap-southeast-1 on PostgreSQL 17.11.0.003. Read-only migration, schema, policy, constraint, and advisor queries now succeed.
 - The live migration ledger has 8 entries. Their exact SQL statements were recovered from supabase_migrations.schema_migrations into files with matching version/name filenames. The migration directory now contains 8 applied core migrations plus 6 local-only Organization migrations. The duplicate 20260830181600 reminder-notifications migration was removed because it is not in the live ledger.
 - The six Organization migrations remain unapplied. The live schema has projects.title but no projects.name; tasks has project_id and parent_task_id foreign keys but no Organization validation trigger; checklist_items and task_checklist_items are absent.
@@ -408,3 +406,18 @@ Next safe action: verify CI on the updated PR head, then restore database-tool c
 - No production DDL, migration, RLS change, data write, or merge was performed.
 
 Next safe action: create and restore-test a private logical backup using the Supabase CLI and Docker; then test the six Organization migrations against a disposable database matching the live legacy schema. Complete authenticated CRUD and two-user direct-API isolation before any production rollout or PR merge. Keep Analytics V1 queued.
+
+
+## Latest automation checkpoint — 2026-11-17 11:49 IST
+
+- GitHub confirms PR #11 is open, unmerged, non-draft, mergeable, and targets `main`. Exact head: `b8879c55a9439ea7586ea7400a73534ebd547ea8`. CI #167 succeeded on this exact commit: 56 tests passed, 0 failed; typecheck and production build passed; npm install reported 0 vulnerabilities. The workflow has no lint step, and the repository has no lint script/configuration.
+- PR #12 remains an open draft explicitly superseded by PR #11. Do not merge it separately.
+- Supabase reports ACTIVE_HEALTHY, region ap-southeast-1, PostgreSQL 17.11.0.003. The live ledger contains exactly 8 applied core migrations; the repository has 8 exact matching core migration files and 6 local-only Organization migrations.
+- All 9 public application tables have RLS enabled. Exact row counts are 0 in those 9 tables, `auth.users`, and `storage.objects`.
+- Live `projects` has `title` and no `name`. Neither `checklist_items` nor `task_checklist_items` exists. `tasks` has `project_id` and `parent_task_id` foreign keys, but the Organization relationship-validation trigger is absent.
+- Security and health advisors return no lints. Performance advisor reports 4 unindexed foreign keys, 14 auth RLS initialization-plan warnings, 13 unused-index findings, and 4 overlapping permissive-policy findings on `goals`. Do not drop indexes or alter policies without a reviewed change.
+- The task-cycle migration statically traverses ancestors but does not serialize concurrent hierarchy writes. A two-transaction cycle race has not been tested; require a disposable-Postgres concurrency test and review transaction-level serialization before production rollout.
+- The Dashboard confirms the Free Plan does not include scheduled project backups. No manual logical backup or successful restore test exists. The current automation container has no Docker, `pg_dump`, or Supabase CLI binary.
+- No production migration, DDL, RLS change, data write, infrastructure operation, or PR merge was performed.
+
+**Next safe action:** on an owner-controlled machine, create private schema/data/role exports with the Supabase CLI and Docker, verify the exports, and restore-test them in isolation. Then test all six Organization migrations against a disposable database matching the live legacy schema, including concurrent task-cycle writes and two-user direct-API relationship isolation. Only after those gates should production rollout or PR #11 merge be considered. Analytics remains queued.

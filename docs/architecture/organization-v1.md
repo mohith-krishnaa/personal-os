@@ -194,3 +194,30 @@ The Free Plan does not include scheduled backups, and no manual logical backup h
 - Verify two-user RLS and direct API relationship isolation after the approved rollout.
 - Review the current advisor findings before changing policies or indexes.
 
+
+
+## Live production verification — 2026-11-17 11:49 IST
+
+The following is a read-only snapshot of the live project, not a statement that Organization V1 has been deployed:
+
+- Supabase project `gujzvkyytxsnervovvrt` reports ACTIVE_HEALTHY in `ap-southeast-1` on PostgreSQL `17.11.0.003`.
+- The live migration ledger contains 8 applied core migrations. The 6 Organization migrations in this branch are not applied.
+- All 9 public application tables have RLS enabled. Their exact row counts are zero; `auth.users` and `storage.objects` also have zero rows.
+- Live `projects` has the legacy `title` column but no `name`. Neither canonical `checklist_items` nor legacy `task_checklist_items` exists.
+- Live `tasks` has `project_id` and `parent_task_id` foreign keys, but the `validate_task_organization_links` trigger is absent.
+- Security and health advisors return no lints. Performance findings remain: 4 unindexed foreign keys, 14 auth RLS initialization-plan warnings, 13 unused-index findings, and 4 overlapping permissive policies on `goals`.
+- The Free Plan does not include scheduled backups. No manual logical backup or restore test has been completed.
+
+**Security consequence:** current application services preflight project/parent ownership, but those checks do not protect direct PostgREST writes. Until the reviewed Organization migrations are applied and two-user direct-API tests pass, do not claim database-enforced project/parent relationship isolation in production.
+
+## Additional migration-review requirement — concurrent hierarchy writes
+
+The cycle-prevention migration recursively checks the proposed parent chain, but the trigger body does not acquire a transaction-level lock to serialize hierarchy writes for the same owner. Two concurrent transactions may each inspect a pre-commit snapshot and create a cycle that neither transaction sees. This is a static-review risk, not a reproduced production incident.
+
+Before rollout, test concurrent parent updates/inserts against disposable PostgreSQL. If the race is reproduced, add an owner-scoped transaction lock or another serialization strategy and verify it with a two-session integration test. Do not infer race safety from the existing single-transaction unit tests.
+
+## Decision — 2026-11-17
+
+- Keep Organization V1 as the active milestone and keep PR #11 unmerged until backup/restore, disposable migration testing, trigger concurrency testing, and authenticated two-user direct-API isolation pass.
+- Treat the current missing task relationship trigger and checklist tables as production authorization/data-integrity gaps, not merely pending UI work.
+- Keep Analytics V1 queued until these Organization acceptance gates pass.

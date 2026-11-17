@@ -1,13 +1,13 @@
 # Personal OS — Project Roadmap & Mind Map
 
 > Single source of truth for project direction. Verify GitHub/Supabase/CI before making claims.
-> Last reconciled: 2026-11-17.
+> Last reconciled: 2026-11-17 11:49 IST.
 
 ## Current position
 
 **Completed:** Core productivity, Recurring Tasks V1, Reminders V1, and Progress & Streaks V1.
 
-**In progress:** Organization V1 remains in PR #11. Application implementation is in place, but production acceptance is not complete. Live Supabase read-only inspection now succeeds. The eight applied core migrations have been restored into exact versioned repository files; the six Organization migrations remain unapplied. The live schema still has projects.title without projects.name, lacks both checklist tables, and lacks the task Organization validation trigger. The Free Plan has no scheduled backups and no manual backup has been produced. Latest verified PR #11 checkpoint 7f85384b0a89f5447f55d34b6bb367e9d8f527b3 passed CI #166 with 56 tests, typecheck, production build, and 0 npm audit vulnerabilities; consult the live PR page for the exact current head. Lint is not configured. Analytics remains queued until Organization's backup, migration, RLS, and authenticated isolation gates pass.
+**In progress:** Organization V1 remains in PR #11. Application implementation is in place, but production acceptance is not complete. Live Supabase read-only inspection succeeds; the project is ACTIVE_HEALTHY in ap-southeast-1 on PostgreSQL 17.11.0.003. The live ledger has 8 applied core migrations matching the reconstructed repository files; 6 Organization migrations remain unapplied. Live `projects` has `title` but no `name`; both checklist tables and the task relationship-validation trigger are absent. All 9 public application tables have RLS enabled and zero rows; `auth.users` and `storage.objects` also have zero rows. The Free Plan has no scheduled backups and no manual logical backup/restore test exists. PR #11 head `b8879c55a9439ea7586ea7400a73534ebd547ea8` passed CI #167: 56 tests, typecheck, production build, and 0 npm audit vulnerabilities. Lint is not configured. Analytics remains queued until Organization's recovery, migration, database authorization, concurrency, and authenticated isolation gates pass.
 
 ## Mind map
 
@@ -110,9 +110,9 @@ PERSONAL OS
 - Maintain regression coverage for task, recurrence, reminder and progress flows.
 
 ### P1 — Organization V1
-- Active review: PR #11 on feature/organization-v1 remains open and unmerged; latest verified CI checkpoint is 7f85384b0a89f5447f55d34b6bb367e9d8f527b3 (CI #166). Consult the live PR page for the exact current head. PR #12 remains a superseded draft and must not be merged separately.
+- Active review: PR #11 on `feature/organization-v1` remains open and unmerged at head `b8879c55a9439ea7586ea7400a73534ebd547ea8`; CI #167 passed on this exact head. PR #12 remains a superseded draft and must not be merged separately.
 - Application implementation includes owner-scoped projects/tasks, task/project association, subtasks, checklists, dashboard failure-state recovery, and task relationship preflight. Partial relationship updates preserve omitted links and honor explicit null unlinks.
-- [CI #166](https://github.com/mohith-krishnaa/personal-os/actions/runs/44024104158) passed on the latest verified checkpoint: 56/56 tests, TypeScript check, production build, and 0 npm audit vulnerabilities. No lint script/configuration exists.
+- [CI #167](https://github.com/mohith-krishnaa/personal-os/actions/runs/44024323363) passed on exact PR #11 head `b8879c55a9439ea7586ea7400a73534ebd547ea8`: 56/56 tests, TypeScript check, production build, and 0 npm audit vulnerabilities. No lint script/configuration exists.
 - Live Supabase read-only inspection now succeeds. The exact eight applied core migration statements have been restored into version-matched repository files; the duplicate non-ledger reminder migration was removed. Six Organization migrations remain local-only.
 - Live schema gap: projects has title but no name; checklist_items and task_checklist_items are absent; tasks has project/parent foreign keys but no Organization validation trigger. All nine public application tables have RLS enabled and zero rows; auth.users and storage.objects also have zero rows.
 - Security and health advisors report no lints. Performance findings: 4 unindexed foreign keys, 14 auth_rls_initplan warnings, 13 unused-index findings, and 4 overlapping permissive-policy findings on goals.
@@ -137,6 +137,7 @@ PERSONAL OS
 - 2026-09-05: Recurring Tasks V1, Reminders V1 and Progress & Streaks V1 verified as merged.
 - 2026-09-05: Security issue #6 remediated and closed; security verification reported 0 lints.
 - 2026-09-05: Organization V1 promoted to the next roadmap milestone.
+- 2026-11-17: Keep Organization V1 fail-closed until a private logical backup is restore-tested, the six unapplied migrations are exercised against a disposable database, concurrent hierarchy-cycle behavior is tested, and authenticated two-user direct-API isolation passes. Free Plan scheduled backups are unavailable.
 
 
 ## Historical checkpoint — 2026-10-16
@@ -304,4 +305,4 @@ Organization remains the active milestone. Analytics must not start until live s
 
 Read-only access has recovered. The live ledger contains eight applied core migrations and the repository now contains exact versioned copies of their SQL statements. The six Organization migrations are still unapplied. The live schema has the legacy project title field, no checklist tables, and no Organization task-link trigger. The Free Plan has no scheduled backup and no manual backup has been created. See [Organization V1 preflight and recovery runbook](docs/operations/organization-v1-preflight.md) and [read-only SQL preflight](supabase/operations/organization-v1-preflight.sql).
 
-CI #163 through #166 passed on successive migration/documentation checkpoints; each run completed 56 tests, typecheck, production build, and 0 npm audit vulnerabilities. Latest verified checkpoint head: 7f85384b0a89f5447f55d34b6bb367e9d8f527b3. Organization remains the active milestone; Analytics is not started.
+CI #163 through #167 passed on successive migration/documentation checkpoints; each run completed 56 tests, typecheck, production build, and 0 npm audit vulnerabilities. Latest verified PR #11 head: b8879c55a9439ea7586ea7400a73534ebd547ea8. Organization remains the active milestone; Analytics is not started.

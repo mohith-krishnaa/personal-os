@@ -8,7 +8,7 @@ Date: 2026-11-17
 - Stable branch: `main` at `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`.
 - Organization branch: `feature/organization-v1`.
 - PR #11: open, unmerged, non-draft, mergeable, targeting `main`; the live PR page is authoritative for the current head: https://github.com/mohith-krishnaa/personal-os/pull/11
-- Latest verified PR #11 checkpoint: `7f85384b0a89f5447f55d34b6bb367e9d8f527b3`; [CI #166](https://github.com/mohith-krishnaa/personal-os/actions/runs/44024104158) passed on this head: **56 tests passed, 0 failed**; typecheck and production build passed; npm install reported 0 vulnerabilities. The live PR page remains authoritative for any later docs-only head. No lint script/configuration exists.
+- Latest verified PR #11 head: `b8879c55a9439ea7586ea7400a73534ebd547ea8`; [CI #167](https://github.com/mohith-krishnaa/personal-os/actions/runs/44024323363) passed on this exact head: **56 tests passed, 0 failed**; typecheck and production build passed; npm install reported 0 vulnerabilities. No lint script/configuration exists.
 - PR #12 is an open draft explicitly superseded by PR #11; do not merge it separately.
 
 ## Work completed in this checkpoint
@@ -25,7 +25,8 @@ Date: 2026-11-17
 
 - [CI #163](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023466322) passed on migration-history commit 30e490aaf1832d7003717473a0eb5b3d6a16ce8c: **56 passed, 0 failed**; install, typecheck, and production build succeeded; npm install reported 0 vulnerabilities.
 - [CI #165](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023928005) passed on documentation checkpoint ef203157d686565a4f62aa047a3c17ce1f8afb52: **56 passed, 0 failed**; install, typecheck, and production build succeeded; npm install reported 0 vulnerabilities.
-- [CI #166](https://github.com/mohith-krishnaa/personal-os/actions/runs/44024104158) passed on documentation checkpoint 7f85384b0a89f5447f55d34b6bb367e9d8f527b3 with the same 56-test, typecheck, build, and audit results.
+- [CI #166](https://github.com/mohith-krishnaa/personal-os/actions/runs/44024104158) passed on documentation checkpoint `7f85384b0a89f5447f55d34b6bb367e9d8f527b3` with 56 tests, typecheck, production build, and 0 npm audit vulnerabilities.
+- [CI #167](https://github.com/mohith-krishnaa/personal-os/actions/runs/44024323363) passed on the current exact PR head `b8879c55a9439ea7586ea7400a73534ebd547ea8` with 56 tests, typecheck, production build, and 0 npm audit vulnerabilities.
 - No lint script or linter configuration exists; lint is unavailable and no lint pass is claimed.
 - The workflow does not run live database integration or two-user RLS tests.
 
@@ -261,3 +262,17 @@ Next safe action: restore supported database connectivity, inspect the actual mi
 - Added a migration-history README, an Organization rollout runbook, and an eight-query read-only SQL preflight. Executed all eight SQL statements against the live project successfully.
 - [CI #163](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023466322) passed on migration-history head 30e490aaf1832d7003717473a0eb5b3d6a16ce8c. [CI #164](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023774660), [CI #165](https://github.com/mohith-krishnaa/personal-os/actions/runs/44023928005), and [CI #166](https://github.com/mohith-krishnaa/personal-os/actions/runs/44024104158) passed on successive documentation checkpoints; each run completed 56 tests, typecheck, production build, and 0 npm audit vulnerabilities. Latest verified checkpoint: 7f85384b0a89f5447f55d34b6bb367e9d8f527b3.
 - No production migration, DDL, RLS change, data write, or merge occurred. Backup/recovery remains the rollout blocker.
+
+
+## Latest verified checkpoint — 2026-11-17 11:49 IST
+
+- Exact PR #11 head: `b8879c55a9439ea7586ea7400a73534ebd547ea8`; PR remains open, unmerged, non-draft, and mergeable. CI #167 passed on that exact commit: 56 tests, typecheck, production build, and npm audit with 0 vulnerabilities. Lint is not configured.
+- Live Supabase read-only access is working in this checkpoint. Project status is ACTIVE_HEALTHY; PostgreSQL is 17.11.0.003 in ap-southeast-1. The live migration ledger has 8 entries matching the 8 reconstructed core migration files.
+- All 9 public application tables have RLS enabled and zero rows; `auth.users` and `storage.objects` also have zero rows. `projects.title` exists and `projects.name` does not. Both checklist tables and the task Organization validation trigger are absent.
+- Security and health advisors return no lints. Performance advisor still reports 4 unindexed foreign keys, 14 auth_rls_initplan warnings, 13 unused-index findings, and 4 overlapping permissive-policy findings on goals.
+- The earlier database connector timeouts are no longer reproducing, but their root cause is unknown. No infrastructure action was taken.
+- Dashboard evidence confirms the Free Plan has no scheduled backups. No manual schema/data/role backup or restore test exists. The automation runtime has no Docker, pg_dump, or Supabase CLI.
+- Static migration review identified an unverified concurrency edge: the cycle-prevention trigger walks ancestors but does not serialize concurrent hierarchy writes. Test this against disposable PostgreSQL and decide whether a per-user transaction lock is required before rollout.
+- No production schema/data changes, migrations, RLS changes, or PR merge occurred.
+
+Next safe action remains a private logical backup and isolated restore test, followed by disposable migration/concurrency tests and authenticated two-user direct-API isolation. Do not start Analytics or merge PR #11 before these gates pass.
