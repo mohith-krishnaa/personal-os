@@ -656,6 +656,34 @@ BEGIN
     RAISE EXCEPTION 'Anonymous role deleted an authenticated checklist item.';
   END IF;
 
+  UPDATE public.checklist_items SET title = 'Anonymous checklist update'
+  WHERE id = '30000000-0000-4000-8000-000000000001';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 0 THEN
+    RAISE EXCEPTION 'Anonymous role updated an authenticated canonical checklist item.';
+  END IF;
+
+  UPDATE public.task_checklist_items SET title = 'Anonymous legacy checklist update'
+  WHERE id = '30000000-0000-4000-8000-000000000001';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 0 THEN
+    RAISE EXCEPTION 'Anonymous role updated an authenticated legacy checklist item.';
+  END IF;
+
+  DELETE FROM public.projects
+  WHERE id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 0 THEN
+    RAISE EXCEPTION 'Anonymous role deleted an authenticated project.';
+  END IF;
+
+  DELETE FROM public.tasks
+  WHERE id = '10000000-0000-4000-8000-000000000001';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 0 THEN
+    RAISE EXCEPTION 'Anonymous role deleted an authenticated task.';
+  END IF;
+
   DELETE FROM public.task_checklist_items
   WHERE id = '30000000-0000-4000-8000-000000000001';
   GET DIAGNOSTICS affected_rows = ROW_COUNT;
