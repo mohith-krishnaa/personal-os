@@ -184,3 +184,10 @@ The migration assertion fixture now grants `anon` table-level SELECT/INSERT/UPDA
 [CI #216](https://github.com/mohith-krishnaa/personal-os/actions/runs/44072614729) passed the full 16-migration PostgreSQL 17 replay, authenticated two-owner isolation, anonymous denial, task-hierarchy concurrency, application tests, typecheck, and production build.
 
 This is not a live PostgREST test. The live project still has no Organization tables or Organization migrations applied, and no backup/restore has been completed. During production acceptance, test anonymous and two separate authenticated identities against a restored snapshot before applying migrations to the live project.
+
+
+## Complete anonymous Organization CRUD verification — 2026-11-17
+
+The disposable PostgreSQL fixture now grants the `anon` role table-level SELECT/INSERT/UPDATE/DELETE privileges on all four Organization tables, then verifies all four operations are denied by RLS under an empty JWT subject. This prevents missing SQL grants from creating a false-positive authorization test. [GitHub Actions run 44082207231](https://github.com/mohith-krishnaa/personal-os/actions/runs/44082207231) passed the full 16-migration replay, hierarchy concurrency, 58 application tests, typecheck, and production build.
+
+This remains test-fixture evidence only. The live project has no Organization tables yet; do not apply migrations until a private schema/data/role backup is restored successfully and live JWT/PostgREST checks are completed.
