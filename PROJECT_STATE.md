@@ -1,7 +1,7 @@
 # Personal-OS — Persistent Project State
 
 > Canonical recovery checkpoint. Read this before making project claims or changes.
-> Last verified: 2026-11-17 (PR #11 head `bc82493c8c5533148e3d82aaf667374fd33b9ee1`; CI #135 passed: 42 tests, typecheck, production build, 0 npm audit vulnerabilities. Live database operations still timing out/hibernating).
+> Last code verification: 2026-11-17 (PR #11 code-bearing commit `07c95f13a76435ec94976e61b8123143f46e4158`; CI #140 passed: 43 tests, typecheck, production build, 0 npm audit vulnerabilities. Live database inspection remains blocked by a hibernation response despite project-list metadata reporting ACTIVE_HEALTHY).
 
 ## Current verified state
 
@@ -12,7 +12,7 @@
 - Progress & Streaks V1 — **merged** (PR #8).
 - Security issue #6 — **closed/completed** after client execution was revoked for `public.rls_auto_enable()` and security verification reported 0 lints.
 - Open GitHub issue backlog — **0** at last verification.
-- Latest completed implementation CI — **successful** on PR head `bc82493c8c5533148e3d82aaf667374fd33b9ee1` (run #135, ID `43978834178`): **42 tests passed, 0 failed**; `npm run typecheck` and `npm run build` passed; npm install audited 43 packages with 0 vulnerabilities. No lint script/configuration exists.
+- Latest completed code CI — **successful** on code-bearing commit `07c95f13a76435ec94976e61b8123143f46e4158` (run #140, ID `43987021956`): **43 tests passed, 0 failed**; `npm run typecheck` and `npm run build` passed; npm install audited 43 packages with 0 vulnerabilities. No lint script/configuration exists.
 - Active feature branch: `feature/organization-v1`, in open PR #11 targeting `main`; it is not merged.
 
 ## Source-of-truth hierarchy
@@ -290,3 +290,15 @@ Next safe action: wait for CI #131 to complete, reconcile the resulting test cou
 - No production migrations, schema/data changes, or PR merge were performed.
 
 Next safe action: recover supported database connectivity and inspect the live migration ledger/schema. Do not apply DDL or merge until backup/recovery readiness, migration compatibility, advisors, authenticated CRUD, and two-user RLS isolation are verified.
+
+
+## 2026-11-17 — Subtask retry-state correction
+
+- At checkpoint start, PR #11 was open, unmerged, non-draft, and targeted `main`. The Organization branch's prior head was `9a80bdfa8a2279d93d880cb3f0cfd27ba7b9a0e2`.
+- Fixed a stale completeness-state bug in the subtask panel: when a canonical subtask-list refresh fails, the UI now preserves rows already visible but marks the list as incomplete. A later create therefore triggers a canonical reload instead of treating stale rows as the full list.
+- Added `afterSubtaskListLoadFailed` to the pure state helper and a regression test proving the failure → incomplete → create → reload transition.
+- Code-bearing commit: `07c95f13a76435ec94976e61b8123143f46e4158`.
+- [CI #140](https://github.com/mohith-krishnaa/personal-os/actions/runs/43987021956) passed on that code-bearing commit: **43 passed, 0 failed**; dependency installation audited 43 packages with 0 vulnerabilities; `npm run typecheck` and `npm run build` passed. The build compiled successfully and generated all static pages.
+- No lint script or lint configuration exists. No schema, migration, RLS, production data, or authentication changes were made.
+- Supabase `list_projects` returned the intended project `gujzvkyytxsnervovvrt` as `ACTIVE_HEALTHY`; direct `get_project`, migration listing, table introspection, and advisor requests returned: `Project 48591712 is currently hibernated and will wake on next supported request`. The metadata/connection discrepancy means the live migration ledger and schema remain unknown. No SQL or migration write was executed.
+- Next safe action: restore a supported live database connection, inspect the migration ledger and Organization tables, confirm backup/recovery readiness, then run authenticated CRUD and two-user isolation checks before merging PR #11.

@@ -7,7 +7,8 @@ Date: 2026-11-17
 - Repository: `mohith-krishnaa/personal-os`.
 - Stable branch: `main` at `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`.
 - Organization branch: `feature/organization-v1`.
-- PR #11: open, unmerged, non-draft, mergeable, targeting `main`; current head `bc82493c8c5533148e3d82aaf667374fd33b9ee1`: https://github.com/mohith-krishnaa/personal-os/pull/11
+- PR #11: open, unmerged, non-draft, mergeable, targeting `main`; verify the live branch head before any merge: https://github.com/mohith-krishnaa/personal-os/pull/11
+- Latest code-bearing checkpoint in this run: `07c95f13a76435ec94976e61b8123143f46e4158` (documentation-only reconciliation follows).
 - PR #12 is an open draft explicitly superseded by PR #11; do not merge it separately.
 
 ## Work completed in this checkpoint
@@ -123,3 +124,13 @@ Next action: verify CI #131 on the current head, then continue database access r
 - No production migration, schema/data write, or PR merge occurred.
 
 Next action: restore supported Supabase database access, inspect the live ledger/schema, confirm backup/recovery readiness, then complete authenticated CRUD and two-user isolation. Keep Analytics queued until Organization's production gates pass.
+
+ 
+## 2026-11-17 — Subtask retry-state correction
+
+- Corrected `SubtaskManager.loadSubtasks()` failure handling. A failed refresh now retains known rows but sets `loaded=false`, ensuring a subsequent create triggers a canonical owner-scoped reload.
+- Added a pure state helper and regression coverage for the failed-read → incomplete-list → create → reload sequence.
+- [CI #140](https://github.com/mohith-krishnaa/personal-os/actions/runs/43987021956) passed on code-bearing commit `07c95f13a76435ec94976e61b8123143f46e4158`: 43 tests passed, 0 failed; typecheck and production build passed; 43 packages audited, 0 vulnerabilities.
+- Lint remains unavailable because the repository has no lint script/configuration.
+- Live DB status is unresolved: project listing says `ACTIVE_HEALTHY`, but direct project/migration/table/advisor requests return a hibernation error. Live schema and migration ledger are unknown; no production SQL or DDL was run.
+- Do not merge until live schema/migration inspection, recovery readiness, authenticated CRUD, and two-user isolation are verified.

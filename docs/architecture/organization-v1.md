@@ -101,3 +101,11 @@ Status: implementation is under review in PR #11. This document records reposito
 - The test-only checkpoint initially failed because two checklist service functions were not imported in the test module. The missing imports were added; the passing CI run is on the corrected head.
 - The four new tests assert application service query/payload boundaries. They do not prove RLS or cross-user isolation in PostgreSQL.
 - Live schema and migration ledger remain unknown: supported migration listing, table introspection, and read-only SQL time out; security/performance/health advisors report project hibernation.
+
+
+## Client list-state consistency
+
+- A subtask list is considered complete only after a successful canonical server read.
+- If a refresh fails, keep already-visible rows for continuity but mark the list incomplete. A subsequent create must request the canonical owner-scoped list again rather than treating the retained rows as exhaustive.
+- The state transition is covered by a pure helper regression test and does not alter server authorization, ownership checks, or the PostgreSQL RLS boundary.
+- This UI rule applies to recovery from transient read failures; it is not evidence of live database availability or cross-user isolation.

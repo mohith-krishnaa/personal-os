@@ -7,7 +7,7 @@
 
 **Completed:** Core productivity, Recurring Tasks V1, Reminders V1, and Progress & Streaks V1.
 
-**In progress:** Organization V1 remains in PR #11. The dashboard supports direct subtask listing/completion and checklist create/list recovery. Added four checklist service ownership tests; CI #135 passed on current head `bc82493c8c5533148e3d82aaf667374fd33b9ee1`: 42 tests, typecheck, production build, and npm audit (0 vulnerabilities). No lint script/configuration exists. Live migration/schema inspection and authenticated end-to-end verification remain blocked.
+**In progress:** Organization V1 remains in PR #11. The dashboard supports projects, direct subtask listing/completion, and checklist create/list recovery. The latest code checkpoint fixes stale completeness after a failed subtask-list refresh; CI #140 passed on code-bearing commit `07c95f13a76435ec94976e61b8123143f46e4158`: 43 tests, typecheck, production build, and npm audit (0 vulnerabilities). No lint script/configuration exists. Live migration/schema inspection and authenticated end-to-end verification remain blocked.
 
 ## Mind map
 
@@ -111,7 +111,7 @@ PERSONAL OS
 
 ### P1 — Organization V1
 - Implementation exists in PR #11: owner-scoped projects, task/project association, subtasks, checklists, ownership validation, cycle prevention, compatibility migrations, tests, and dashboard UI. The dashboard subtask panel now reads direct children on demand and supports completion updates through the existing owner-scoped task action.
-- CI #135 passed on current head `bc82493c8c5533148e3d82aaf667374fd33b9ee1`: 42/42 tests, `npm run typecheck`, `npm run build`, and npm audit (0 vulnerabilities). CI #131/#132 caught missing imports in the new checklist tests; the imports were corrected before the passing #135 run.
+- CI #140 passed on code-bearing commit `07c95f13a76435ec94976e61b8123143f46e4158`: 43/43 tests, `npm run typecheck`, `npm run build`, and npm audit (0 vulnerabilities). The latest subtask retry-state regression test is included.
 - Highest-priority remaining work is live database verification and safe rollout, followed by authenticated CRUD and cross-user isolation tests. The current UI exposes one level of subtasks; recursive hierarchy UX is not claimed.
 - Do not start Analytics until Organization V1's database and authorization acceptance criteria are verified.
 
@@ -243,3 +243,5 @@ Organization remains the active milestone. Analytics must not start until live s
 - Initial CI #131/#132 failures were caused by missing imports in the new test file. The import correction is included in the verified head.
 - Supabase project metadata remains `ACTIVE_HEALTHY`, but live migration/table/SQL calls time out and advisors report hibernation. Live schema and migration ledger remain unknown.
 - No production database changes or PR merge occurred. Organization remains in progress; Analytics remains blocked behind its production acceptance gates.
+
+- 2026-11-17: Failed subtask-list refreshes now mark the client list incomplete while retaining visible rows; the next create forces a canonical reload. Regression coverage passed in CI #140 (43 tests, typecheck, production build). This is a UI consistency rule, not an authorization or RLS substitute.
