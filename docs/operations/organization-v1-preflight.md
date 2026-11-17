@@ -116,3 +116,19 @@ Scope limits: this focused fixture does not apply the entire six-migration Organ
 The cycle-prevention migration also rejects updates to a parent task's owner or project when an existing direct child would be left with a different owner or project. This check runs under the same owner-scoped transaction advisory lock as child relationship writes. CI #176 passed disposable PostgreSQL 17 tests for both invalid parent project moves and invalid parent owner transfers, in addition to the two-session concurrent cycle test.
 
 This remains branch-only migration coverage. The live database has no Organization trigger yet, and the integration fixture is not a full six-migration replay, production backup restore, RLS test, or authenticated two-user PostgREST test.
+
+## Full migration replay and authenticated isolation — 2026-11-17
+
+CI #189 and #191 replayed all 15 local SQL migration files against a disposable PostgreSQL 17 database. The fixture bootstraps the Supabase roles and auth helpers, seeds legacy `projects.title` rows and legacy checklist items before the reconciliation migration, then verifies:
+
+- both checklist tables remain present and the canonical table receives only checklist rows whose task owner matches the item owner;
+- the legacy project `title` and application `name` columns remain synchronized in both directions;
+- the `rls_auto_enable()` function is not executable by `anon` or `authenticated`, while its pre-existing `service_role` grant remains;
+- separate authenticated Owner A and Owner B sessions cannot read or mutate each other's projects, tasks, or checklist items;
+- the hierarchy concurrency integration still rejects a concurrent inverse edge that would create a cycle.
+
+This closes the disposable full-chain and simulated two-owner RLS test gap. It does not restore a production backup, reproduce the exact live Supabase environment, or exercise live PostgREST JWT/API behavior. Production rollout remains blocked by the missing private backup/restore test and explicit approval.
+
+## Related live Progress V1 schema mismatch
+
+The same live schema inspection found that `public.goals` lacks `unit` and `target`, although the dashboard progress service selects both columns. The original Progress V1 migration used `CREATE TABLE IF NOT EXISTS` after the core migration had already created `goals`, so those columns were not added. A forward-only branch migration, `20261117000100_reconcile_progress_goal_metrics.sql`, adds nullable columns and checks without inventing metrics for legacy goals. The dashboard now handles legacy rows without those metrics. This migration is also unapplied in production and must be included in the backup/restore-tested rollout.
