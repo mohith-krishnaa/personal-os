@@ -123,3 +123,30 @@ from pg_indexes
 where schemaname = 'public'
   and tablename in ('projects', 'tasks', 'checklist_items', 'task_checklist_items')
 order by tablename, indexname;
+
+-- 9. Expected foreign-key index status (Organization plus the related reminder FK).
+with expected_indexes(table_name, column_name, index_name) as (
+  values
+    ('tasks', 'project_id', 'tasks_project_id_idx'),
+    ('tasks', 'parent_task_id', 'tasks_parent_task_id_idx'),
+    ('projects', 'goal_id', 'projects_goal_id_idx'),
+    ('notifications', 'task_id', 'notifications_task_id_idx')
+)
+select
+  e.table_name,
+  e.column_name,
+  e.index_name,
+  i.indexrelid is not null as index_exists,
+  coalesce(i.indisready, false) as index_ready,
+  coalesce(i.indisvalid, false) as index_valid,
+  pg_get_indexdef(i.indexrelid) as index_definition
+from expected_indexes e
+left join pg_class t
+  on t.oid = to_regclass(format('public.%I', e.table_name))
+left join pg_class idx
+  on idx.relnamespace = 'public'::regnamespace
+ and idx.relname = e.index_name
+left join pg_index i
+  on i.indexrelid = idx.oid
+ and i.indrelid = t.oid
+order by e.table_name, e.column_name;

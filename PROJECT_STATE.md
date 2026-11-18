@@ -1,7 +1,7 @@
 # Personal-OS — Persistent Project State
 
 > Canonical recovery checkpoint. Read this before making project claims or changes.
-> Last reconciled: 2026-11-17. Code-bearing head fba0eeeda2b824afd8525d9f941050dca08e6a6a passed [GitHub Actions run 44082207231](https://github.com/mohith-krishnaa/personal-os/actions/runs/44082207231): full 16-migration PostgreSQL 17 replay, complete anonymous CRUD denial across all four Organization tables, authenticated two-owner isolation, task-hierarchy concurrency, 58 application tests, TypeScript typecheck, production build, and 0 npm audit vulnerabilities. No lint script/configuration exists.
+> Last reconciled: 2026-11-18. Code-bearing commit `da8d9bc39015c9897135b9477f8eb713f982be5e` passed [GitHub Actions CI #222](https://github.com/mohith-krishnaa/personal-os/actions/runs/44345681369): full 16-migration PostgreSQL 17 replay with valid/ready assertions for the three pending Organization/compatibility foreign-key indexes, hierarchy concurrency, 58 application tests, TypeScript typecheck, production build, and 0 npm audit vulnerabilities. No lint script/configuration exists.
 
 ## Current verified state
 
@@ -13,6 +13,7 @@
 - Live migration ledger: 8 applied core migrations. The branch contains 16 numbered SQL migrations: 8 matching the live ledger, 7 Organization migrations, and 1 Progress goal-metrics compatibility migration. The latter 8 are unapplied in production.
 - Live public schema: 9 application tables, all RLS-enabled and all reporting zero rows. `projects` has `title` but no `name`; `checklist_items` and `task_checklist_items` are absent; the Organization task validation trigger is absent; `goals` lacks `unit` and `target`.
 - Security advisor returned no lints. Performance advisor findings: 4 unindexed foreign keys, 14 auth RLS initialization-plan warnings, 13 unused-index findings, and 4 overlapping permissive policies on `goals`.
+- A fresh read-only index probe confirms the expected index names for `notifications.task_id`, `projects.goal_id`, `tasks.parent_task_id`, and `tasks.project_id` are all absent in production. The pending migration chain creates the latter three; CI #222 now asserts those three indexes are valid and ready after replay. `notifications.task_id` remains a separate reminder/production-hardening item.
 - The Free Plan has no scheduled backups. No private schema/data/role export or successful isolated restore test exists.
 - No production DDL, migration, RLS change, data write, restore, or PR merge was performed in this checkpoint.
 - Roadmap priority: Organization V1 remains the highest-priority incomplete milestone. Analytics remains queued until recovery is proven and authenticated direct-API isolation is tested against a restored snapshot.
@@ -531,3 +532,12 @@ Next safe action: create private schema/data/role exports, restore-test them in 
 - [GitHub Actions run 44082207231](https://github.com/mohith-krishnaa/personal-os/actions/runs/44082207231) completed successfully: full 16-migration PostgreSQL 17 replay, task-hierarchy concurrency test, 58/58 application tests, TypeScript typecheck, production build, and npm audit with 0 vulnerabilities. No lint script/configuration exists.
 - This is disposable PostgreSQL verification only. Live Supabase remains unchanged: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, 8 applied migrations, 8 local-only migrations, and 9 RLS-enabled public application tables with zero rows. The seven Organization migrations and one Progress compatibility migration remain unapplied.
 - No production DDL, migration, RLS change, data write, restore, or PR merge was performed. Private backup/restore and live authenticated PostgREST verification remain the rollout blockers.
+
+
+## Latest verification — 2026-11-18 (foreign-key index migration assertions)
+
+- Added explicit PostgreSQL assertions that the pending migration chain creates valid and ready indexes for `tasks.project_id`, `tasks.parent_task_id`, and legacy `projects.goal_id`.
+- Added a ninth SELECT-only preflight query reporting expected index existence, readiness, validity, and definition for those three indexes plus `notifications.task_id`.
+- [CI #222](https://github.com/mohith-krishnaa/personal-os/actions/runs/44345681369) passed on code commit [da8d9bc](https://github.com/mohith-krishnaa/personal-os/commit/da8d9bc39015c9897135b9477f8eb713f982be5e): full 16-migration PostgreSQL 17 replay, task hierarchy concurrency, 58/58 application tests, TypeScript typecheck, production build, and npm audit with 0 vulnerabilities.
+- Live read-only SQL confirmed all four expected index names are absent; the three pending migration indexes are not yet in production. The performance advisor still reports four unindexed foreign keys.
+- No production migration, DDL, index creation, RLS change, data write, restore, or merge was performed. Backup/restore and live authenticated PostgREST verification remain blockers.

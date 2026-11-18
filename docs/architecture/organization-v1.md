@@ -303,3 +303,6 @@ The pending migration chain already creates valid indexes for the Organization t
 The migration replay assertions now verify that all three indexes exist, are ready, and are valid after the complete chain runs. These indexes are **not present in the live database yet**; the current performance advisor still reports those three foreign keys as unindexed until the pending migrations are approved and applied. `notifications.task_id` is the fourth live finding and is outside Organization V1; keep it tracked for reminder/production hardening rather than adding unrelated scope to this milestone.
 
 This is a migration-test and architecture clarification only. It does not create or modify production indexes.
+
+
+CI #222 passed the full 16-migration PostgreSQL 17 replay with valid/ready assertions for the three pending Organization/compatibility foreign-key indexes, hierarchy concurrency, 58 application tests, typecheck, and production build. This verifies the migration chain in a disposable database only; the read-only live probe confirms the indexes are still absent from production.

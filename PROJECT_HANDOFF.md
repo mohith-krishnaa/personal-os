@@ -1,6 +1,6 @@
 # Personal-OS — Current Handoff
 
-Date: 2026-11-17
+Date: 2026-11-18
 
 ## Verified repository state
 
@@ -8,7 +8,7 @@ Date: 2026-11-17
 - Stable branch: `main` at `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`.
 - Organization branch: `feature/organization-v1`.
 - PR #11 is the intended Organization V1 review path targeting `main`; this checkpoint did not merge it. Recheck the live PR page for current state/head before any merge: https://github.com/mohith-krishnaa/personal-os/pull/11
-- Latest code-bearing checkpoint: 254e6cbf350a0a2d02f75d9a99154ae3fd8d7540; [CI #216](https://github.com/mohith-krishnaa/personal-os/actions/runs/44072614729) passed the full 16-migration PostgreSQL 17 replay, authenticated two-owner isolation, anonymous-role denial across all four Organization tables, hierarchy concurrency, application tests, typecheck, and production build. The current documentation checkpoint is the branch head after this handoff update; recheck PR #11 for its exact SHA. No lint script/configuration exists.
+- Latest code-bearing checkpoint: `da8d9bc39015c9897135b9477f8eb713f982be5e`; [CI #222](https://github.com/mohith-krishnaa/personal-os/actions/runs/44345681369) passed the full 16-migration PostgreSQL 17 replay with explicit foreign-key index assertions, hierarchy concurrency, 58 application tests, typecheck, production build, and npm audit with 0 vulnerabilities. No lint script/configuration exists. The current PR head may be a later documentation-only commit; recheck PR #11 for its exact SHA.
 - PR #12 was previously marked as a draft superseded by PR #11; verify its live state before any action and do not merge it separately.
 
 ## Work completed in this checkpoint
@@ -386,3 +386,12 @@ Next safe action: create private schema/data/role exports, restore-test them in 
 - [GitHub Actions run 44082207231](https://github.com/mohith-krishnaa/personal-os/actions/runs/44082207231) completed successfully: full 16-migration PostgreSQL 17 replay, task-hierarchy concurrency test, 58/58 application tests, TypeScript typecheck, production build, and npm audit with 0 vulnerabilities. No lint script/configuration exists.
 - This is disposable PostgreSQL verification only. Live Supabase remains unchanged: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, 8 applied migrations, 8 local-only migrations, and 9 RLS-enabled public application tables with zero rows. The seven Organization migrations and one Progress compatibility migration remain unapplied.
 - No production DDL, migration, RLS change, data write, restore, or PR merge was performed. Private backup/restore and live authenticated PostgREST verification remain the rollout blockers.
+
+
+## 2026-11-18 — Organization foreign-key index verification
+
+- Added full-chain assertions for the valid/ready indexes already defined by pending migrations: `tasks_project_id_idx`, `tasks_parent_task_id_idx`, and `projects_goal_id_idx`.
+- Added read-only preflight query 9 for those three indexes plus the related `notifications_task_id_idx` finding. The query was executed against live Supabase and all four expected names were absent.
+- CI #222 passed: 16-migration PostgreSQL 17 replay, task hierarchy concurrency, 58 application tests, typecheck, production build, npm audit 0 vulnerabilities. Lint is not configured.
+- Live project remains ACTIVE_HEALTHY with 8 applied migrations; all eight local-only migrations remain unapplied. No production DDL, migration, index creation, RLS change, data write, restore, or PR merge occurred.
+- Next safe action remains private schema/data/role export and isolated restore test, followed by migration replay and live JWT/PostgREST isolation tests. Analytics remains queued.

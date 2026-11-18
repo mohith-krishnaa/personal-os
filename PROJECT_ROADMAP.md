@@ -1,7 +1,7 @@
 # Personal OS — Project Roadmap & Mind Map
 
 > Single source of truth for project direction. Verify GitHub/Supabase/CI before making claims.
-> Last reconciled: 2026-11-17. Code-bearing head 254e6cbf350a0a2d02f75d9a99154ae3fd8d7540 passed [CI #216](https://github.com/mohith-krishnaa/personal-os/actions/runs/44072614729): full 16-migration PostgreSQL 17 replay, authenticated two-owner isolation, anonymous-role denial across all four Organization tables, hierarchy concurrency, application tests, typecheck, and production build. No lint script/configuration exists.
+> Last reconciled: 2026-11-18. Code-bearing commit `da8d9bc39015c9897135b9477f8eb713f982be5e` passed [CI #222](https://github.com/mohith-krishnaa/personal-os/actions/runs/44345681369): full 16-migration PostgreSQL 17 replay with explicit valid/ready index assertions, hierarchy concurrency, 58 application tests, typecheck, production build, and 0 npm audit vulnerabilities. No lint script/configuration exists.
 
 ## Current position
 
@@ -118,6 +118,7 @@ PERSONAL OS
 - Live Supabase read-only inspection now succeeds. The exact eight applied core migration statements have been restored into version-matched repository files; the duplicate non-ledger reminder migration was removed. Seven Organization migrations and one Progress compatibility migration remain local-only.
 - Live schema gap: projects has title but no name; checklist_items and task_checklist_items are absent; tasks has project/parent foreign keys but no Organization validation trigger; goals lacks the `unit` and `target` columns required by the branch's Progress V1 query. The branch migration now defines the owner-locking trigger function and rejects parent changes that would invalidate existing children, but it remains unapplied. All nine public application tables have RLS enabled and zero rows; auth.users and storage.objects also have zero rows.
 - Security and health advisors report no lints. Performance findings: 4 unindexed foreign keys, 14 auth_rls_initplan warnings, 13 unused-index findings, and 4 overlapping permissive-policy findings on goals.
+- CI #222 now asserts that the pending migration chain produces valid/ready indexes for tasks.project_id, tasks.parent_task_id, and projects.goal_id. A read-only live probe confirms all four expected index names (including notifications.task_id) remain absent in production; the notifications index is tracked outside Organization V1.
 - Recovery remains blocked: Free Plan has no scheduled backups and no manual logical backup exists. No production DDL, migration, RLS change, data write, or merge was performed.
 - Next: create and restore-test a private schema/data/role backup; replay the 16 local migrations against that restored production snapshot; verify authenticated two-user CRUD and live PostgREST direct-API relationship isolation; then re-run advisors before any production rollout or merge. Disposable CI already verifies the full chain and simulated RLS, but does not replace restore or live JWT/API tests.
 - Do not start Analytics until Organization V1's recovery, migration, database authorization, and authenticated isolation acceptance criteria are verified.
@@ -389,3 +390,8 @@ Next safe action: create and restore-test a private logical backup, run the migr
 - [GitHub Actions run 44082207231](https://github.com/mohith-krishnaa/personal-os/actions/runs/44082207231) completed successfully: full 16-migration PostgreSQL 17 replay, task-hierarchy concurrency test, 58/58 application tests, TypeScript typecheck, production build, and npm audit with 0 vulnerabilities. No lint script/configuration exists.
 - This is disposable PostgreSQL verification only. Live Supabase remains unchanged: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, 8 applied migrations, 8 local-only migrations, and 9 RLS-enabled public application tables with zero rows. The seven Organization migrations and one Progress compatibility migration remain unapplied.
 - No production DDL, migration, RLS change, data write, restore, or PR merge was performed. Private backup/restore and live authenticated PostgREST verification remain the rollout blockers.
+
+
+## Latest checkpoint — 2026-11-18 (foreign-key index verification)
+
+Organization remains the active milestone. The full local migration replay now fails if the three indexes already defined by the pending Organization/compatibility migrations are missing, invalid, or not ready. CI #222 passed the 16-migration replay, hierarchy concurrency, 58 application tests, typecheck, production build, and npm audit (0 vulnerabilities). The read-only live preflight confirms those indexes and the separate notifications.task_id index are still absent in production. This is test/preflight coverage, not a production index change. Backup/restore and live authenticated PostgREST acceptance remain open; Analytics stays queued.
