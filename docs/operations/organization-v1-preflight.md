@@ -1,6 +1,6 @@
 # Organization V1 — Live Preflight and Recovery Runbook
 
-Last verified: 2026-11-17  
+Last verified: 2026-11-18  
 Supabase project: gujzvkyytxsnervovvrt (ap-southeast-1, PostgreSQL 17.11.0.003)  
 Application rollout: BLOCKED — no recoverable backup has been produced.
 
@@ -78,13 +78,16 @@ The current automation environment has no Docker daemon, pg_dump binary, or data
 
 - Security advisor: no lints.
 - Health advisor: no lints.
-- Performance advisor:
+- Performance advisor snapshot (2026-11-18):
   - 4 unindexed foreign keys: notifications.task_id, projects.goal_id, tasks.parent_task_id, tasks.project_id.
   - 14 auth_rls_initplan warnings.
   - 13 unused-index findings. Do not drop indexes solely because they are currently unused.
   - 4 multiple-permissive-policy findings on goals because goals_owner overlaps the four command-specific policies.
+- A fresh read-only index probe confirmed that the expected index names `notifications_task_id_idx`, `projects_goal_id_idx`, `tasks_parent_task_id_idx`, and `tasks_project_id_idx` are absent from the live database.
+- The pending migration chain already creates the latter three indexes: the two task indexes in `20260905170000_organization_v1.sql`, and the conditional project-goal index in `20261016000100_projects_name_title_compatibility.sql`. The full migration replay assertion now checks that each exists and is valid/ready. They remain absent from production until the migrations are approved and applied.
+- `notifications.task_id` has no corresponding pending migration and remains outside Organization V1; track it for reminder/production hardening.
 
-Do not change policies or indexes as part of this preflight. Review each finding against the query workload and migration history after a verified backup.
+Do not change live policies or indexes as part of this preflight. Review each finding against the query workload and migration history after a verified backup.
 
 ## Read-only SQL preflight
 
@@ -191,3 +194,10 @@ This is not a live PostgREST test. The live project still has no Organization ta
 The disposable PostgreSQL fixture now grants the `anon` role table-level SELECT/INSERT/UPDATE/DELETE privileges on all four Organization tables, then verifies all four operations are denied by RLS under an empty JWT subject. This prevents missing SQL grants from creating a false-positive authorization test. [GitHub Actions run 44082207231](https://github.com/mohith-krishnaa/personal-os/actions/runs/44082207231) passed the full 16-migration replay, hierarchy concurrency, 58 application tests, typecheck, and production build.
 
 This remains test-fixture evidence only. The live project has no Organization tables yet; do not apply migrations until a private schema/data/role backup is restored successfully and live JWT/PostgREST checks are completed.
+
+
+## Migration index assertions — 2026-11-18
+
+The disposable full-chain assertion now fails if any of the three indexes supplied by the pending Organization/compatibility migrations is missing, invalid, or not ready. This makes the intended remediation independently verifiable before rollout. It does not assert that the live database has these indexes; the live probe confirms they are absent. The fourth finding, `notifications.task_id`, remains a separate reminder/production-hardening item.
+
+Current PR-head CI verification is pending for this test change. No production DDL, migration, index creation, RLS change, data write, backup restore, or PR merge was performed.

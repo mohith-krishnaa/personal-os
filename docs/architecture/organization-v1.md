@@ -291,3 +291,15 @@ Organization policies are intentionally granted to `authenticated`, not `anon`. 
 The disposable migration fixture now verifies all four RLS operations for the anonymous role on each Organization table. It grants `anon` table-level SELECT/INSERT/UPDATE/DELETE privileges first, sets an empty JWT subject, and asserts: SELECT returns zero rows; INSERT is rejected; UPDATE affects zero rows; DELETE affects zero rows for `projects`, `tasks`, `checklist_items`, and `task_checklist_items`. This closes the earlier test-coverage gap where anonymous UPDATE and DELETE checks covered only a subset of tables.
 
 Code commit [fba0eee](https://github.com/mohith-krishnaa/personal-os/commit/fba0eeeda2b824afd8525d9f941050dca08e6a6a) passed [GitHub Actions run 44082207231](https://github.com/mohith-krishnaa/personal-os/actions/runs/44082207231), including the full 16-migration PostgreSQL 17 replay, hierarchy concurrency, 58 application tests, typecheck, and production build. The result is not a live PostgREST test and does not satisfy the backup/restore gate.
+
+## Foreign-key indexing contract — 2026-11-18
+
+The pending migration chain already creates valid indexes for the Organization task relationships and the legacy project-to-goal relationship:
+
+- `tasks.project_id` → `tasks_project_id_idx` (partial on non-null project IDs).
+- `tasks.parent_task_id` → `tasks_parent_task_id_idx` (partial on non-null parent IDs).
+- `projects.goal_id` → `projects_goal_id_idx` when the legacy `goal_id` column exists.
+
+The migration replay assertions now verify that all three indexes exist, are ready, and are valid after the complete chain runs. These indexes are **not present in the live database yet**; the current performance advisor still reports those three foreign keys as unindexed until the pending migrations are approved and applied. `notifications.task_id` is the fourth live finding and is outside Organization V1; keep it tracked for reminder/production hardening rather than adding unrelated scope to this milestone.
+
+This is a migration-test and architecture clarification only. It does not create or modify production indexes.

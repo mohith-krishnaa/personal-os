@@ -59,6 +59,41 @@ BEGIN
     RAISE EXCEPTION 'Project name/title compatibility trigger is missing.';
   END IF;
 
+  -- The pending rollout must install valid indexes for the Organization
+  -- foreign keys and the legacy project-to-goal relationship.
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_index i
+    JOIN pg_class idx ON idx.oid = i.indexrelid
+    WHERE i.indrelid = 'public.tasks'::regclass
+      AND idx.relname = 'tasks_project_id_idx'
+      AND i.indisvalid AND i.indisready
+  ) THEN
+    RAISE EXCEPTION 'A valid index for tasks.project_id is missing.';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_index i
+    JOIN pg_class idx ON idx.oid = i.indexrelid
+    WHERE i.indrelid = 'public.tasks'::regclass
+      AND idx.relname = 'tasks_parent_task_id_idx'
+      AND i.indisvalid AND i.indisready
+  ) THEN
+    RAISE EXCEPTION 'A valid index for tasks.parent_task_id is missing.';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_index i
+    JOIN pg_class idx ON idx.oid = i.indexrelid
+    WHERE i.indrelid = 'public.projects'::regclass
+      AND idx.relname = 'projects_goal_id_idx'
+      AND i.indisvalid AND i.indisready
+  ) THEN
+    RAISE EXCEPTION 'A valid index for projects.goal_id is missing.';
+  END IF;
+
   IF EXISTS (
     SELECT 1
     FROM (VALUES ('projects'), ('tasks'), ('checklist_items'), ('task_checklist_items')) AS expected(table_name)
