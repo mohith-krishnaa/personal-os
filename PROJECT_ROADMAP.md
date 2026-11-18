@@ -1,7 +1,7 @@
 # Personal OS — Project Roadmap & Mind Map
 
 > Single source of truth for project direction. Verify GitHub/Supabase/CI before making claims.
-> Last reconciled: 2026-11-18. Code-bearing commit `da8d9bc39015c9897135b9477f8eb713f982be5e` passed [CI #222](https://github.com/mohith-krishnaa/personal-os/actions/runs/44345681369): full 16-migration PostgreSQL 17 replay with explicit valid/ready index assertions, hierarchy concurrency, 58 application tests, typecheck, production build, and 0 npm audit vulnerabilities. No lint script/configuration exists.
+> Last reconciled: 2026-11-18. Code-bearing commit `da8d9bc39015c9897135b9477f8eb713f982be5e` passed [CI #222](https://github.com/mohith-krishnaa/personal-os/actions/runs/44345681369): full 16-migration PostgreSQL 17 replay with explicit valid/ready index assertions, hierarchy concurrency, 58 application tests, typecheck, production build, and 0 npm audit vulnerabilities. No lint script/configuration exists. Documentation checkpoint `a97c180578d1712c9023a970b4eff091c6dbb0b0` passed [CI #223](https://github.com/mohith-krishnaa/personal-os/actions/runs/44346093573).
 
 ## Current position
 
@@ -72,7 +72,7 @@ PERSONAL OS
 
 1. Recurring Tasks V1 — DONE
 2. Reminders V1 — DONE
-3. Progress & Streaks V1 — implementation exists; live `goals.unit`/`target` repair pending
+3. Progress & Streaks V1 — implementation complete; live `goals.unit`/`target` repair pending
 4. **Organization V1 — IN PROGRESS (15-migration replay and simulated two-owner RLS pass; production backup/restore and live API gates pending)**
 5. Analytics V1
 6. AI Assistant V1

@@ -8,8 +8,13 @@ Date: 2026-11-18
 - Stable branch: `main` at `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`.
 - Organization branch: `feature/organization-v1`.
 - PR #11 is the intended Organization V1 review path targeting `main`; this checkpoint did not merge it. Recheck the live PR page for current state/head before any merge: https://github.com/mohith-krishnaa/personal-os/pull/11
-- Latest code-bearing checkpoint: `da8d9bc39015c9897135b9477f8eb713f982be5e`; [CI #222](https://github.com/mohith-krishnaa/personal-os/actions/runs/44345681369) passed the full 16-migration PostgreSQL 17 replay with explicit foreign-key index assertions, hierarchy concurrency, 58 application tests, typecheck, production build, and npm audit with 0 vulnerabilities. No lint script/configuration exists. The current PR head may be a later documentation-only commit; recheck PR #11 for its exact SHA.
+- Latest code-bearing checkpoint: `da8d9bc39015c9897135b9477f8eb713f982be5e`; [CI #222](https://github.com/mohith-krishnaa/personal-os/actions/runs/44345681369) passed the full 16-migration PostgreSQL 17 replay with explicit foreign-key index assertions, hierarchy concurrency, 58 application tests, typecheck, production build, and npm audit with 0 vulnerabilities. No lint script/configuration exists.
+- Latest documentation-only checkpoint: `a97c180578d1712c9023a970b4eff091c6dbb0b0`; [CI #223](https://github.com/mohith-krishnaa/personal-os/actions/runs/44346093573) passed all configured steps.
 - PR #12 was previously marked as a draft superseded by PR #11; verify its live state before any action and do not merge it separately.
+
+## Automation status
+
+The hourly Personal-OS Builder automation is paused because the next meaningful Organization acceptance step requires an owner-controlled backup/restore environment and live authenticated PostgREST verification. Resume it after those prerequisites are available; repeated CI-only work cannot substitute for them.
 
 ## Work completed in this checkpoint
 
@@ -395,3 +400,10 @@ Next safe action: create private schema/data/role exports, restore-test them in 
 - CI #222 passed: 16-migration PostgreSQL 17 replay, task hierarchy concurrency, 58 application tests, typecheck, production build, npm audit 0 vulnerabilities. Lint is not configured.
 - Live project remains ACTIVE_HEALTHY with 8 applied migrations; all eight local-only migrations remain unapplied. No production DDL, migration, index creation, RLS change, data write, restore, or PR merge occurred.
 - Next safe action remains private schema/data/role export and isolated restore test, followed by migration replay and live JWT/PostgREST isolation tests. Analytics remains queued.
+
+
+## 2026-11-18 — Automation pause and state reconciliation
+
+- The latest code-bearing checkpoint passed CI #222; the subsequent documentation-only checkpoint passed CI #223 on current PR head `a97c180578d1712c9023a970b4eff091c6dbb0b0`.
+- Progress & Streaks V1 is now explicitly labeled implementation-complete with live schema repair pending, matching the verified `public.goals` schema.
+- The Personal-OS Builder automation is paused until a private backup/restore and live authenticated API test environment are available.

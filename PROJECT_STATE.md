@@ -1,7 +1,7 @@
 # Personal-OS — Persistent Project State
 
 > Canonical recovery checkpoint. Read this before making project claims or changes.
-> Last reconciled: 2026-11-18. Code-bearing commit `da8d9bc39015c9897135b9477f8eb713f982be5e` passed [GitHub Actions CI #222](https://github.com/mohith-krishnaa/personal-os/actions/runs/44345681369): full 16-migration PostgreSQL 17 replay with valid/ready assertions for the three pending Organization/compatibility foreign-key indexes, hierarchy concurrency, 58 application tests, TypeScript typecheck, production build, and 0 npm audit vulnerabilities. No lint script/configuration exists.
+> Last reconciled: 2026-11-18. Code-bearing commit `da8d9bc39015c9897135b9477f8eb713f982be5e` passed [GitHub Actions CI #222](https://github.com/mohith-krishnaa/personal-os/actions/runs/44345681369): full 16-migration PostgreSQL 17 replay with valid/ready assertions for the three pending Organization/compatibility foreign-key indexes, hierarchy concurrency, 58 application tests, TypeScript typecheck, production build, and 0 npm audit vulnerabilities. No lint script/configuration exists. Documentation checkpoint `a97c180578d1712c9023a970b4eff091c6dbb0b0` passed [CI #223](https://github.com/mohith-krishnaa/personal-os/actions/runs/44346093573).
 
 ## Current verified state
 
@@ -15,6 +15,7 @@
 - Security advisor returned no lints. Performance advisor findings: 4 unindexed foreign keys, 14 auth RLS initialization-plan warnings, 13 unused-index findings, and 4 overlapping permissive policies on `goals`.
 - A fresh read-only index probe confirms the expected index names for `notifications.task_id`, `projects.goal_id`, `tasks.parent_task_id`, and `tasks.project_id` are all absent in production. The pending migration chain creates the latter three; CI #222 now asserts those three indexes are valid and ready after replay. `notifications.task_id` remains a separate reminder/production-hardening item.
 - The Free Plan has no scheduled backups. No private schema/data/role export or successful isolated restore test exists.
+- The hourly Personal-OS Builder automation is paused until an owner-controlled private backup is restored successfully and live authenticated PostgREST verification can proceed; repeated repository-only checks cannot clear that gate.
 - No production DDL, migration, RLS change, data write, restore, or PR merge was performed in this checkpoint.
 - Roadmap priority: Organization V1 remains the highest-priority incomplete milestone. Analytics remains queued until recovery is proven and authenticated direct-API isolation is tested against a restored snapshot.
 
@@ -93,7 +94,7 @@ Next safe action: create and restore-test a private schema/data/role backup, the
 - Validation tests, cron configuration and CI verification.
 - Full user-local timezone/DST semantics remain a hardening item.
 
-### Progress & Streaks V1 — COMPLETE
+### Progress & Streaks V1 — IMPLEMENTATION COMPLETE; LIVE SCHEMA REPAIR PENDING
 - Generic measurable goals with positive targets.
 - Positive progress entries with date validation.
 - Current and longest streak calculations; duplicate entries on one day count once.
@@ -103,6 +104,7 @@ Next safe action: create and restore-test a private schema/data/role backup, the
 - Authenticated `user_id` enforced at the service boundary.
 - Progress unit tests included in the repository test command.
 - PR #8 merged to `main`.
+- Production acceptance remains pending: live `public.goals` still lacks `unit` and `target`; the forward compatibility migration is unapplied. Do not treat the production data contract as complete until it is backup/restore-tested and applied.
 
 ## Security / hardening status
 
@@ -115,7 +117,7 @@ Next safe action: create and restore-test a private schema/data/role backup, the
 
 1. Recurring Tasks V1 — DONE
 2. Reminders V1 — DONE
-3. Progress & Streaks V1 — DONE
+3. Progress & Streaks V1 — implementation complete; live schema repair pending
 4. **Organization V1 — IN PROGRESS (PR #11; live schema inspected, backup and rollout gates pending)**
 5. Analytics V1
 6. AI Assistant V1
@@ -149,7 +151,7 @@ mindmap
       Notifications
       Idempotency
       Timezone/DST [HARDEN LATER]
-    Progress & Streaks V1 [DONE]
+    Progress & Streaks V1 [IMPLEMENTED; LIVE SCHEMA REPAIR PENDING]
       Goals
       Progress logs
       Current + longest streaks
