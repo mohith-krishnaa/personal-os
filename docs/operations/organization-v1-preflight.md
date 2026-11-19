@@ -112,6 +112,10 @@ Do not change live policies or indexes as part of this preflight. Review each fi
 
 Run supabase/operations/organization-v1-preflight.sql in the Supabase SQL Editor. It contains SELECT statements only and reports the migration ledger, required table/column presence, RLS flags, policies, triggers, constraints, and indexes. Query 5 includes Organization, goals, reminders, notifications, and progress_entries so the pending 14-policy initplan remediation can be reviewed after rollout. The exact preflight file is also executed at the end of the disposable migration replay in CI; the test bootstrap creates only a minimal migration-ledger fixture so the preflight syntax and catalog queries are exercised without connecting to production. Re-run it immediately before and after any approved rollout.
 
+Query 10 reports `rows_blocking_name_compatibility` and `rows_with_name_title_drift` for `projects`. It uses `to_jsonb(project_row)->>'name'` and `->>'title'`, so it can run before the optional `name` column exists. Do not apply the compatibility migration while either count is non-zero. The migration intentionally fails its validated check if a backfilled name is blank or longer than 120 characters; resolve any such legacy data under a reviewed, backed-up plan rather than silently truncating it. The 2026-11-19 read-only live probe returned 0 projects, 0 blocking rows, and 0 drift rows.
+
+The disposable RLS assertion now checks that `projects_name_length_check` is validated and that blank/121-character values are rejected through both the application `name` and legacy `title` write paths. This verifies that legacy clients cannot bypass the new name contract.
+
 ## Safe rollout sequence
 
 1. Produce and restore-test the manual backup described above.
