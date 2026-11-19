@@ -1,6 +1,22 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { calculateStreak, progressPercent } from './progress'
+import { calculateStreak, hasUsableGoalMetrics, progressPercent } from './progress'
+
+describe('hasUsableGoalMetrics', () => {
+  it('accepts a non-empty unit and finite positive target', () => {
+    assert.equal(hasUsableGoalMetrics({ unit: ' pages ', target: 10 }), true)
+  })
+
+  it('rejects missing, blank, or invalid measurement metadata', () => {
+    assert.equal(hasUsableGoalMetrics({ unit: null, target: 10 }), false)
+    assert.equal(hasUsableGoalMetrics({ unit: '   ', target: 10 }), false)
+    assert.equal(hasUsableGoalMetrics({ unit: 'pages', target: null }), false)
+    assert.equal(hasUsableGoalMetrics({ unit: 'pages', target: 0 }), false)
+    assert.equal(hasUsableGoalMetrics({ unit: 'pages', target: -1 }), false)
+    assert.equal(hasUsableGoalMetrics({ unit: 'pages', target: Number.NaN }), false)
+    assert.equal(hasUsableGoalMetrics({ unit: 'pages', target: Number.POSITIVE_INFINITY }), false)
+  })
+})
 
 describe('calculateStreak', () => {
   const today = new Date('2026-08-30T12:00:00Z')

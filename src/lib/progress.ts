@@ -1,6 +1,12 @@
-import type { ProgressEntry, Streak } from '@/types/progress'
+import type { Goal, ProgressEntry, Streak } from '@/types/progress'
 
 export type { ProgressEntry, Streak } from '@/types/progress'
+
+export function hasUsableGoalMetrics(goal: Pick<Goal, 'unit' | 'target'>): boolean {
+  if (typeof goal.unit !== 'string' || goal.unit.trim().length === 0 || goal.target == null) return false
+  const target = Number(goal.target)
+  return Number.isFinite(target) && target > 0
+}
 
 export function calculateStreak(entries: Pick<ProgressEntry, 'value' | 'occurred_on'>[], today = new Date()): Streak {
   const days = new Set(entries.map((entry) => entry.occurred_on.slice(0, 10)))

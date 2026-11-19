@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { calculateStreak, progressPercent } from './progress'
+import { calculateStreak, hasUsableGoalMetrics, progressPercent } from './progress'
 import type { Goal, ProgressEntry, Streak } from '@/types/progress'
 
 export async function createGoal(supabase: SupabaseClient, userId: string, input: { title: string; unit: string; target: number }) {
@@ -10,7 +10,19 @@ export async function createGoal(supabase: SupabaseClient, userId: string, input
 }
 
 export async function logProgress(supabase: SupabaseClient, userId: string, input: { goalId: string; value: number; occurredOn: string }) {
-  if (!userId || !input.goalId || !Number.isFinite(input.value) || input.value <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(input.occurredOn)) throw new Error('Invalid progress entry')
+  if (!userId || !input.goalId || !Number.isFinite(input.value) || input.value <= 0 || !/^\\d{4}-\\d{2}-\\d{2}$/.test(input.occurredOn)) throw new Error('Invalid progress entry')
+
+  const { data: goal, error: goalError } = await supabase
+    .from('goals')
+    .select('id, unit, target')
+    .eq('id', input.goalId)
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (goalError) throw goalError
+  if (!goal) throw new Error('Goal not found')
+  if (!hasUsableGoalMetrics(goal)) throw new Error('Goal is not configured for progress tracking')
+
   const { data, error } = await supabase.from('progress_entries').insert({ goal_id: input.goalId, user_id: userId, value: input.value, occurred_on: input.occurredOn }).select('*').single()
   if (error) throw error
   return data as ProgressEntry
