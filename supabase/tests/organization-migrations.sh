@@ -45,7 +45,7 @@ echo "Verifying that a missing expected FK is repaired inside a rollback-only tr
 psql -X -v ON_ERROR_STOP=1 <<'SQL'
 BEGIN;
 ALTER TABLE public.tasks DROP CONSTRAINT tasks_project_id_fkey;
-\\i supabase/migrations/20261119000300_ensure_project_task_foreign_keys.sql
+\i supabase/migrations/20261119000300_ensure_project_task_foreign_keys.sql
 DO $assert_repaired_fk$
 BEGIN
   IF NOT EXISTS (
@@ -83,7 +83,7 @@ ALTER TABLE public.tasks
   ADD CONSTRAINT test_unexpected_tasks_project_fk
   FOREIGN KEY (project_id) REFERENCES auth.users(id)
   ON DELETE SET NULL NOT VALID;
-\\i supabase/migrations/20261119000300_ensure_project_task_foreign_keys.sql
+\i supabase/migrations/20261119000300_ensure_project_task_foreign_keys.sql
 ROLLBACK;
 SQL
 )"
@@ -97,7 +97,7 @@ fi
 
 if ! grep -Fq 'Unexpected foreign-key contract for public.tasks.project_id' <<<"$unexpected_fk_output"; then
   echo "The project/task FK guard failed for an unexpected reason:"
-  printf '%s\\n' "$unexpected_fk_output"
+  printf '%s\n' "$unexpected_fk_output"
   exit 1
 fi
 
