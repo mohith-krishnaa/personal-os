@@ -439,6 +439,22 @@ BEGIN
     RAISE EXCEPTION 'Name-only project insert did not satisfy the legacy title column.';
   END IF;
 
+  INSERT INTO public.projects (id, user_id, title)
+  VALUES (
+    'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee5',
+    auth.uid(),
+    'Created through legacy title'
+  );
+
+  SELECT name, title INTO project_name, project_title
+  FROM public.projects
+  WHERE id = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee5';
+
+  IF project_name <> 'Created through legacy title'
+     OR project_title <> 'Created through legacy title' THEN
+    RAISE EXCEPTION 'Legacy title-only insert did not populate projects.name.';
+  END IF;
+
   -- Both application-name and legacy-title write paths must reject invalid names.
   BEGIN
     INSERT INTO public.projects (id, user_id, name)
