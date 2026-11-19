@@ -125,8 +125,10 @@ BEGIN
     WHERE schemaname = 'public' AND tablename = 'goals'
       AND policyname = 'goals_owner' AND cmd = 'ALL'
       AND roles = ARRAY['authenticated']::name[]
-      AND qual LIKE '%auth.uid%'
-      AND with_check LIKE '%auth.uid%'
+      AND qual LIKE '%SELECT auth.uid()%'
+      AND with_check LIKE '%SELECT auth.uid()%'
+      AND qual LIKE '%user_id%'
+      AND with_check LIKE '%user_id%'
   ) THEN
     RAISE EXCEPTION 'The canonical authenticated goals_owner policy is missing.';
   END IF;
@@ -144,45 +146,71 @@ BEGIN
     RAISE EXCEPTION 'Redundant legacy goals policies remain after deduplication.';
   END IF;
 
-  -- Reminder/notification/progress ownership policies must use initplan-safe auth calls.
+  -- The ten reminder/notification/progress policies must preserve their
+  -- authenticated role, command scope, owner predicates, and progress-goal link.
   IF (
     SELECT count(*)
     FROM pg_policies
     WHERE schemaname = 'public'
-      AND (
-        (tablename = 'reminders' AND policyname IN (
-          'reminders_owner_select', 'reminders_owner_insert',
-          'reminders_owner_update', 'reminders_owner_delete'
-        ))
-        OR (tablename = 'notifications' AND policyname IN (
-          'notifications_owner_select', 'notifications_owner_update'
-        ))
-        OR (tablename = 'progress_entries' AND policyname IN (
-          'Users can read own progress', 'Users can create own progress',
-          'Users can update own progress', 'Users can delete own progress'
-        ))
-      )
+      AND tablename IN ('reminders', 'notifications', 'progress_entries')
   ) <> 10 THEN
-    RAISE EXCEPTION 'Expected all ten reminder, notification, and progress owner policies.';
+    RAISE EXCEPTION 'Expected exactly ten reminder, notification, and progress policies.';
   END IF;
 
+  IF EXISTS (
+    WITH expected(tablename, policyname, command_name, needs_using, needs_check, needs_goal_link) AS (
+      VALUES
+        ('reminders', 'reminders_owner_select', 'SELECT', true, false, false),
+        ('reminders', 'reminders_owner_insert', 'INSERT', false, true, false),
+        ('reminders', 'reminders_owner_update', 'UPDATE', true, true, false),
+        ('reminders', 'reminders_owner_delete', 'DELETE', true, false, false),
+        ('notifications', 'notifications_owner_select', 'SELECT', true, false, false),
+        ('notifications', 'notifications_owner_update', 'UPDATE', true, true, false),
+        ('progress_entries', 'Users can read own progress', 'SELECT', true, false, false),
+        ('progress_entries', 'Users can create own progress', 'INSERT', false, true, true),
+        ('progress_entries', 'Users can update own progress', 'UPDATE', true, true, true),
+        ('progress_entries', 'Users can delete own progress', 'DELETE', true, false, false)
+    )
+    SELECT 1
+    FROM expected e
+    LEFT JOIN pg_policies p
+      ON p.schemaname = 'public'
+     AND p.tablename = e.tablename
+     AND p.policyname = e.policyname
+    WHERE p.policyname IS NULL
+       OR p.roles <> ARRAY['authenticated']::name[]
+       OR p.cmd <> e.command_name
+       OR (
+         e.needs_using
+         AND (
+           coalesce(p.qual, '') NOT LIKE '%SELECT auth.uid()%'
+           OR coalesce(p.qual, '') NOT LIKE '%user_id%'
+         )
+       )
+       OR (
+         e.needs_check
+         AND (
+           coalesce(p.with_check, '') NOT LIKE '%SELECT auth.uid()%'
+           OR coalesce(p.with_check, '') NOT LIKE '%user_id%'
+         )
+       )
+       OR (
+         e.needs_goal_link
+         AND (
+           coalesce(p.with_check, '') NOT LIKE '%goal_id%'
+           OR coalesce(p.with_check, '') NOT LIKE '%g.user_id%'
+         )
+       )
+  ) THEN
+    RAISE EXCEPTION 'A reminder, notification, or progress policy changed role, command, owner, or goal-link semantics.';
+  END IF;
+
+  -- No policy in this set may retain a direct per-row auth.uid() expression.
   IF EXISTS (
     SELECT 1
     FROM pg_policies
     WHERE schemaname = 'public'
-      AND (
-        (tablename = 'reminders' AND policyname IN (
-          'reminders_owner_select', 'reminders_owner_insert',
-          'reminders_owner_update', 'reminders_owner_delete'
-        ))
-        OR (tablename = 'notifications' AND policyname IN (
-          'notifications_owner_select', 'notifications_owner_update'
-        ))
-        OR (tablename = 'progress_entries' AND policyname IN (
-          'Users can read own progress', 'Users can create own progress',
-          'Users can update own progress', 'Users can delete own progress'
-        ))
-      )
+      AND tablename IN ('reminders', 'notifications', 'progress_entries')
       AND (
         coalesce(qual, '') LIKE '%auth.uid()%'
           AND coalesce(qual, '') NOT LIKE '%SELECT auth.uid()%'
