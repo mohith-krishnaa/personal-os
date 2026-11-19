@@ -74,6 +74,32 @@ $assert_repaired_fk$;
 ROLLBACK;
 SQL
 
+echo "Verifying that an exact NOT VALID FK is validated inside a rollback-only transaction"
+psql -X -v ON_ERROR_STOP=1 <<'SQL'
+BEGIN;
+ALTER TABLE public.tasks DROP CONSTRAINT tasks_project_id_fkey;
+ALTER TABLE public.tasks
+  ADD CONSTRAINT tasks_project_id_fkey
+  FOREIGN KEY (project_id) REFERENCES public.projects(id)
+  ON DELETE SET NULL NOT VALID;
+\i supabase/migrations/20261119000300_ensure_project_task_foreign_keys.sql
+DO $assert_validated_fk$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint con
+    WHERE con.conrelid = 'public.tasks'::regclass
+      AND con.conname = 'tasks_project_id_fkey'
+      AND con.contype = 'f'
+      AND con.convalidated
+  ) THEN
+    RAISE EXCEPTION 'The existing NOT VALID tasks.project_id foreign key was not validated.';
+  END IF;
+END
+$assert_validated_fk$;
+ROLLBACK;
+SQL
+
 echo "Verifying that an unexpected additional FK fails closed without being removed"
 set +e
 unexpected_fk_output="$(
