@@ -13,7 +13,7 @@ The filenames below use the exact live version and name. Do not change their tim
 - 20260830141616_progress_goals_v1.sql
 - 20260905162251_restrict_rls_auto_enable_execute.sql
 
-The seven Organization V1 migrations that follow these versions are local-only and are not present in the live ledger as of the inspection date. They must not be applied until a verified backup exists and the migration sequence has been tested against the live legacy schema.
+The seven Organization V1 migrations, one Progress goal-metrics compatibility migration, and two RLS performance migrations are local-only (10 local-only migrations total) and are not present in the live ledger. The branch contains 18 numbered SQL migrations: 8 matching the live ledger plus those 10 pending migrations. They must not be applied until a verified backup exists and the migration sequence has been tested against the live legacy schema.
 
 The duplicate 20260830181600_reminder_notifications.sql file was not present in the live ledger and was removed. Its additional policy/index definitions must not be reintroduced without a reviewed migration.
 
@@ -77,3 +77,12 @@ that all ten expected policies exist and no direct per-row `auth.uid()`
 expression remains in their USING/WITH CHECK definitions.
 
 This is branch-only until the backup/restore and production rollout gates pass.
+
+
+## Current migration and CI checkpoint — 2026-11-19
+
+The branch contains 18 numbered migrations: 8 applied in the live ledger and 10 local-only. GitHub Actions [CI #235](https://github.com/mohith-krishnaa/personal-os/actions/runs/44479898572) passed on commit `e89f8355be18d66a7f8b287dceb2a7be154690d9`, including full PostgreSQL 17 migration replay/RLS assertions, hierarchy integration, application tests, typecheck, and production build. The two newest local-only migrations are `20261119000100_deduplicate_goals_owner_policies.sql` and `20261119000200_optimize_reminder_progress_rls.sql`. Neither has been applied to production.
+
+## Notifications task foreign-key index — fresh live evidence
+
+Read-only inspection on 2026-11-19 confirms `notifications_task_id_fkey` is `FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE`. The `notifications` table has only `notifications_pkey`, `notifications_reminder_unique` on `reminder_id`, and `notifications_user_created_at_idx` on `(user_id, created_at DESC)`; there is no index beginning with `task_id`. A dedicated B-tree index on `notifications(task_id)` is justified to support referenced-task delete/cascade checks and task relationship lookups. This is a recommendation only: no production index was created. Add it through a new reviewed migration using `supabase migration new`, include a replay assertion for validity/readiness, and rerun CI before any production rollout.
