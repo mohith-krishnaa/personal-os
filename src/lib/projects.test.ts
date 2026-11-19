@@ -103,6 +103,7 @@ test('createProject derives user_id from the authenticated session', async () =>
 
   assert.equal(inserted?.user_id, userId)
   assert.equal(inserted?.name, 'Personal')
+  assert.equal(inserted?.title, undefined, 'new application writes use only the canonical name column')
   assert.equal(inserted?.description, null)
 })
 
@@ -142,6 +143,7 @@ test('updateProject scopes the update to the authenticated owner', async () => {
 
   assert.deepEqual(filters, [['id', 'project-1'], ['user_id', userId]])
   assert.equal(updatePayload?.name, 'Renamed')
+  assert.equal(updatePayload?.title, undefined, 'renames use only the canonical name column')
   assert.equal(updatePayload?.user_id, undefined)
 })
 
