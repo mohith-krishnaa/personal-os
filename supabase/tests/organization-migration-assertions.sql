@@ -41,6 +41,19 @@ BEGIN
         AND a.attnotnull
         AND NOT a.attisdropped
     )
+    OR (
+      SELECT count(*)
+      FROM pg_constraint con
+      WHERE con.conrelid = e.relation_oid
+        AND con.contype = 'f'
+        AND (
+          SELECT a.attnum
+          FROM pg_attribute a
+          WHERE a.attrelid = e.relation_oid
+            AND a.attname = 'task_id'
+            AND NOT a.attisdropped
+        ) = ANY(con.conkey)
+    ) <> 1
     OR NOT EXISTS (
       SELECT 1
       FROM pg_constraint con
@@ -60,7 +73,7 @@ BEGIN
         ]::smallint[]
     )
   ) THEN
-    RAISE EXCEPTION 'Both checklist task_id columns must be NOT NULL and reference public.tasks with a validated ON DELETE CASCADE foreign key.';
+    RAISE EXCEPTION 'Each checklist task_id must be NOT NULL and participate in exactly one validated single-column foreign key to public.tasks(id) ON DELETE CASCADE.';
   END IF;
 
   -- Verify the project/task relationship foreign keys exactly. The migration

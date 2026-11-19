@@ -182,8 +182,8 @@ select
   ) as rows_with_name_title_drift
 from normalized;
 
--- 11. Exact project/task relationship foreign-key contracts.
--- Report missing, unvalidated, incorrectly targeted, or incorrectly configured FKs.
+-- 11. Exact project/task/checklist foreign-key contracts.
+-- Report missing, duplicate, unvalidated, incorrectly targeted, or incorrectly configured FKs.
 with expected_foreign_keys(
   source_table, source_column, target_table, target_column,
   expected_delete_action, delete_action_code
@@ -191,7 +191,9 @@ with expected_foreign_keys(
   values
     ('tasks', 'project_id', 'projects', 'id', 'SET NULL', 'n'::"char"),
     ('tasks', 'parent_task_id', 'tasks', 'id', 'CASCADE', 'c'::"char"),
-    ('projects', 'goal_id', 'goals', 'id', 'SET NULL', 'n'::"char")
+    ('projects', 'goal_id', 'goals', 'id', 'SET NULL', 'n'::"char"),
+    ('checklist_items', 'task_id', 'tasks', 'id', 'CASCADE', 'c'::"char"),
+    ('task_checklist_items', 'task_id', 'tasks', 'id', 'CASCADE', 'c'::"char")
 ),
 resolved as (
   select
@@ -214,15 +216,13 @@ select
     from pg_constraint other_con
     where other_con.conrelid = e.source_oid
       and other_con.contype = 'f'
-      and other_con.conkey = array[
-        (
-          select a.attnum from pg_attribute a
-          where a.attrelid = e.source_oid
-            and a.attname = e.source_column
-            and not a.attisdropped
-        )
-      ]::smallint[]
-  ) as single_column_foreign_key_count,
+      and (
+        select a.attnum from pg_attribute a
+        where a.attrelid = e.source_oid
+          and a.attname = e.source_column
+          and not a.attisdropped
+      ) = any(other_con.conkey)
+  ) as source_column_foreign_key_count,
   pg_get_constraintdef(con.oid) as actual_definition
 from resolved e
 left join lateral (
