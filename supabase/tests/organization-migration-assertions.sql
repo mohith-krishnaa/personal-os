@@ -573,6 +573,39 @@ BEGIN
     RAISE EXCEPTION 'Application name update did not synchronize projects.title.';
   END IF;
 
+  -- If both columns are supplied with conflicting values in one statement,
+  -- the canonical application-facing name must win deterministically.
+  UPDATE public.projects
+  SET name = 'Canonical update wins',
+      title = 'Conflicting legacy update'
+  WHERE id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+
+  SELECT name, title INTO project_name, project_title
+  FROM public.projects
+  WHERE id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+
+  IF project_name <> 'Canonical update wins'
+     OR project_title <> 'Canonical update wins' THEN
+    RAISE EXCEPTION 'A conflicting dual-column update did not prefer projects.name.';
+  END IF;
+
+  INSERT INTO public.projects (id, user_id, name, title)
+  VALUES (
+    'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee6',
+    auth.uid(),
+    'Canonical insert wins',
+    'Conflicting legacy insert'
+  );
+
+  SELECT name, title INTO project_name, project_title
+  FROM public.projects
+  WHERE id = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee6';
+
+  IF project_name <> 'Canonical insert wins'
+     OR project_title <> 'Canonical insert wins' THEN
+    RAISE EXCEPTION 'A conflicting dual-column insert did not prefer projects.name.';
+  END IF;
+
   INSERT INTO public.projects (id, user_id, name, description)
   VALUES (
     'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
