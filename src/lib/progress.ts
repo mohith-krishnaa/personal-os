@@ -17,16 +17,18 @@ export function getGoalProgressPresentation(
   total: number,
   percent: number,
 ): GoalProgressPresentation {
+  const unit = typeof goal.unit === 'string' ? goal.unit.trim() : ''
+
   if (!hasUsableGoalMetrics(goal)) {
     const missingDetails: string[] = []
     const target = goal.target == null ? Number.NaN : Number(goal.target)
     if (!Number.isFinite(target) || target <= 0) missingDetails.push('Target not set')
-    if (typeof goal.unit !== 'string' || goal.unit.trim().length === 0) missingDetails.push('Unit unavailable')
+    if (!unit) missingDetails.push('Unit unavailable')
 
     return {
       kind: 'historical',
-      totalLabel: typeof goal.unit === 'string' && goal.unit.trim().length > 0
-        ? `Historical total: ${total} ${goal.unit.trim()}`
+      totalLabel: unit
+        ? `Historical total: ${total} ${unit}`
         : `Historical total: ${total} (unit unavailable)`,
       statusLabel: missingDetails.join(' · '),
     }
@@ -34,7 +36,7 @@ export function getGoalProgressPresentation(
 
   return {
     kind: 'measurable',
-    totalLabel: `${total} / ${goal.target} ${goal.unit.trim()}`,
+    totalLabel: `${total} / ${goal.target} ${unit}`,
     percentLabel: `${percent}%`,
     percent,
   }
