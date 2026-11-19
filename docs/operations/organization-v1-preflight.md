@@ -110,7 +110,7 @@ Run supabase/operations/organization-v1-preflight.sql in the Supabase SQL Editor
 ## Safe rollout sequence
 
 1. Produce and restore-test the manual backup described above.
-2. Run supabase migration list --remote and confirm the eight applied versions exactly match the reconstructed repository files. Resolve any discrepancy locally; do not repair the remote ledger by guesswork.
+2. Run supabase migration list and confirm the eight applied versions exactly match the reconstructed repository files. Resolve any discrepancy locally; do not repair the remote ledger by guesswork.
 3. Review all seven Organization migrations against the live schema snapshot and test them against a disposable database matching that schema.
 4. Confirm the intended order and recovery plan. In particular, verify the legacy projects.title to application projects.name compatibility path, checklist table creation/reconciliation, task relationship constraints/triggers, and RLS policy replacement.
 5. Apply only the reviewed Organization migrations after explicit production rollout approval.
