@@ -77,7 +77,7 @@ See [Organization V1 preflight and recovery runbook](docs/operations/organizatio
 
 1. Create a private schema/data/role dump using the Supabase CLI on an owner-controlled machine with Docker Desktop; keep it out of Git.
 2. Restore-test the dump against an isolated local database or disposable Supabase project. Recheck auth.users and storage.objects before backup because CLI db dump excludes managed schemas.
-3. Run supabase migration list --remote and confirm the eight applied versions match the reconstructed local files.
+3. Run supabase migration list and confirm the eight applied versions match the reconstructed local files.
 4. Test the seven Organization migrations against a disposable database matching the live legacy schema; do not run migration repair or migration up against production yet.
 5. After explicit rollout approval and verified recovery, apply only reviewed Organization migrations and re-run the SQL preflight plus advisors.
 6. Test authenticated project, task association, subtask, and checklist CRUD with two separate users, including direct API cross-user relationship attacks.
@@ -414,7 +414,7 @@ Next safe action: create private schema/data/role exports, restore-test them in 
 
 - The latest code-bearing checkpoint passed CI #222; the subsequent documentation-only checkpoint passed CI #223 on current PR head `a97c180578d1712c9023a970b4eff091c6dbb0b0`.
 - Progress & Streaks V1 is now explicitly labeled implementation-complete with live schema repair pending, matching the verified `public.goals` schema.
-- The Personal-OS Builder automation is paused until a private backup/restore and live authenticated API test environment are available.
+- This earlier pause note was superseded on 2026-11-19: the live automation record reports the Personal-OS Builder as enabled, and it continues safe repository-side work.
 
 ## 2026-11-19 — Goals RLS policy deduplication (branch-only)
 
