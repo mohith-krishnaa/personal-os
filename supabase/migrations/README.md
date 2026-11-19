@@ -96,3 +96,14 @@ The disposable migration bootstrap creates a minimal `supabase_migrations.schema
 
 
 The preflight execution change passed [CI #257](https://github.com/mohith-krishnaa/personal-os/actions/runs/44495009597) on test commit `c492e6e89f46e65f695d1bddd7439c9f0d01fd92`; [CI #261](https://github.com/mohith-krishnaa/personal-os/actions/runs/44495199082) passed on the subsequent checkpoint-start PR head `e1c8737cebaef61de88602d938978113b2c5255d`. Both completed migration replay, read-only preflight execution, hierarchy concurrency, application tests, typecheck, and production build successfully.
+
+
+## Checklist reconciliation ID collisions — 2026-11-19
+
+The forward-only reconciliation migration `20261015000200_reconcile_checklist_tables.sql` intentionally uses `ON CONFLICT (id) DO NOTHING`. This prevents a legacy row from overwriting an existing canonical row, including a row owned by another user. It also means the conflicting legacy row is not copied into the app-facing canonical table; it remains in the retained legacy table. Treat this as a non-destructive conflict, not as a fully reconciled row.
+
+The disposable fixture now seeds a same-ID collision across owners/tasks and asserts that the canonical record's owner, task, title, completion state, and position remain unchanged, while the legacy source record remains intact. Owner-specific visibility assertions ensure neither owner can see the other table's conflicting row.
+
+Run `supabase/operations/checklist-reconciliation-conflicts.sql` only after both checklist tables exist. It is SELECT-only and reports conflicting IDs plus owner/task/payload mismatch flags without exposing titles or modifying rows. The general `organization-v1-preflight.sql` remains safe before migrations; the dedicated conflict report is deliberately separate because the checklist tables do not exist in the live legacy schema yet.
+
+[CI #290](https://github.com/mohith-krishnaa/personal-os/actions/runs/44514046666) passed the full 18-migration PostgreSQL 17 replay, conflict assertions/report execution, hierarchy concurrency, 58 application tests, typecheck, and production build. The live migration ledger still has 8 entries and both checklist tables are absent. No production data or schema was changed.

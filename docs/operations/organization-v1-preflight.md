@@ -234,3 +234,18 @@ The full migration replay now asserts that `tasks_project_id_idx`, `tasks_parent
 ## Automation status — 2026-11-19
 
 The Personal-OS Builder automation is enabled. It may continue safe repository-side implementation, static review, tests, and documentation while production rollout is blocked. It must not apply production DDL/migrations or merge PR #11. The backup/restore and live authenticated API gates remain owner-controlled.
+
+
+## Checklist reconciliation ID-collision review — 2026-11-19
+
+The general `supabase/operations/organization-v1-preflight.sql` remains SELECT-only and safe to run both before and after Organization migrations. Do not add static references to checklist tables that may not exist yet.
+
+After both checklist tables exist, run the separate SELECT-only report:
+
+    supabase/operations/checklist-reconciliation-conflicts.sql
+
+It joins legacy and canonical checklist rows by ID and reports owner, task, and payload mismatches. The reconciliation migration uses `ON CONFLICT (id) DO NOTHING`: an existing canonical row is preserved, and a conflicting legacy source row remains in the legacy table without being copied to the canonical application table. Any returned row requires explicit review; do not automatically overwrite either side or mark reconciliation complete. Resolve cases on a verified restored copy first and obtain owner approval before any production data correction.
+
+The disposable migration fixture now seeds one cross-owner same-ID collision. Assertions verify the canonical Owner B row remains unchanged, the Owner A legacy source row remains intact, and neither owner can read the other's row. The migration replay script executes the general preflight and then the dedicated conflict report after all 18 migrations. [CI #290](https://github.com/mohith-krishnaa/personal-os/actions/runs/44514046666) passed the exact code/test head `83c4e99ce30ae47a558931fbc93e6f6d9cf4159f`, including migration replay, both read-only reports, RLS assertions, hierarchy concurrency, 58 application tests, typecheck, and production build.
+
+Fresh live read-only SQL still shows 8 applied migrations; `projects` and `tasks` exist with RLS enabled, while both checklist tables are absent. No live checklist conflict can be inspected until a restored schema contains those tables. No production changes were made.
