@@ -1,5 +1,3 @@
-[object Object]
-
 ## Updated branch checkpoint — 2026-11-19
 
 - Local migration chain: 18 files total; 8 match the live ledger and 10 are local-only (7 Organization, 1 Progress compatibility, 2 RLS performance migrations).
