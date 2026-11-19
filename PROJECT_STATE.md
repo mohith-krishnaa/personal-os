@@ -543,3 +543,15 @@ Next safe action: create private schema/data/role exports, restore-test them in 
 - [CI #222](https://github.com/mohith-krishnaa/personal-os/actions/runs/44345681369) passed on code commit [da8d9bc](https://github.com/mohith-krishnaa/personal-os/commit/da8d9bc39015c9897135b9477f8eb713f982be5e): full 16-migration PostgreSQL 17 replay, task hierarchy concurrency, 58/58 application tests, TypeScript typecheck, production build, and npm audit with 0 vulnerabilities.
 - Live read-only SQL confirmed all four expected index names are absent; the three pending migration indexes are not yet in production. The performance advisor still reports four unindexed foreign keys.
 - No production migration, DDL, index creation, RLS change, data write, restore, or merge was performed. Backup/restore and live authenticated PostgREST verification remain blockers.
+
+## Latest development checkpoint — goals RLS policy deduplication (2026-11-19)
+
+- Re-inspected the live `public.goals` policies through read-only SQL. The canonical core policy `goals_owner` is authenticated-only, applies to ALL commands, and uses the initplan-safe `(select auth.uid()) = user_id` predicate in both USING and WITH CHECK.
+- The four additional Progress V1 policies (read/create/update/delete) duplicate the same owner rule and use direct `auth.uid()` evaluation. This exactly explains the four multiple-permissive-policy findings and contributes to the RLS initialization warnings.
+- Added branch-only forward migration `20261119000100_deduplicate_goals_owner_policies.sql`. It drops only those four redundant policy names and retains `goals_owner`; it does not change table grants, RLS enablement, or ownership predicates.
+- Extended `supabase/tests/organization-migration-assertions.sql` to require the canonical policy and fail if any of the four duplicates remain after replay.
+- Documented the migration in `supabase/migrations/README.md`.
+- Commits created on `feature/organization-v1`: migration `19e90f557d66cdae717c53b5c02b374fa70cbd6e`, assertion `8e228b9febeaf9f1a686a5d64202350ed7feb78c`, documentation `401b25b5461d5cbeede361e8979b916c842d19b4`.
+- Live verification before the change: five goals policies, with the canonical ALL policy plus four duplicate command policies. Security advisor: 0 findings. Performance advisor: four overlapping goals policies.
+- CI has not yet been observed for this new branch head; do not claim the migration replay or tests passed until GitHub Actions confirms it.
+- No production migration, DDL, RLS policy change, data write, backup, restore, or PR merge was performed.
