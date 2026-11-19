@@ -418,3 +418,14 @@ Next safe action: create private schema/data/role exports, restore-test them in 
 - CI status for this new head has not yet been verified. Do not claim tests pass until the workflow reports success.
 - No live production DDL, policy changes, migration application, data writes, backup/restore, or PR merge occurred.
 - Next: verify CI replay; then address the remaining RLS initialization warnings by reviewing each policy's exact authorization semantics before preparing any further migration. Do not drop unused indexes based only on zero-row usage statistics.
+
+## 2026-11-19 — Reminder/progress RLS initialization-plan optimization
+
+- Read-only inspection of `pg_policies` mapped the 14 advisor warnings to four duplicate goals policies, four reminder policies, two notification policies, and four progress-entry policies.
+- Added `20261119000100_deduplicate_goals_owner_policies.sql`: removes four duplicate goals policies while retaining the core `goals_owner` authenticated ALL policy.
+- Added `20261119000200_optimize_reminder_progress_rls.sql`: recreates the ten reminder/notification/progress policies using scalar `(select auth.uid())`, retaining command scopes and relationship ownership checks.
+- Expanded `supabase/tests/organization-migration-assertions.sql` to assert goals policy deduplication and all ten initplan-safe policies.
+- Updated `supabase/migrations/README.md` and `PROJECT_STATE.md`.
+- The migrations are branch-only. No production policy change or migration application occurred.
+- CI for the latest branch head is still unverified. Confirm the full migration replay before treating these changes as complete.
+- Next: inspect CI, then re-run live advisors only after a backup-approved rollout. Do not delete unused indexes solely because current tables have zero rows.
