@@ -25,7 +25,7 @@ begin
   ) then
     alter table public.projects
       add constraint projects_name_length_check
-      check (char_length(trim(name)) between 1 and 120) not valid;
+      check (char_length(trim(name)) between 1 and 120 and name ~ '[^[:space:]]') not valid;
   end if;
 end $$;
 
@@ -75,7 +75,9 @@ begin
           new.name := new.title;
         end if;
 
-        if new.name is null or char_length(trim(new.name)) not between 1 and 120 then
+        if new.name is null
+           or char_length(trim(new.name)) not between 1 and 120
+           or new.name !~ '[^[:space:]]' then
           raise exception 'Project name must be between 1 and 120 characters.'
             using errcode = '23514';
         end if;
