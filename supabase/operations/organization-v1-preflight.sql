@@ -173,6 +173,7 @@ select
   count(*) filter (
     where resulting_name is null
        or char_length(trim(resulting_name)) not between 1 and 120
+       or resulting_name !~ '[^[:space:]]'
   ) as rows_blocking_name_compatibility,
   count(*) filter (
     where app_name is not null
