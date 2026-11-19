@@ -52,3 +52,15 @@ The full migration replay fixture now seeds valid legacy checklist rows for Owne
 The local-only 20261117000200_harden_checklist_select_ownership.sql migration replaces SELECT policies on both checklist tables. A visible row must have the authenticated caller as its user_id and reference a task owned by that same caller. This prevents malformed legacy or canonical rows from exposing a foreign task association through PostgREST.
 
 CI #211 replays all 16 migrations in disposable PostgreSQL 17 and verifies that malformed canonical and legacy checklist rows owned by Owner A but attached to Owner B's task are invisible to Owner A. Valid rows remain visible. The migration is not applied to production; backup/restore and live JWT/API verification remain required.
+
+## Goals policy deduplication
+
+The live performance advisor identified four overlapping permissive policies on
+`public.goals`: the core `goals_owner` policy already authorizes all commands
+for the authenticated owner, while four later command-specific policies repeat
+the same ownership rule. The forward-only
+`20261119000100_deduplicate_goals_owner_policies.sql` migration removes only
+those four redundant policies and retains the canonical `goals_owner` policy.
+The migration replay assertion verifies that the canonical policy remains and
+the four duplicates are absent. This is branch-only until backup/restore and
+production rollout gates are satisfied; no live policy has been changed.
