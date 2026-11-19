@@ -17,13 +17,13 @@
 # Personal OS — Project Roadmap & Mind Map
 
 > Single source of truth for project direction. Verify GitHub/Supabase/CI before making claims.
-> Last reconciled: 2026-11-19. CI #312 passed on the exact current branch HEAD `8df69700e6e4075ca1a906a4a4414523672e7cc1`; CI #309 passed on the 19-migration code/test commit.
+> Last reconciled: 2026-11-19. CI #318 passed on documentation checkpoint head `67dcae2913bd904a1dec0fb641bd0353bde63478`; CI #309 passed on the 19-migration code/test commit.
 
 ## Current position
 
 **Completed:** Core productivity, Recurring Tasks V1, and Reminders V1. Progress & Streaks V1 application implementation is complete, but live schema compatibility repair remains pending.
 
-**In progress:** Organization V1 remains under review on `feature/organization-v1` / PR #11. The 19-migration PostgreSQL 17 replay and all configured checks passed on code/test commit [CI #309](https://github.com/mohith-krishnaa/personal-os/actions/runs/44576380568). The exact current branch HEAD also passed [CI #312](https://github.com/mohith-krishnaa/personal-os/actions/runs/44577390309), including migration replay, Organization/RLS assertions, hierarchy checks, application tests, typecheck, and production build. The new forward-only guard handles missing/exact NOT VALID project/task FKs and aborts on conflicting or duplicate definitions without dropping constraints.
+**In progress:** Organization V1 remains under review on `feature/organization-v1` / PR #11. The 19-migration PostgreSQL 17 replay and all configured checks passed on code/test commit [CI #309](https://github.com/mohith-krishnaa/personal-os/actions/runs/44576380568). The pre-refresh documentation checkpoint head passed [CI #318](https://github.com/mohith-krishnaa/personal-os/actions/runs/44587631127), including migration replay, Organization/RLS assertions, hierarchy checks, application tests, typecheck, and production build. The current commit only reconciles this roadmap checkpoint and requires its own CI result. The new forward-only guard handles missing/exact NOT VALID project/task FKs and aborts on conflicting or duplicate definitions without dropping constraints.
 
 **Production acceptance blocked:** live Supabase still has only 8 migrations applied, lacks `projects.name`, both checklist tables, Organization triggers, and goal metric columns. No complete owner-controlled schema/data/roles backup has been restored in isolation, and authenticated two-user live PostgREST verification is outstanding. No production changes or PR merge were made.
 
