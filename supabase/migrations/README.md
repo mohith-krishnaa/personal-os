@@ -2,9 +2,9 @@
 
 ## Latest verified branch checkpoint — 2026-11-19
 
-- Immediately before this documentation-only refresh, branch `feature/organization-v1` was at `11062bc6b8fa1815bffbe322cd7b30274ced4772`, which passed CI #316. PR #11 is open and unmerged; read its current metadata for the post-refresh head.
+- Immediately before this documentation-only refresh, branch `feature/organization-v1` was at `13baeaa6abe8c30fb92c37a29f521944c080dd1b`, which passed CI #317. PR #11 is open and unmerged; read its current metadata for the post-refresh head.
 - The branch has 19 numbered migrations: 8 match the live ledger and 11 remain branch-only (8 Organization, 1 Progress compatibility, 2 RLS performance).
-- Code/test CI #309 passed on `020877abbbf63719716a9d0c615160a097744716`; current exact branch-head CI #312 passed on `8df69700e6e4075ca1a906a4a4414523672e7cc1`.
+- Code/test CI #309 passed on `020877abbbf63719716a9d0c615160a097744716`; pre-refresh branch-head CI #317 passed on `13baeaa6abe8c30fb92c37a29f521944c080dd1b`.
 - Live Supabase remains at 8 applied migrations. All 9 public tables have RLS enabled and report zero rows; the Organization schema is not deployed.
 - Do not apply branch-only migrations until the complete owner-controlled schema/data/roles backup has been restored successfully in isolation and rollout is separately authorized.
 
