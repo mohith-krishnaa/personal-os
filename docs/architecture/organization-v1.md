@@ -320,3 +320,19 @@ The disposable migration bootstrap supplies only the minimal `supabase_migration
 The reconciliation migration is intentionally non-overwriting: `ON CONFLICT (id) DO NOTHING` preserves an existing canonical checklist row. If the same ID exists in both tables with different owner/task/payload values, the canonical row wins and the legacy row remains in `task_checklist_items`; it is not copied into `checklist_items`. This avoids cross-owner overwrite but leaves a legacy item outside the application-facing canonical table. Such rows require explicit review and must not be described as fully reconciled.
 
 The post-migration, SELECT-only `supabase/operations/checklist-reconciliation-conflicts.sql` reports these mismatches. It is separate from the general preflight because the general preflight must remain runnable before the checklist tables are created. CI #290 seeds a cross-owner same-ID collision and verifies canonical preservation, legacy-source preservation, and owner-specific RLS visibility. This is disposable PostgreSQL evidence only; live checklist tables are currently absent.
+
+
+## Checklist reconciliation is a one-time copy, not ongoing synchronization
+
+The forward reconciliation migration copies valid same-owner legacy rows into `public.checklist_items` once. It intentionally uses `ON CONFLICT (id) DO NOTHING` to avoid overwriting a pre-existing canonical row, and it retains `public.task_checklist_items`. It does not install a trigger that mirrors future legacy writes into the canonical table.
+
+Consequences:
+- A valid legacy row written after the migration can remain absent from the canonical table.
+- A same-ID collision can leave the legacy source row outside the current application's canonical checklist workflow.
+- The read-only post-migration conflict report classifies unresolved rows as `missing_task`, `task_owner_mismatch`, `missing_canonical`, or `canonical_id_collision`.
+- The report is diagnostic only. It does not transfer ownership, overwrite either record, delete legacy data, or repair rows.
+
+CI #293 verifies a post-migration legacy-only write and confirms the report detects it as `missing_canonical`. This is disposable PostgreSQL evidence, not live PostgREST or production acceptance.
+
+Before adding ongoing synchronization or freezing legacy writes, inspect every deployed/runtime caller, define the supported compatibility window and conflict semantics, and test the chosen forward/rollback plan against a restored snapshot. Do not infer that retaining the legacy table provides bidirectional compatibility.
+

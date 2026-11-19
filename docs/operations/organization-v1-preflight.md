@@ -249,3 +249,19 @@ It joins legacy and canonical checklist rows by ID and reports owner, task, and 
 The disposable migration fixture now seeds one cross-owner same-ID collision. Assertions verify the canonical Owner B row remains unchanged, the Owner A legacy source row remains intact, and neither owner can read the other's row. The migration replay script executes the general preflight and then the dedicated conflict report after all 18 migrations. [CI #290](https://github.com/mohith-krishnaa/personal-os/actions/runs/44514046666) passed the exact code/test head `83c4e99ce30ae47a558931fbc93e6f6d9cf4159f`, including migration replay, both read-only reports, RLS assertions, hierarchy concurrency, 58 application tests, typecheck, and production build.
 
 Fresh live read-only SQL still shows 8 applied migrations; `projects` and `tasks` exist with RLS enabled, while both checklist tables are absent. No live checklist conflict can be inspected until a restored schema contains those tables. No production changes were made.
+
+
+## Post-reconciliation legacy-write drift — 2026-11-19
+
+The migration `20261015000200_reconcile_checklist_tables.sql` performs a one-time insert from `task_checklist_items` into `checklist_items`. It does not create an ongoing legacy-to-canonical synchronization trigger. Because the legacy table is retained and its owner-scoped policies still permit writes, a valid legacy-client write after the migration can remain absent from the canonical table used by the current application.
+
+The read-only `supabase/operations/checklist-reconciliation-conflicts.sql` report now classifies:
+- `missing_task`: legacy task reference cannot be resolved (defensive detection for malformed/constraint-drifted data).
+- `task_owner_mismatch`: the referenced task belongs to another owner.
+- `missing_canonical`: a valid same-owner legacy row has no canonical row, including a write made after the one-time reconciliation.
+- `canonical_id_collision`: the canonical ID exists but owner, task, or payload differs.
+
+CI #293 ([run](https://github.com/mohith-krishnaa/personal-os/actions/runs/44522858528)) replayed all 18 migrations on disposable PostgreSQL 17, then seeded one valid legacy-only row after reconciliation. The report returned exactly three seeded unresolved rows: one task-owner mismatch, one non-identical canonical ID collision, and one missing-canonical row. It did not return the two valid legacy rows that were copied successfully. The same run passed Organization RLS assertions, hierarchy concurrency, the general read-only preflight, 58/58 application tests, typecheck, and production build.
+
+This is disposable CI evidence only. Live Supabase still has 8 applied migrations and neither checklist table exists, so no live legacy-write drift can currently be measured. Do not add a trigger, disable legacy writes, delete legacy data, or repair rows in production until the owner-controlled backup/restore and explicit rollout approval gates are satisfied. The next repository task is to inspect all runtime callers and determine whether legacy writes are still supported by any deployed client before choosing a compatibility/deprecation policy.
+

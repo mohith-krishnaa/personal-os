@@ -1,3 +1,21 @@
+> **Verified checkpoint — 2026-11-19 (post-reconciliation legacy-write detection).** Repository: `mohith-krishnaa/personal-os`; branch: `feature/organization-v1`; code/test commit: `e8ad92fd3f2ef7df1229911dda346764299f3698` (328 commits ahead of `main`, 0 behind). PR #11 is open, non-draft, unmerged, and mergeable. PR #12 remains an open superseded draft. [CI #293](https://github.com/mohith-krishnaa/personal-os/actions/runs/44522858528) passed on the exact code/test commit: all 18 SQL migrations replayed on PostgreSQL 17; Organization RLS/migration assertions and task-hierarchy concurrency checks passed; the read-only Organization preflight executed; the checklist report returned exactly the three seeded unresolved rows; `npm run test` passed 58/58 (0 failures); TypeScript typecheck and production build passed. No lint script/configuration is present.
+>
+> The reconciliation migration remains unchanged and performs a one-time copy from `task_checklist_items` into `checklist_items`. It does not install an ongoing legacy-to-canonical synchronization trigger. The read-only conflict report now detects: missing task, task-owner mismatch, valid legacy row missing from the canonical table, and a non-identical canonical ID collision. CI seeds a valid legacy-only write after reconciliation and verifies the report returns:
+> - `30000000-0000-4000-8000-000000000002` — `task_owner_mismatch`
+> - `30000000-0000-4000-8000-000000000005` — `canonical_id_collision`
+> - `30000000-0000-4000-8000-000000000006` — `missing_canonical`
+>
+> Valid legacy rows copied by the migration are not reported. No automatic repair, ownership transfer, or dual-write trigger was introduced. Migration count remains 18: 8 versions exactly match the live Supabase ledger and 10 are branch-only.
+>
+> Fresh read-only Supabase verification: project `gujzvkyytxsnervovvrt` is ACTIVE_HEALTHY on PostgreSQL 17.11.0.003; the live ledger has exactly 8 migrations. All 9 public application tables have RLS enabled and currently report zero rows. `projects.title` and `projects.goal_id` exist; `projects.name` does not. Both checklist tables are absent. `goals.unit` and `goals.target` are absent. No user-defined Organization triggers are present on the inspected project/task/checklist tables. No production DDL, migration, RLS change, data write, restore, or PR merge occurred.
+>
+> GitHub remote branch/PR state is authoritative because no local checkout is attached; local working-tree status cannot be verified. The code commit changes exactly the conflict report, the migration replay script, and one post-reconciliation test fixture. No migration file or migration-count assertion was changed.
+>
+> Automation recovery: Personal-OS Builder is enabled. Recorded `last_run.id=362d856e-99c8-8326-8918-5159466da4f0` is `in_progress` with no completion time, but `latest_result.run_id=0383536d-80c0-832f-a182-cd022a3cb907` was created before that run started and is stale; worker liveness is not established by the recorded state.
+>
+> **Remaining rollout gates:** owner-controlled complete schema/data/roles backup, successful isolated restore, and authenticated two-user live PostgREST CRUD/isolation tests. Analytics remains queued. **Next repository task:** audit every runtime and compatibility caller of `task_checklist_items`; establish whether legacy writes remain supported, and document a safe deprecation/compatibility contract without changing production policies or data.
+>
+> ---
 > **Verified checkpoint — 2026-11-19 (checklist reconciliation ID-collision audit).** Repository: `mohith-krishnaa/personal-os`; branch: `feature/organization-v1`; code/test commit: `83c4e99ce30ae47a558931fbc93e6f6d9cf4159f` (325 commits ahead of `main`, 0 behind). PR #11 is open, unmerged, non-draft, and mergeable; PR #12 remains an explicitly superseded draft. [CI #290](https://github.com/mohith-krishnaa/personal-os/actions/runs/44514046666) passed on the exact code/test commit above: all 18 numbered migrations replayed on PostgreSQL 17; the Organization/RLS assertions and task-hierarchy concurrency test passed; the main read-only preflight and separate checklist-conflict report both executed; 58 application tests passed; TypeScript typecheck and production build passed. No lint step is configured in the workflow.
 >
 > The prior CI #286 failed because the new fixture added a second Owner A legacy checklist row while an old assertion still expected one. The assertion was corrected; CI #287 passed. CI #288 passed on the intermediate preflight query. The final preflight split and replay-script update are covered by CI #290. The current migration chain remains 18 files (8 live-ledger versions + 10 branch-only); no migration was added or changed.
@@ -31,19 +49,17 @@
 ## Current verified state — 2026-11-19
 
 - Stable integration branch: `main` at `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`.
-- Active branch at checkpoint start: `feature/organization-v1`, head `b37692cb30a2a5304c8604ffe26013b18b14998f`; compare: 272 ahead, 0 behind.
-- PR #11 is open, unmerged, non-draft, and mergeable. PR #12 is an open superseded draft; do not merge it separately.
-- CI #250 passed on code/test commit `c28e05ea98a1c8fbae29eae24c11fbffad2ec190`: all 18 migrations replayed on PostgreSQL 17; the complete 13-policy Organization matrix and ten reminder/notification/progress policy assertions passed; task-hierarchy concurrency passed; 58/58 tests passed; typecheck and production build passed; npm install reported 0 vulnerabilities. Documentation CI #251, #252, and #253 also passed.
-- Organization policy assertions require exactly 13 policies across projects, tasks, canonical checklists, and legacy checklists. They verify authenticated role, command, owner predicate, and task-owner link. The ten optimized reminder/notification/progress policies retain their authenticated role, command, owner predicate, and progress-to-goal link; the canonical `goals_owner` policy remains initplan-safe.
-- Migration ledger: 8 applied live versions. Repository chain: 18 numbered migrations, comprising those 8 plus 10 local-only migrations (7 Organization, 1 Progress compatibility, 2 RLS performance).
-- Live Supabase project `gujzvkyytxsnervovvrt`: ACTIVE_HEALTHY, ap-southeast-1, PostgreSQL 17.11.0.003. All 9 public application tables have RLS enabled; the 9 tables, `auth.users`, and `storage.objects` each have 0 rows at the latest read-only count.
-- Live schema still lacks `projects.name`, `checklist_items`, `task_checklist_items`, the task-organization validation trigger, and `goals.unit` / `goals.target`.
-- Current advisors: security 0 lints; health 0 lints; performance 4 unindexed foreign keys, 14 auth_rls_initplan warnings, 13 unused-index findings, and 4 overlapping permissive policies on `goals`. Pending branch migrations address three Organization/compatibility FK indexes, remove four redundant goal policies, and optimize ten reminder/notification/progress policy expressions. None is applied to production.
-- `notifications.task_id` remains unindexed and is a separate reminder/production-hardening item.
+- Active branch: `feature/organization-v1`, code/test head `e8ad92fd3f2ef7df1229911dda346764299f3698`; 328 commits ahead of main, 0 behind.
+- PR #11 is open, non-draft, unmerged, and mergeable. PR #12 is an open superseded draft; do not merge it separately.
+- [CI #293](https://github.com/mohith-krishnaa/personal-os/actions/runs/44522858528) passed on the exact code/test head: 18-migration PostgreSQL 17 replay, Organization/RLS assertions, hierarchy concurrency, read-only Organization preflight, three-row checklist conflict report, 58/58 application tests, TypeScript typecheck, and production build. No lint script/configuration exists.
+- Migration chain: 18 numbered SQL files; exactly 8 match the live Supabase migration ledger and 10 are local-only (7 Organization, 1 Progress compatibility, 2 RLS performance). No migration was added in this run.
+- Live Supabase project `gujzvkyytxsnervovvrt`: ACTIVE_HEALTHY, ap-southeast-1, PostgreSQL 17.11.0.003. The live ledger has 8 migrations. All 9 public application tables have RLS enabled and currently report zero rows.
+- Live Organization schema remains incomplete: `projects.title` and `projects.goal_id` exist, but `projects.name` does not; both checklist tables and the Organization user-defined triggers are absent. Live `goals.unit` and `goals.target` are absent.
+- The checklist reconciliation migration is a one-time copy, not ongoing synchronization. The read-only report now detects missing tasks, task-owner mismatches, valid legacy-only rows missing from the canonical table, and non-identical canonical ID collisions. CI #293 verifies three seeded unresolved cases without modifying either table.
 - No owner-controlled schema/data/roles backup or successful isolated restore exists. Live authenticated two-user PostgREST verification remains outstanding. These are hard rollout gates.
-- The full Organization recovery runbook was restored from intact Git history after detecting a previous accidental truncation. It now contains the complete backup/restore gate, linked Supabase CLI commands, and corrected migration-list syntax.
-- The Personal-OS Builder automation is enabled. Its prompt now compares `latest_result.run_id` / `created_at` with `last_run.id` / `started_at` and checks `is_enabled` directly rather than trusting a prior run's narrative.
+- Personal-OS Builder is enabled. Its latest stored result predates the recorded in-progress last run; the in-progress marker does not prove worker liveness.
 - No production migration, DDL, RLS change, data write, restore, or PR merge occurred. Organization remains the highest-priority incomplete milestone; Analytics stays queued.
+- No local checkout is attached; local working-tree status cannot be verified. GitHub remote branch, tree, PR, and CI are the available repository evidence.
 
 ## Source-of-truth hierarchy
 

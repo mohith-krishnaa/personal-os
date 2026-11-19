@@ -1,3 +1,21 @@
+> **Verified checkpoint — 2026-11-19 (post-reconciliation legacy-write detection).** Repository: `mohith-krishnaa/personal-os`; branch: `feature/organization-v1`; code/test commit: `e8ad92fd3f2ef7df1229911dda346764299f3698` (328 commits ahead of `main`, 0 behind). PR #11 is open, non-draft, unmerged, and mergeable. PR #12 remains an open superseded draft. [CI #293](https://github.com/mohith-krishnaa/personal-os/actions/runs/44522858528) passed on the exact code/test commit: all 18 SQL migrations replayed on PostgreSQL 17; Organization RLS/migration assertions and task-hierarchy concurrency checks passed; the read-only Organization preflight executed; the checklist report returned exactly the three seeded unresolved rows; `npm run test` passed 58/58 (0 failures); TypeScript typecheck and production build passed. No lint script/configuration is present.
+>
+> The reconciliation migration remains unchanged and performs a one-time copy from `task_checklist_items` into `checklist_items`. It does not install an ongoing legacy-to-canonical synchronization trigger. The read-only conflict report now detects: missing task, task-owner mismatch, valid legacy row missing from the canonical table, and a non-identical canonical ID collision. CI seeds a valid legacy-only write after reconciliation and verifies the report returns:
+> - `30000000-0000-4000-8000-000000000002` — `task_owner_mismatch`
+> - `30000000-0000-4000-8000-000000000005` — `canonical_id_collision`
+> - `30000000-0000-4000-8000-000000000006` — `missing_canonical`
+>
+> Valid legacy rows copied by the migration are not reported. No automatic repair, ownership transfer, or dual-write trigger was introduced. Migration count remains 18: 8 versions exactly match the live Supabase ledger and 10 are branch-only.
+>
+> Fresh read-only Supabase verification: project `gujzvkyytxsnervovvrt` is ACTIVE_HEALTHY on PostgreSQL 17.11.0.003; the live ledger has exactly 8 migrations. All 9 public application tables have RLS enabled and currently report zero rows. `projects.title` and `projects.goal_id` exist; `projects.name` does not. Both checklist tables are absent. `goals.unit` and `goals.target` are absent. No user-defined Organization triggers are present on the inspected project/task/checklist tables. No production DDL, migration, RLS change, data write, restore, or PR merge occurred.
+>
+> GitHub remote branch/PR state is authoritative because no local checkout is attached; local working-tree status cannot be verified. The code commit changes exactly the conflict report, the migration replay script, and one post-reconciliation test fixture. No migration file or migration-count assertion was changed.
+>
+> Automation recovery: Personal-OS Builder is enabled. Recorded `last_run.id=362d856e-99c8-8326-8918-5159466da4f0` is `in_progress` with no completion time, but `latest_result.run_id=0383536d-80c0-832f-a182-cd022a3cb907` was created before that run started and is stale; worker liveness is not established by the recorded state.
+>
+> **Remaining rollout gates:** owner-controlled complete schema/data/roles backup, successful isolated restore, and authenticated two-user live PostgREST CRUD/isolation tests. Analytics remains queued. **Next repository task:** audit every runtime and compatibility caller of `task_checklist_items`; establish whether legacy writes remain supported, and document a safe deprecation/compatibility contract without changing production policies or data.
+>
+> ---
 > **Current verified checkpoint — 2026-11-19:** Organization V1 remains in progress on `feature/organization-v1`. Code/test head `83c4e99ce30ae47a558931fbc93e6f6d9cf4159f` passed [CI #290](https://github.com/mohith-krishnaa/personal-os/actions/runs/44514046666): 18-migration PostgreSQL 17 replay, RLS assertions, hierarchy concurrency, read-only preflight plus checklist-conflict report, 58 application tests, typecheck, and production build. The checklist reconciliation audit confirmed that `ON CONFLICT (id) DO NOTHING` preserves an existing canonical row but leaves a conflicting legacy row in the retained legacy table. A post-migration read-only conflict report and disposable cross-owner collision regression now make this behavior explicit. Live Supabase still has only 8 applied migrations and does not yet contain either checklist table; no production changes were made. Backup/restore and live authenticated two-user PostgREST verification remain mandatory. Analytics remains queued. Historical status notes below are superseded where they conflict.
 
 ---
@@ -22,9 +40,11 @@
 
 ## Current position
 
-**Completed:** Core productivity, Recurring Tasks V1, and Reminders V1. Progress & Streaks V1 application implementation is complete, but its live schema compatibility repair is still pending.
+**Completed:** Core productivity, Recurring Tasks V1, and Reminders V1. Progress & Streaks V1 application implementation is complete, but live schema compatibility repair remains pending.
 
-**In progress:** Organization V1 implementation is on `feature/organization-v1` / PR #11. The branch contains 18 migrations and CI #241 passes the full PostgreSQL 17 replay, owner/anonymous RLS assertions, hierarchy concurrency integration, application tests, typecheck, and production build. Production acceptance remains blocked: the live database has only 8 migrations applied, lacks the Organization tables/trigger and project-name compatibility, and has not been backed up and restore-tested. Live two-user PostgREST verification is also outstanding.
+**In progress:** Organization V1 remains under review on `feature/organization-v1` / PR #11. Code/test head `e8ad92fd3f2ef7df1229911dda346764299f3698` passed [CI #293](https://github.com/mohith-krishnaa/personal-os/actions/runs/44522858528): 18-migration PostgreSQL 17 replay, Organization RLS assertions, hierarchy concurrency, read-only preflight and checklist conflict report, 58 application tests, typecheck, and production build. The report now detects post-reconciliation legacy-only writes that are missing from the canonical checklist table. This is a test/report improvement only; the migration is unchanged.
+
+**Production acceptance blocked:** live Supabase still has only 8 migrations applied, lacks `projects.name`, both checklist tables, Organization triggers, and goal metric columns. No complete owner-controlled schema/data/roles backup has been restored in isolation, and authenticated two-user live PostgREST verification is outstanding. No production changes or PR merge were made.
 
 **Queued:** Analytics V1 follows Organization production acceptance. AI Assistant, Research Agent, Adaptive Scheduling, and broader production hardening remain later milestones.
 

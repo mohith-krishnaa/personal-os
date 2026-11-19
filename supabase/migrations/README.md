@@ -107,3 +107,11 @@ The disposable fixture now seeds a same-ID collision across owners/tasks and ass
 Run `supabase/operations/checklist-reconciliation-conflicts.sql` only after both checklist tables exist. It is SELECT-only and reports conflicting IDs plus owner/task/payload mismatch flags without exposing titles or modifying rows. The general `organization-v1-preflight.sql` remains safe before migrations; the dedicated conflict report is deliberately separate because the checklist tables do not exist in the live legacy schema yet.
 
 [CI #290](https://github.com/mohith-krishnaa/personal-os/actions/runs/44514046666) passed the full 18-migration PostgreSQL 17 replay, conflict assertions/report execution, hierarchy concurrency, 58 application tests, typecheck, and production build. The live migration ledger still has 8 entries and both checklist tables are absent. No production data or schema was changed.
+
+
+## Checklist reconciliation compatibility boundary
+
+`20261015000200_reconcile_checklist_tables.sql` is a one-time copy, not ongoing synchronization. The legacy `task_checklist_items` table is retained, but a later legacy write is not automatically copied into canonical `checklist_items`. The read-only `supabase/operations/checklist-reconciliation-conflicts.sql` report detects unresolved legacy rows as `missing_task`, `task_owner_mismatch`, `missing_canonical`, or `canonical_id_collision`.
+
+CI #293 seeds a valid legacy-only write after reconciliation and verifies that the report returns it as `missing_canonical`, while still excluding valid legacy rows successfully copied during migration. This is disposable PostgreSQL verification only. Do not add a synchronization trigger, freeze legacy writes, or repair production rows without the complete backup/isolated-restore gate and an explicit compatibility decision.
+
