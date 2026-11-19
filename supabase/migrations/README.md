@@ -64,3 +64,16 @@ those four redundant policies and retains the canonical `goals_owner` policy.
 The migration replay assertion verifies that the canonical policy remains and
 the four duplicates are absent. This is branch-only until backup/restore and
 production rollout gates are satisfied; no live policy has been changed.
+
+## Reminder and progress RLS initialization-plan optimization
+
+The live advisor also reported 10 initialization-plan warnings across reminder,
+notification, and progress ownership policies. The forward-only
+`20261119000200_optimize_reminder_progress_rls.sql` migration recreates those
+same ten policies with scalar `(select auth.uid())` expressions. It preserves
+the existing authenticated role, command scope, owner equality, and the
+progress-entry-to-goal ownership check. The migration replay assertion checks
+that all ten expected policies exist and no direct per-row `auth.uid()`
+expression remains in their USING/WITH CHECK definitions.
+
+This is branch-only until the backup/restore and production rollout gates pass.
