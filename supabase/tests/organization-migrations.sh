@@ -40,3 +40,6 @@ psql -X -v ON_ERROR_STOP=1 -f supabase/tests/organization-migration-assertions.s
 
 echo "Executing read-only Organization rollout preflight against the replayed schema"
 psql -X -v ON_ERROR_STOP=1 -f supabase/operations/organization-v1-preflight.sql >/dev/null
+
+echo "Executing read-only checklist reconciliation conflict report"
+psql -X -v ON_ERROR_STOP=1 -f supabase/operations/checklist-reconciliation-conflicts.sql >/dev/null
