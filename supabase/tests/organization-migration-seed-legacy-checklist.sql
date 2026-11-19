@@ -15,9 +15,26 @@ VALUES
   ('10000000-0000-4000-8000-000000000001', '11111111-1111-4111-8111-111111111111', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Owner A task'),
   ('20000000-0000-4000-8000-000000000001', '22222222-2222-4222-8222-222222222222', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'Owner B task');
 
-INSERT INTO public.task_checklist_items (id, user_id, task_id, title, position)
+-- Pre-existing canonical record: the same UUID is used by a valid legacy
+-- row owned by A. Reconciliation must preserve the canonical B record and
+-- leave the legacy A row intact for explicit review.
+INSERT INTO public.checklist_items (
+  id, user_id, task_id, title, is_completed, position
+)
+VALUES (
+  '30000000-0000-4000-8000-000000000005',
+  '22222222-2222-4222-8222-222222222222',
+  '20000000-0000-4000-8000-000000000001',
+  'Pre-existing canonical record wins',
+  true,
+  9
+);
+
+INSERT INTO public.task_checklist_items (id, user_id, task_id, title, is_completed, position)
 VALUES
-  ('30000000-0000-4000-8000-000000000001', '11111111-1111-4111-8111-111111111111', '10000000-0000-4000-8000-000000000001', 'Valid legacy item', 0),
+  ('30000000-0000-4000-8000-000000000001', '11111111-1111-4111-8111-111111111111', '10000000-0000-4000-8000-000000000001', 'Valid legacy item', false, 0),
   -- This malformed legacy association must not be copied to the canonical table.
-  ('30000000-0000-4000-8000-000000000002', '11111111-1111-4111-8111-111111111111', '20000000-0000-4000-8000-000000000001', 'Foreign-task legacy item', 1),
-  ('30000000-0000-4000-8000-000000000003', '22222222-2222-4222-8222-222222222222', '20000000-0000-4000-8000-000000000001', 'Owner B valid legacy item', 0);
+  ('30000000-0000-4000-8000-000000000002', '11111111-1111-4111-8111-111111111111', '20000000-0000-4000-8000-000000000001', 'Foreign-task legacy item', false, 1),
+  ('30000000-0000-4000-8000-000000000003', '22222222-2222-4222-8222-222222222222', '20000000-0000-4000-8000-000000000001', 'Owner B valid legacy item', false, 0),
+  -- Same ID, different owner/task: ON CONFLICT must not overwrite the canonical row.
+  ('30000000-0000-4000-8000-000000000005', '11111111-1111-4111-8111-111111111111', '10000000-0000-4000-8000-000000000001', 'Legacy record with colliding ID', false, 4);
