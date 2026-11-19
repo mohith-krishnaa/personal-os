@@ -292,3 +292,10 @@ CI #293 ([run](https://github.com/mohith-krishnaa/personal-os/actions/runs/44522
 
 This is disposable CI evidence only. Live Supabase still has 8 applied migrations and neither checklist table exists, so no live legacy-write drift can currently be measured. Do not add a trigger, disable legacy writes, delete legacy data, or repair rows in production until the owner-controlled backup/restore and explicit rollout approval gates are satisfied. The next repository task is to inspect all runtime callers and determine whether legacy writes are still supported by any deployed client before choosing a compatibility/deprecation policy.
 
+
+
+## Checklist task-FK drift assertion — 2026-11-19
+
+The checklist conflict report includes `missing_task` as a defensive drift category. Under the expected schema, this should not occur: both checklist tables have a NOT NULL `task_id` column with a validated FK to `public.tasks(id)` and `ON DELETE CASCADE`. The full migration replay assertion now verifies those properties for both tables. If it ever fails, stop rollout and inspect the table definition/constraint validation on the restored copy; do not repair production by writing data or altering constraints during preflight.
+
+Code/test commit: `7e3d75f46214d078cfc1d4ba7a416584127aa05b`. [CI #296](https://github.com/mohith-krishnaa/personal-os/actions/runs/44542112681) was in progress at checkpoint creation; no result is claimed yet. Live Supabase remains read-only with 8 applied migrations and both checklist tables absent. No production changes were made.

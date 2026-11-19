@@ -363,3 +363,8 @@ CI #293 verifies a post-migration legacy-only write and confirms the report dete
 
 Before adding ongoing synchronization or freezing legacy writes, inspect every deployed/runtime caller, define the supported compatibility window and conflict semantics, and test the chosen forward/rollback plan against a restored snapshot. Do not infer that retaining the legacy table provides bidirectional compatibility.
 
+
+
+## Checklist task foreign-key integrity assertion — 2026-11-19
+
+Both the canonical `checklist_items` table and retained legacy `task_checklist_items` table define `task_id` as NOT NULL with a foreign key to `public.tasks(id) ON DELETE CASCADE`. The disposable full-chain assertion now verifies these exact invariants after migration replay: the column remains NOT NULL, the FK is single-column on `task_id`, references `public.tasks`, is validated, and retains cascade-delete behavior. This matters because the conflict report's `missing_task` category is a defensive signal for schema/constraint drift; it should not be an ordinary data state when the expected FK is valid. No migration was added or changed, and the migration count remains 18. CI #296 is pending on code/test commit `7e3d75f46214d078cfc1d4ba7a416584127aa05b`; do not claim this assertion passes until that run completes.

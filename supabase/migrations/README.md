@@ -142,3 +142,10 @@ Run `supabase/operations/checklist-reconciliation-conflicts.sql` only after both
 
 CI #293 seeds a valid legacy-only write after reconciliation and verifies that the report returns it as `missing_canonical`, while still excluding valid legacy rows successfully copied during migration. This is disposable PostgreSQL verification only. Do not add a synchronization trigger, freeze legacy writes, or repair production rows without the complete backup/isolated-restore gate and an explicit compatibility decision.
 
+
+
+## Checklist task foreign-key assertion — 2026-11-19
+
+The full migration replay assertions verify that both `checklist_items.task_id` and `task_checklist_items.task_id` remain NOT NULL and have a validated single-column foreign key to `public.tasks(id)` with `ON DELETE CASCADE`. The conflict report's `missing_task` category is defensive detection for constraint/schema drift, not an expected state under this contract. No migration was added; the migration count remains 18.
+
+The assertion is on code/test commit `7e3d75f46214d078cfc1d4ba7a416584127aa05b`; [CI #296](https://github.com/mohith-krishnaa/personal-os/actions/runs/44542112681) must finish successfully before it is treated as verified.
