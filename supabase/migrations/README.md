@@ -93,3 +93,6 @@ Read-only inspection on 2026-11-19 confirms `notifications_task_id_fkey` is `FOR
 ## Read-only rollout preflight in CI — 2026-11-19
 
 The disposable migration bootstrap creates a minimal `supabase_migrations.schema_migrations(version, name)` fixture. After replay and RLS assertions, `supabase/tests/organization-migrations.sh` runs `supabase/operations/organization-v1-preflight.sql` with `ON_ERROR_STOP=1`. This checks that the same SELECT-only preflight used by operators parses and executes against the resulting PostgreSQL 17 schema. Query 5 includes Organization tables plus goals, reminders, notifications, and progress_entries so the ten reminder/notification/progress policy optimizations and canonical goals policy can be inspected after an approved rollout. This test is disposable-database verification only; it does not connect to or alter production.
+
+
+The preflight execution change passed [CI #257](https://github.com/mohith-krishnaa/personal-os/actions/runs/44495009597) on test commit `c492e6e89f46e65f695d1bddd7439c9f0d01fd92`; [CI #261](https://github.com/mohith-krishnaa/personal-os/actions/runs/44495199082) passed on the subsequent checkpoint-start PR head `e1c8737cebaef61de88602d938978113b2c5255d`. Both completed migration replay, read-only preflight execution, hierarchy concurrency, application tests, typecheck, and production build successfully.
