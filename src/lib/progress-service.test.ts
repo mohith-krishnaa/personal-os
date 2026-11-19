@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { createGoal, logProgress, summarizeGoalProgress } from './progress-service'
+import { createGoal, getGoalsWithProgress, logProgress, summarizeGoalProgress } from './progress-service'
 
 describe('createGoal', () => {
   it('requires a non-empty unit and a finite positive target before database access', async () => {
@@ -207,5 +207,153 @@ describe('summarizeGoalProgress', () => {
       { value: 5, occurred_on: '2026-11-16' },
       { value: 5, occurred_on: '2026-11-17' },
     ]).percent, 50)
+  })
+})
+
+function createGoalsWithProgressClient(
+  goalsResult: { data: any[] | null; error: Error | null },
+  entriesResult: { data: any[] | null; error: Error | null } = { data: [], error: null },
+) {
+  const calls: string[] = []
+  const client = {
+    from(table: string) {
+      if (table === 'goals') {
+        return {
+          select(columns: string) {
+            calls.push(`goals.select:${columns}`)
+            return {
+              order(column: string, options: { ascending: boolean }) {
+                calls.push(`goals.order:${column}:${options.ascending}`)
+                return Promise.resolve(goalsResult)
+              },
+            }
+          },
+        }
+      }
+
+      assert.equal(table, 'progress_entries')
+      return {
+        select(columns: string) {
+          calls.push(`progress_entries.select:${columns}`)
+          return {
+            in(column: string, values: string[]) {
+              calls.push(`progress_entries.in:${column}:${values.join(',')}`)
+              return {
+                order(orderColumn: string, options: { ascending: boolean }) {
+                  calls.push(`progress_entries.order:${orderColumn}:${options.ascending}`)
+                  return Promise.resolve(entriesResult)
+                },
+              }
+            },
+          }
+        },
+      }
+    },
+  }
+
+  return { client: client as any, calls }
+}
+
+describe('getGoalsWithProgress', () => {
+  it('retains legacy goals and groups their historical entries without inventing metrics', async () => {
+    const goals = [
+      {
+        id: 'legacy-goal',
+        user_id: 'owner-1',
+        title: 'Legacy goal',
+        unit: null,
+        target: null,
+        created_at: '2026-01-02T00:00:00Z',
+        updated_at: '2026-01-02T00:00:00Z',
+      },
+      {
+        id: 'measurable-goal',
+        user_id: 'owner-1',
+        title: 'Measurable goal',
+        unit: 'pages',
+        target: 10,
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-01T00:00:00Z',
+      },
+    ]
+    const entries = [
+      { id: 'legacy-entry-2', goal_id: 'legacy-goal', user_id: 'owner-1', value: 2, occurred_on: '2026-01-02', created_at: '2026-01-02T12:00:00Z' },
+      { id: 'measurable-entry', goal_id: 'measurable-goal', user_id: 'owner-1', value: 5, occurred_on: '2026-02-01', created_at: '2026-02-01T12:00:00Z' },
+      { id: 'legacy-entry-1', goal_id: 'legacy-goal', user_id: 'owner-1', value: 1, occurred_on: '2026-01-01', created_at: '2026-01-01T12:00:00Z' },
+    ]
+    const { client, calls } = createGoalsWithProgressClient(
+      { data: goals, error: null },
+      { data: entries, error: null },
+    )
+
+    const result = await getGoalsWithProgress(client)
+
+    assert.deepEqual(result.map(({ goal }) => goal.id), ['legacy-goal', 'measurable-goal'])
+    assert.equal(result[0].goal.unit, null)
+    assert.equal(result[0].goal.target, null)
+    assert.deepEqual(result[0].progress.entries.map(entry => entry.id), ['legacy-entry-2', 'legacy-entry-1'])
+    assert.equal(result[0].progress.total, 3)
+    assert.equal(result[0].progress.percent, 0)
+    assert.equal(result[0].progress.streak.longest, 2)
+    assert.deepEqual(result[1].progress.entries.map(entry => entry.id), ['measurable-entry'])
+    assert.equal(result[1].progress.total, 5)
+    assert.equal(result[1].progress.percent, 50)
+    assert.ok(calls.includes('progress_entries.in:goal_id:legacy-goal,measurable-goal'))
+    assert.ok(calls.includes('progress_entries.order:occurred_on:false'))
+  })
+
+  it('returns no goals without querying progress entries', async () => {
+    const { client, calls } = createGoalsWithProgressClient({ data: [], error: null })
+
+    assert.deepEqual(await getGoalsWithProgress(client), [])
+    assert.equal(calls.some(call => call.startsWith('progress_entries.')), false)
+  })
+
+  it('returns empty progress for legacy goals when the entries query returns no rows', async () => {
+    const goal = {
+      id: 'legacy-goal',
+      user_id: 'owner-1',
+      title: 'Legacy goal',
+      unit: null,
+      target: null,
+      created_at: '2026-01-02T00:00:00Z',
+      updated_at: '2026-01-02T00:00:00Z',
+    }
+    const { client } = createGoalsWithProgressClient(
+      { data: [goal], error: null },
+      { data: null, error: null },
+    )
+
+    const [result] = await getGoalsWithProgress(client)
+
+    assert.equal(result.goal.id, 'legacy-goal')
+    assert.deepEqual(result.progress.entries, [])
+    assert.equal(result.progress.total, 0)
+    assert.equal(result.progress.percent, 0)
+    assert.equal(result.progress.streak.longest, 0)
+  })
+
+  it('propagates goal query errors instead of presenting an empty dashboard', async () => {
+    const queryError = new Error('goals read failed')
+    const { client, calls } = createGoalsWithProgressClient({ data: null, error: queryError })
+
+    await assert.rejects(
+      () => getGoalsWithProgress(client),
+      error => error === queryError,
+    )
+    assert.equal(calls.some(call => call.startsWith('progress_entries.')), false)
+  })
+
+  it('propagates progress-entry query errors instead of silently dropping history', async () => {
+    const queryError = new Error('progress entries read failed')
+    const { client } = createGoalsWithProgressClient(
+      { data: [{ id: 'goal-1', user_id: 'owner-1', title: 'Goal', unit: null, target: null, created_at: '2026-01-01', updated_at: '2026-01-01' }], error: null },
+      { data: null, error: queryError },
+    )
+
+    await assert.rejects(
+      () => getGoalsWithProgress(client),
+      error => error === queryError,
+    )
   })
 })

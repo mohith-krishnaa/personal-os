@@ -10,7 +10,7 @@ export async function createGoal(supabase: SupabaseClient, userId: string, input
 }
 
 export async function logProgress(supabase: SupabaseClient, userId: string, input: { goalId: string; value: number; occurredOn: string }) {
-  if (!userId || !input.goalId || !Number.isFinite(input.value) || input.value <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(input.occurredOn)) throw new Error('Invalid progress entry')
+  if (!userId || !input.goalId || !Number.isFinite(input.value) || input.value <= 0 || !/^\\d{4}-\\d{2}-\\d{2}$/.test(input.occurredOn)) throw new Error('Invalid progress entry')
 
   const { data: goal, error: goalError } = await supabase
     .from('goals')
@@ -40,6 +40,11 @@ export async function getGoalsWithProgress(supabase: SupabaseClient) {
   const { data: entries, error: entriesError } = await supabase.from('progress_entries').select('id, goal_id, user_id, value, occurred_on, created_at').in('goal_id', goals.map(goal => goal.id)).order('occurred_on', { ascending: false })
   if (entriesError) throw entriesError
   const grouped = new Map<string, ProgressEntry[]>()
-  for (const entry of (entries ?? []) as ProgressEntry[]) grouped.set(entry.goal_id!, [...(grouped.get(entry.goal_id!) ?? []), entry])
+  for (const entry of (entries ?? []) as ProgressEntry[]) {
+    const goalId = entry.goal_id!
+    const goalEntries = grouped.get(goalId)
+    if (goalEntries) goalEntries.push(entry)
+    else grouped.set(goalId, [entry])
+  }
   return goals.map(goal => ({ goal: goal as Goal, progress: summarizeGoalProgress(goal, grouped.get(goal.id) ?? []) }))
 }
