@@ -16,6 +16,17 @@ The application progress service selects `unit` and `target` on every dashboard 
 - Keep application creation validation strict: newly created measurable goals require both values.
 - Render legacy goals without metrics as readable records and omit the progress-entry form until metrics exist. Do not fabricate a target or unit for existing goals.
 
+
+## Application-level enforcement for legacy goals
+
+- `hasUsableGoalMetrics` is the shared application predicate: the unit must be a non-empty trimmed string and the target must be finite and greater than zero.
+- `ProgressForm` uses that predicate and renders an explanatory message instead of a progress-entry form when a legacy goal has null, blank, or invalid measurement metadata.
+- `createGoal` continues to require a non-empty title/unit and a finite positive target for newly created measurable goals.
+- `logProgress` re-reads the goal using both `id` and the supplied authenticated `user_id`; it rejects a missing/non-owned goal or one without usable metrics before inserting a progress entry. The existing RLS policy remains the authoritative database ownership boundary.
+- Regression coverage verifies the predicate, creation validation, owner-filtered lookup, valid insertion, and rejection of legacy/unconfigured or missing/non-owned goals. CI #324 passed all 66 application tests, the 19-migration PostgreSQL 17 replay, hierarchy checks, typecheck, and production build on code/test commit `771f2b133bafc9cc834442449a07f1bfb4def5f4`.
+
+This guard is application-level, not an atomic database invariant: the current progress-entry RLS check verifies goal ownership but does not independently require non-null measurement metadata. A concurrent metadata change between lookup and insert is therefore not closed by this change. If goal-metric mutation is introduced, enforce the invariant with a separately reviewed database policy/trigger migration after the backup and isolated-restore gate is satisfied. No production RLS change is authorized by this checkpoint.
+
 ## Verification
 
 - [CI #321](https://github.com/mohith-krishnaa/personal-os/actions/runs/44597240060) passed on code/test commit `9cf0327b94c0238783cdd3c9d0a95978f01ce035`: all 19 migrations replayed on PostgreSQL 17; the new goal-metric compatibility regression, Organization/RLS assertions, task hierarchy checks, application tests, TypeScript typecheck, and production build passed.

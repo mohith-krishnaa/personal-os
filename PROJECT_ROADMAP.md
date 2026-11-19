@@ -1,3 +1,19 @@
+> **Verified checkpoint — 2026-11-20 (Progress legacy-metric enforcement).** Repository: `mohith-krishnaa/personal-os`; branch: `feature/organization-v1`; code/test commit: `771f2b133bafc9cc834442449a07f1bfb4def5f4` (359 commits ahead of `main`, 0 behind). PR #11 is open, unmerged, non-draft, and mergeable.
+>
+> The application audit found two gaps: the client form only checked null metrics (so blank/invalid metadata could still reach the form path), and `logProgress` trusted the UI and inserted without re-reading the goal. Added shared `hasUsableGoalMetrics` validation (trimmed non-empty unit plus finite positive target), used it in `ProgressForm`, and added an owner-filtered goal lookup in `logProgress` before insertion. Missing/non-owned goals and goals without usable metrics are rejected. `createGoal` remains strict for new measurable goals.
+>
+> Added regression coverage for valid/invalid measurement metadata, create-goal validation, owner-filtered goal lookup, valid progress insertion, rejection for legacy/unconfigured and missing/non-owned goals, and date-format validation. The migration chain remains at 19 files; no migration, RLS policy, or production database was changed.
+>
+> Intermediate commit `e59d65b4b4b4b66d350652e21a1d23c9be04194e` failed CI #323 because the date-validation regex was over-escaped in that intermediate tree. The regex was corrected in `771f2b133bafc9cc834442449a07f1bfb4def5f4`; [CI #324](https://github.com/mohith-krishnaa/personal-os/actions/runs/44607370912) passed on that exact head: PostgreSQL 17 replay of all 19 migrations, hierarchy concurrency, **66/66 application tests**, TypeScript typecheck, and production build. No lint script is configured.
+>
+> Personal-OS Builder is enabled. At recovery, last run `27abdbf5-2e34-8330-b103-a96a5eb49783` was marked `in_progress` (started `2026-11-19T20:15:52Z`, no completion timestamp); latest stored result `546365dd-9274-8323-bdbb-d8c18357a5e0` was created at `2026-11-19T19:24:57Z` and belongs to an older run. This does not prove worker liveness.
+>
+> No production database was accessed or changed in this application-only run. The last verified production checkpoint still reported 8 applied migrations, 9 public tables with RLS enabled, and absent Organization/Progress compatibility objects; that state was not rechecked in this run. The complete owner-controlled schema/data/roles backup, successful isolated restore, restored-copy checklist conflict review, and authenticated two-user PostgREST CRUD/isolation tests remain outstanding. No local checkout is attached, so local `git status` is unavailable.
+>
+> **Next task:** add focused regression coverage for `getGoalsWithProgress` so legacy goals with null measurement metadata remain in the result set and their historical progress entries are grouped without inventing a target or unit. Keep Organization ahead of Analytics until the production acceptance gates are genuinely complete.
+>
+> ---
+
 > **Verified checkpoint — 2026-11-20 (Progress goal-metric preflight and regression coverage).** Repository: `mohith-krishnaa/personal-os`; branch: `feature/organization-v1`; code/test head before this documentation refresh: `9cf0327b94c0238783cdd3c9d0a95978f01ce035` (356 commits ahead of `main`, 0 behind). PR #11 is open, unmerged, non-draft, and mergeable.
 >
 > A read-only static audit found that preflight query 4 omitted `goals.unit` and `goals.target`, even though branch-only migration `20261117000100_reconcile_progress_goal_metrics.sql` adds them. The preflight now reports those columns and query 12 reports their types, nullability, named check constraints, validation state, and definitions. New disposable-PostgreSQL regression coverage verifies nullable legacy metrics, valid measurable goals, rejection of whitespace-only units, and rejection of zero/negative targets. The test runs in a transaction and rolls back. The migration chain remains at 19 files; no migration was added or modified.
@@ -17,13 +33,13 @@
 # Personal OS — Project Roadmap & Mind Map
 
 > Single source of truth for project direction. Verify GitHub/Supabase/CI before making claims.
-> Last reconciled: 2026-11-20. CI #318 passed on documentation checkpoint head `67dcae2913bd904a1dec0fb641bd0353bde63478`; CI #309 passed on the 19-migration code/test commit.
+> Last reconciled: 2026-11-20. Code/test head `771f2b133bafc9cc834442449a07f1bfb4def5f4` passed CI #324, including 19-migration PostgreSQL 17 replay, 66/66 application tests, typecheck, and production build.
 
 ## Current position
 
 **Completed:** Core productivity, Recurring Tasks V1, and Reminders V1. Progress & Streaks V1 application implementation is complete, but live schema compatibility repair remains pending.
 
-**In progress:** Organization V1 remains under review on `feature/organization-v1` / PR #11. The 19-migration PostgreSQL 17 replay and all configured checks passed on code/test commit [CI #309](https://github.com/mohith-krishnaa/personal-os/actions/runs/44576380568). The pre-refresh documentation checkpoint head passed [CI #318](https://github.com/mohith-krishnaa/personal-os/actions/runs/44587631127), including migration replay, Organization/RLS assertions, hierarchy checks, application tests, typecheck, and production build. The current commit only reconciles this roadmap checkpoint and requires its own CI result. The new forward-only guard handles missing/exact NOT VALID project/task FKs and aborts on conflicting or duplicate definitions without dropping constraints.
+**In progress:** Organization V1 remains under review on `feature/organization-v1` / PR #11. Code/test head `771f2b133bafc9cc834442449a07f1bfb4def5f4` passed [CI #324](https://github.com/mohith-krishnaa/personal-os/actions/runs/44607370912): all 19 PostgreSQL 17 migrations, Organization/RLS assertions, hierarchy concurrency, 66/66 application tests, typecheck, and production build. Progress UI and server logging now share a non-empty-unit/finite-positive-target check; `logProgress` also performs an owner-filtered goal lookup before insertion. The application check is not a substitute for a transactional database invariant or live RLS testing.
 
 **Production acceptance blocked:** live Supabase still has only 8 migrations applied, lacks `projects.name`, both checklist tables, Organization triggers, and goal metric columns. No complete owner-controlled schema/data/roles backup has been restored in isolation, and authenticated two-user live PostgREST verification is outstanding. No production changes or PR merge were made.
 
@@ -128,7 +144,7 @@ PERSONAL OS
 - Keep `main` green.
 - Verify authentication and owner isolation.
 - Maintain regression coverage for task, recurrence, reminder and progress flows.
-- Live Supabase `public.goals` lacks `unit` and `target`, while the dashboard progress service selects both on every load. A forward-only migration and null-safe legacy rendering are now branch-tested; production compatibility remains pending backup and migration approval.
+- Live Supabase `public.goals` was last verified without `unit` and `target`, while the dashboard progress service selects both on every load. A forward-only migration, null-safe legacy rendering, and server-side refusal to log against unconfigured goals are branch-tested; production compatibility remains pending backup/restore and migration approval.
 
 ### P1 — Organization V1
 - PR #11 is the intended review path and remains open, unmerged, non-draft, and mergeable. PR #12 is an open superseded draft; do not merge it separately.
