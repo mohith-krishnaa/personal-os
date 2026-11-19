@@ -2,7 +2,7 @@
 
 Status: implementation is under review in PR #11. This document records repository-level design decisions; it does not certify the live Supabase schema or deployment.
 
-Latest code/test verification (2026-11-20): commit `9cf0327b94c0238783cdd3c9d0a95978f01ce035` passed CI #321 with the complete 19-migration PostgreSQL 17 replay, Organization/RLS and hierarchy checks, Progress goal-metric compatibility regression, application tests, typecheck, and production build. The read-only preflight now includes goals.unit/target and a dedicated query 12 for their constraints. Live Supabase remains at 8 migrations; Organization rollout is blocked on a complete owner-controlled backup restored in isolation and authenticated two-user PostgREST verification.
+Latest code/test verification (2026-11-20): commit `7cb91b4871038d866af439117ed0584af9d0e17f` passed [CI #335](https://github.com/mohith-krishnaa/personal-os/actions/runs/44636928070): all 19 PostgreSQL 17 migrations, Organization/RLS and project name/title compatibility assertions, task hierarchy concurrency, 75/75 application tests, TypeScript typecheck, and production build. npm audit found 0 vulnerabilities; npm reported the existing esbuild install-script allowlist warning. Live Supabase was not rechecked in this run; the last verified ledger remains at 8 migrations, and backup/isolated-restore plus authenticated two-user PostgREST verification remain mandatory before rollout.
 
 ## Trust boundaries
 
@@ -22,6 +22,13 @@ Latest code/test verification (2026-11-20): commit `9cf0327b94c0238783cdd3c9d0a9
 - The application uses `public.checklist_items` as its canonical checklist table.
 - The legacy `public.task_checklist_items` table is retained and reconciled forward; it is not dropped as part of Organization V1.
 - The application-facing project field is `projects.name`. Where a legacy `projects.title` column exists, the compatibility migration backfills and dual-writes the two fields rather than dropping the legacy column.
+
+## Project name/title compatibility decision — 2026-11-20
+
+- Current application services, project manager, task editor, and dashboard task labels use only canonical `projects.name`; application create/rename requests do not write `title`.
+- Legacy clients may still write `title`. The compatibility trigger mirrors title-only writes to name and name-only writes to title.
+- If one statement supplies conflicting values for both columns, canonical `name` wins. This is intentional and is now covered for both INSERT and UPDATE by the Organization migration assertion suite.
+- The compatibility migration and legacy column remain unchanged; this checkpoint adds regression coverage only. Do not remove `title` until deployed legacy-client usage has been measured over an owner-approved compatibility window and a verified backup/restore gate is satisfied.
 
 ## Legacy checklist compatibility contract — 2026-11-19
 
