@@ -465,6 +465,18 @@ BEGIN
   END;
 
   BEGIN
+    INSERT INTO public.projects (id, user_id, name)
+    VALUES (
+      'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee4',
+      auth.uid(),
+      E'\\t\\n'
+    );
+    RAISE EXCEPTION 'Project compatibility accepted a whitespace-only application name.';
+  EXCEPTION WHEN check_violation THEN
+    NULL;
+  END;
+
+  BEGIN
     UPDATE public.projects
     SET title = '   '
     WHERE id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
@@ -478,6 +490,15 @@ BEGIN
     SET title = repeat('x', 121)
     WHERE id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
     RAISE EXCEPTION 'Project compatibility accepted a legacy title longer than 120 characters.';
+  EXCEPTION WHEN check_violation THEN
+    NULL;
+  END;
+
+  BEGIN
+    UPDATE public.projects
+    SET title = E'\\n\\t'
+    WHERE id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    RAISE EXCEPTION 'Project compatibility accepted a whitespace-only legacy title.';
   EXCEPTION WHEN check_violation THEN
     NULL;
   END;
