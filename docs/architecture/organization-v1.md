@@ -2,6 +2,8 @@
 
 Status: implementation is under review in PR #11. This document records repository-level design decisions; it does not certify the live Supabase schema or deployment.
 
+Latest verification (2026-11-19): branch HEAD `8df69700e6e4075ca1a906a4a4414523672e7cc1` passed CI #312 with the complete 19-migration PostgreSQL 17 replay and all configured application/typecheck/build steps. Live Supabase remains at 8 migrations; Organization rollout is blocked on a complete owner-controlled backup restored in isolation and authenticated two-user PostgREST verification.
+
 ## Trust boundaries
 
 1. Dashboard server actions create a server-side Supabase client and resolve the caller with `auth.getUser()`.

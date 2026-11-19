@@ -1,5 +1,13 @@
 # Supabase migration history
 
+## Latest verified branch checkpoint — 2026-11-19
+
+- Branch `feature/organization-v1` is at `8df69700e6e4075ca1a906a4a4414523672e7cc1`; PR #11 is open, unmerged, and its head matches.
+- The branch has 19 numbered migrations: 8 match the live ledger and 11 remain branch-only (8 Organization, 1 Progress compatibility, 2 RLS performance).
+- Code/test CI #309 passed on `020877abbbf63719716a9d0c615160a097744716`; current exact branch-head CI #312 passed on `8df69700e6e4075ca1a906a4a4414523672e7cc1`.
+- Live Supabase remains at 8 applied migrations. All 9 public tables have RLS enabled and report zero rows; the Organization schema is not deployed.
+- Do not apply branch-only migrations until the complete owner-controlled schema/data/roles backup has been restored successfully in isolation and rollout is separately authorized.
+
 The eight migrations already recorded in the live project were reconstructed from the exact SQL statements stored in supabase_migrations.schema_migrations on 2026-11-17.
 
 The filenames below use the exact live version and name. Do not change their timestamps or rewrite their SQL without a deliberate migration-history decision.
@@ -45,7 +53,7 @@ This establishes the repository's current client behavior only. It does not esta
 
 ### Current production limitation
 
-As of the read-only inspection on 2026-11-19, the live project has 8 applied migrations and neither checklist table exists. Therefore production legacy-table traffic cannot yet be measured, and the branch's compatibility behavior is not deployed. The branch's 18-migration replay and mocked service tests do not replace a production backup restore or authenticated PostgREST isolation test.
+As of the read-only inspection on 2026-11-19, the live project has 8 applied migrations and neither checklist table exists. Therefore production legacy-table traffic cannot yet be measured, and the branch's compatibility behavior is not deployed. The branch's 19-migration replay and mocked service tests do not replace a production backup restore or authenticated PostgREST isolation test.
 
 ## Organization hierarchy concurrency guard
 

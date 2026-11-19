@@ -6,6 +6,20 @@ Application rollout: BLOCKED — no recoverable backup has been produced.
 
 This runbook records the live read-only inspection and the safe path to complete Organization V1. It does not authorize production DDL or a PR merge.
 
+## Latest verified checkpoint — 2026-11-19
+
+Remote branch `feature/organization-v1` is at `8df69700e6e4075ca1a906a4a4414523672e7cc1`; PR #11 is open, unmerged, and its head matches. The branch is 347 commits ahead of `main`, 0 behind. It contains 19 migrations: 8 exact live-ledger versions and 11 branch-only migrations (8 Organization, 1 Progress compatibility, 2 RLS performance).
+
+[CI #309](https://github.com/mohith-krishnaa/personal-os/actions/runs/44576380568) passed on the code/test commit, including the full 19-migration PostgreSQL 17 replay, Organization/RLS assertions, FK recovery/idempotence/fail-closed cases, checklist reconciliation tests, hierarchy concurrency, 58/58 application tests, typecheck, and production build. [CI #312](https://github.com/mohith-krishnaa/personal-os/actions/runs/44577390309) passed on the exact current branch HEAD; every configured workflow step completed successfully.
+
+Fresh read-only production checks: ACTIVE_HEALTHY on PostgreSQL 17.11.0.003; exactly 8 applied migrations; 9 public tables, all with RLS enabled and all reporting zero rows. `projects.name`, both checklist tables, Organization user-defined triggers, `goals.unit`, and `goals.target` are absent. The existing project/task FKs have the expected definitions and are validated.
+
+No complete owner-controlled schema/data/roles backup or successful isolated restore exists. No authenticated two-user PostgREST CRUD/isolation test has been completed. No production migration, DDL/DML, RLS change, backup/restore, or PR merge was performed. Production rollout remains blocked.
+
+The Personal-OS Builder automation is enabled. Its recorded last run `2137c85a-2500-832c-b819-9896e93be753` remains recorded as in progress without a completion timestamp; latest stored result `603cd95a-511c-8321-9ad7-6459f2953f51` predates that run. This status does not prove worker liveness.
+
+**Next repository task:** continue read-only static review of the 19-migration sequence and preflight against the verified 8-migration legacy schema. The owner must supply a complete private schema/data/roles backup and successful isolated-restore evidence before any production rollout.
+
 ## Legacy checklist compatibility contract — 2026-11-19
 
 ### Runtime inventory
@@ -37,9 +51,9 @@ As of the read-only inspection on 2026-11-19, the live project has 8 applied mig
 
 The live project was rechecked read-only: ACTIVE_HEALTHY on PostgreSQL 17.11.0.003, exactly 8 applied migrations, and 9 public application tables with RLS enabled. All 9 currently report zero rows. Both checklist tables and the task-organization trigger are absent; `projects.name`, `goals.unit`, and `goals.target` are absent. The live migration ledger remains unchanged.
 
-The branch contains 18 numbered migrations: 8 live versions plus 10 local-only migrations (7 Organization, 1 Progress compatibility, 2 RLS performance). [CI #265](https://github.com/mohith-krishnaa/personal-os/actions/runs/44495502033) passed on exact code/test head `521ae65f60fc58e01d4be09f7de6b2ee84b5a0f1`. All configured steps succeeded: migration replay/RLS assertions, read-only preflight execution, hierarchy concurrency, application tests, typecheck, and production build. CI #257 and #261 also passed on their respective earlier heads.
+The branch now contains 19 numbered migrations: 8 live versions plus 11 local-only migrations (8 Organization, 1 Progress compatibility, 2 RLS performance). [CI #265](https://github.com/mohith-krishnaa/personal-os/actions/runs/44495502033) passed on exact code/test head `521ae65f60fc58e01d4be09f7de6b2ee84b5a0f1`. All configured steps succeeded: migration replay/RLS assertions, read-only preflight execution, hierarchy concurrency, application tests, typecheck, and production build. CI #257 and #261 also passed on their respective earlier heads.
 
-The read-only preflight query 5 now includes Organization, goals, reminders, notifications, and progress_entries policies. The disposable migration bootstrap creates a minimal `supabase_migrations.schema_migrations` fixture, and the replay script executes the exact preflight after the 18 migrations and RLS assertions. This validates the preflight catalog queries against disposable PostgreSQL 17 without connecting to production.
+The read-only preflight query 5 now includes Organization, goals, reminders, notifications, and progress_entries policies. The disposable migration bootstrap creates a minimal `supabase_migrations.schema_migrations` fixture, and the replay script executes the exact preflight after all 19 migrations and RLS assertions. This validates the preflight catalog queries against disposable PostgreSQL 17 without connecting to production.
 
 The owner-controlled schema/data/roles backup and successful isolated restore are still missing. No production changes or PR merge were made.
 
@@ -71,7 +85,7 @@ Read-only Supabase project, migration, table, policy, constraint, and advisor ca
 
 The SQL statement for each applied migration was read from supabase_migrations.schema_migrations. The repository's previous core migration filenames had timestamp drift; two applied migrations were missing locally, and a second reminder-notifications file was not represented in the live ledger. The branch now restores the eight exact ledger versions and removes the duplicate local-only core migration. See supabase/migrations/README.md.
 
-The seven Organization migrations remain local-only and unapplied:
+The eight Organization migrations remain local-only and unapplied:
 
 1. 20260905170000_organization_v1.sql
 2. 20260905170100_organization_v1_checklists.sql
@@ -80,6 +94,7 @@ The seven Organization migrations remain local-only and unapplied:
 5. 20261015000300_prevent_task_hierarchy_cycles.sql
 6. 20261016000100_projects_name_title_compatibility.sql
 7. 20261117000200_harden_checklist_select_ownership.sql
+8. 20261119000300_ensure_project_task_foreign_keys.sql
 
 The other three local-only migrations are:
 
@@ -147,7 +162,7 @@ The compatibility migration's validated check and trigger now require a non-whit
 
 1. Produce and restore-test the manual backup described above.
 2. Run supabase migration list and confirm the eight applied versions exactly match the reconstructed repository files. Resolve any discrepancy locally; do not repair the remote ledger by guesswork.
-3. Review all seven Organization migrations against the live schema snapshot and test them against a disposable database matching that schema.
+3. Review all eight Organization migrations against the live schema snapshot and test them against a disposable database matching that schema.
 4. Confirm the intended order and recovery plan. In particular, verify the legacy projects.title to application projects.name compatibility path, checklist table creation/reconciliation, task relationship constraints/triggers, and RLS policy replacement.
 5. Apply only the reviewed Organization migrations after explicit production rollout approval.
 6. Re-run the SQL preflight and security/performance/health advisors.
