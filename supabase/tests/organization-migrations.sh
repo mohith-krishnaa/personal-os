@@ -10,7 +10,7 @@ export PGDATABASE="${PGDATABASE:-personal_os_migration_test}"
 psql -X -v ON_ERROR_STOP=1 -c 'select 1' >/dev/null
 psql -X -v ON_ERROR_STOP=1 -f supabase/tests/organization-migration-bootstrap.sql
 
-expected_migrations=18
+expected_migrations=19
 actual_migrations="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | wc -l | tr -d ' ')"
 
 if [[ "$actual_migrations" -ne "$expected_migrations" ]]; then
@@ -37,6 +37,71 @@ if [[ "$applied_migrations" -ne "$expected_migrations" ]]; then
 fi
 
 psql -X -v ON_ERROR_STOP=1 -f supabase/tests/organization-migration-assertions.sql
+
+echo "Reapplying the project/task FK guard to verify idempotence"
+psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261119000300_ensure_project_task_foreign_keys.sql
+
+echo "Verifying that a missing expected FK is repaired inside a rollback-only transaction"
+psql -X -v ON_ERROR_STOP=1 <<'SQL'
+BEGIN;
+ALTER TABLE public.tasks DROP CONSTRAINT tasks_project_id_fkey;
+\\i supabase/migrations/20261119000300_ensure_project_task_foreign_keys.sql
+DO $assert_repaired_fk$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint con
+    WHERE con.conrelid = 'public.tasks'::regclass
+      AND con.contype = 'f'
+      AND con.confrelid = 'public.projects'::regclass
+      AND con.conkey = ARRAY[
+        (SELECT attnum FROM pg_attribute
+         WHERE attrelid = 'public.tasks'::regclass
+           AND attname = 'project_id' AND NOT attisdropped)
+      ]::smallint[]
+      AND con.confkey = ARRAY[
+        (SELECT attnum FROM pg_attribute
+         WHERE attrelid = 'public.projects'::regclass
+           AND attname = 'id' AND NOT attisdropped)
+      ]::smallint[]
+      AND con.confdeltype = 'n'
+      AND con.convalidated
+  ) THEN
+    RAISE EXCEPTION 'The missing tasks.project_id foreign key was not restored.';
+  END IF;
+END
+$assert_repaired_fk$;
+ROLLBACK;
+SQL
+
+echo "Verifying that an unexpected additional FK fails closed without being removed"
+set +e
+unexpected_fk_output="$(
+  psql -X -v ON_ERROR_STOP=1 2>&1 <<'SQL'
+BEGIN;
+ALTER TABLE public.tasks
+  ADD CONSTRAINT test_unexpected_tasks_project_fk
+  FOREIGN KEY (project_id) REFERENCES auth.users(id)
+  ON DELETE SET NULL NOT VALID;
+\\i supabase/migrations/20261119000300_ensure_project_task_foreign_keys.sql
+ROLLBACK;
+SQL
+)"
+unexpected_fk_status=$?
+set -e
+
+if [[ "$unexpected_fk_status" -eq 0 ]]; then
+  echo "The project/task FK guard accepted an unexpected additional foreign key."
+  exit 1
+fi
+
+if ! grep -Fq 'Unexpected foreign-key contract for public.tasks.project_id' <<<"$unexpected_fk_output"; then
+  echo "The project/task FK guard failed for an unexpected reason:"
+  printf '%s\\n' "$unexpected_fk_output"
+  exit 1
+fi
+
+echo "Unexpected additional project/task foreign keys were rejected as expected."
 
 echo "Executing read-only Organization rollout preflight against the replayed schema"
 psql -X -v ON_ERROR_STOP=1 -f supabase/operations/organization-v1-preflight.sql >/dev/null

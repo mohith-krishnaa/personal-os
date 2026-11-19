@@ -21,33 +21,6 @@ Status: implementation is under review in PR #11. This document records reposito
 - The legacy `public.task_checklist_items` table is retained and reconciled forward; it is not dropped as part of Organization V1.
 - The application-facing project field is `projects.name`. Where a legacy `projects.title` column exists, the compatibility migration backfills and dual-writes the two fields rather than dropping the legacy column.
 
-## Legacy checklist compatibility contract — 2026-11-19
-
-### Runtime inventory
-
-A branch-head audit inspected all 56 TypeScript/TSX/JavaScript files under `src/` and `lib/`, plus root `middleware.ts`. No runtime module references `task_checklist_items`. The current service in `src/lib/checklists.ts` uses only `checklist_items`; authenticated dashboard actions call `auth.getUser()` and pass the resolved user to that service. Service tests assert the canonical table and owner/task filters.
-
-This establishes the repository's current client behavior only. It does not establish whether an older external or already-deployed client still calls the legacy table.
-
-### Database behavior on the Organization branch
-
-- `20260905170100_organization_v1_checklists.sql` creates `task_checklist_items` with RLS and authenticated owner-scoped SELECT/INSERT/UPDATE/DELETE policies. INSERT and UPDATE require the referenced task to belong to the authenticated owner.
-- `20261117000200_harden_checklist_select_ownership.sql` additionally requires the referenced task to belong to the caller for SELECT visibility.
-- `20261015000200_reconcile_checklist_tables.sql` performs a one-time copy of same-owner task rows into `checklist_items`. It preserves existing canonical IDs with `ON CONFLICT (id) DO NOTHING`.
-- No migration installs a legacy-to-canonical synchronization trigger. A valid legacy write made after reconciliation is not guaranteed to appear in `checklist_items`; the read-only report identifies it as `missing_canonical`.
-
-### Decision
-
-1. `public.checklist_items` is the only supported table for current application code.
-2. Keep `public.task_checklist_items` temporarily with its existing owner-scoped policies to avoid an unreviewed compatibility break for unknown older clients. It is a transitional compatibility surface, not a second source of truth.
-3. Do not add dual-write/synchronization behavior, change legacy RLS/write permissions, or drop the legacy table in this audit. Those choices require an explicit compatibility window and owner approval.
-4. Before a future sunset, inventory deployed clients and observe PostgREST/API logs for legacy-table reads/writes over an owner-approved window after the table exists in the target environment. Review every row returned by the conflict report against a complete backup restored in isolation.
-5. A future deprecation should be staged: first restrict legacy writes through a reviewed forward migration while preserving a read/export window and rollback period; remove the table only in a separate later migration after the retention and rollback criteria are met.
-
-### Current production limitation
-
-As of the read-only inspection on 2026-11-19, the live project has 8 applied migrations and neither checklist table exists. Therefore production legacy-table traffic cannot yet be measured, and the branch's compatibility behavior is not deployed. The branch's 18-migration replay and mocked service tests do not replace a production backup restore or authenticated PostgREST isolation test.
-
 ## Migration and recovery decisions
 
 - Migrations must be reviewed against the live migration ledger and live table definitions before execution.
@@ -347,38 +320,3 @@ The disposable migration bootstrap supplies only the minimal `supabase_migration
 The reconciliation migration is intentionally non-overwriting: `ON CONFLICT (id) DO NOTHING` preserves an existing canonical checklist row. If the same ID exists in both tables with different owner/task/payload values, the canonical row wins and the legacy row remains in `task_checklist_items`; it is not copied into `checklist_items`. This avoids cross-owner overwrite but leaves a legacy item outside the application-facing canonical table. Such rows require explicit review and must not be described as fully reconciled.
 
 The post-migration, SELECT-only `supabase/operations/checklist-reconciliation-conflicts.sql` reports these mismatches. It is separate from the general preflight because the general preflight must remain runnable before the checklist tables are created. CI #290 seeds a cross-owner same-ID collision and verifies canonical preservation, legacy-source preservation, and owner-specific RLS visibility. This is disposable PostgreSQL evidence only; live checklist tables are currently absent.
-
-
-## Checklist reconciliation is a one-time copy, not ongoing synchronization
-
-The forward reconciliation migration copies valid same-owner legacy rows into `public.checklist_items` once. It intentionally uses `ON CONFLICT (id) DO NOTHING` to avoid overwriting a pre-existing canonical row, and it retains `public.task_checklist_items`. It does not install a trigger that mirrors future legacy writes into the canonical table.
-
-Consequences:
-- A valid legacy row written after the migration can remain absent from the canonical table.
-- A same-ID collision can leave the legacy source row outside the current application's canonical checklist workflow.
-- The read-only post-migration conflict report classifies unresolved rows as `missing_task`, `task_owner_mismatch`, `missing_canonical`, or `canonical_id_collision`.
-- The report is diagnostic only. It does not transfer ownership, overwrite either record, delete legacy data, or repair rows.
-
-CI #293 verifies a post-migration legacy-only write and confirms the report detects it as `missing_canonical`. This is disposable PostgreSQL evidence, not live PostgREST or production acceptance.
-
-Before adding ongoing synchronization or freezing legacy writes, inspect every deployed/runtime caller, define the supported compatibility window and conflict semantics, and test the chosen forward/rollback plan against a restored snapshot. Do not infer that retaining the legacy table provides bidirectional compatibility.
-
-
-
-## Checklist task foreign-key integrity assertion — 2026-11-19
-
-Both the canonical `checklist_items` table and retained legacy `task_checklist_items` table define `task_id` as NOT NULL with a foreign key to `public.tasks(id) ON DELETE CASCADE`. The disposable full-chain assertion now verifies these exact invariants after migration replay: the column remains NOT NULL, the FK is single-column on `task_id`, references `public.tasks`, is validated, and retains cascade-delete behavior. This matters because the conflict report's `missing_task` category is a defensive signal for schema/constraint drift; it should not be an ordinary data state when the expected FK is valid. No migration was added or changed, and the migration count remains 18. CI #296 passed on code/test commit `7e3d75f46214d078cfc1d4ba7a416584127aa05b`, and CI #297 passed on documentation head `ab6a3381109d50496e1171494f9191f304b03298`; both ran the complete configured migration, RLS, hierarchy, 58-test, typecheck, and production-build workflow.
-
-## Project/task/checklist FK contract verification — 2026-11-19
-
-The migration replay now verifies five exact foreign-key contracts:
-
-- `tasks.project_id -> projects.id ON DELETE SET NULL`
-- `tasks.parent_task_id -> tasks.id ON DELETE CASCADE`
-- `projects.goal_id -> goals.id ON DELETE SET NULL`
-- `checklist_items.task_id -> tasks.id ON DELETE CASCADE`
-- `task_checklist_items.task_id -> tasks.id ON DELETE CASCADE`
-
-For both checklist tables, the assertion requires `task_id` to be NOT NULL and participate in exactly one FK; that FK must be a validated single-column reference to `public.tasks(id)` with CASCADE deletion. The source-column count includes composite FKs as well as single-column FKs. A disposable negative test adds a second, NOT VALID FK from each checklist `task_id` to `auth.users(id)`, reruns the assertion, requires the exact contract error, and lets the failed connection roll back the test transaction.
-
-Read-only preflight query 11 reports all five relationships, exact target columns, validation state, delete behavior, and the count of every FK involving each source column. [CI #302](https://github.com/mohith-krishnaa/personal-os/actions/runs/44563968200) passed on exact code head `f0c8a250c617b7bb3342671275582b78a9dab781`: 18-migration PostgreSQL 17 replay, RLS assertions, preflight, negative FK test, checklist conflict report, hierarchy concurrency, 58/58 application tests, typecheck, and production build. This remains disposable-database verification; the checklist tables are absent from production.

@@ -6,33 +6,6 @@ Application rollout: BLOCKED — no recoverable backup has been produced.
 
 This runbook records the live read-only inspection and the safe path to complete Organization V1. It does not authorize production DDL or a PR merge.
 
-## Legacy checklist compatibility contract — 2026-11-19
-
-### Runtime inventory
-
-A branch-head audit inspected all 56 TypeScript/TSX/JavaScript files under `src/` and `lib/`, plus root `middleware.ts`. No runtime module references `task_checklist_items`. The current service in `src/lib/checklists.ts` uses only `checklist_items`; authenticated dashboard actions call `auth.getUser()` and pass the resolved user to that service. Service tests assert the canonical table and owner/task filters.
-
-This establishes the repository's current client behavior only. It does not establish whether an older external or already-deployed client still calls the legacy table.
-
-### Database behavior on the Organization branch
-
-- `20260905170100_organization_v1_checklists.sql` creates `task_checklist_items` with RLS and authenticated owner-scoped SELECT/INSERT/UPDATE/DELETE policies. INSERT and UPDATE require the referenced task to belong to the authenticated owner.
-- `20261117000200_harden_checklist_select_ownership.sql` additionally requires the referenced task to belong to the caller for SELECT visibility.
-- `20261015000200_reconcile_checklist_tables.sql` performs a one-time copy of same-owner task rows into `checklist_items`. It preserves existing canonical IDs with `ON CONFLICT (id) DO NOTHING`.
-- No migration installs a legacy-to-canonical synchronization trigger. A valid legacy write made after reconciliation is not guaranteed to appear in `checklist_items`; the read-only report identifies it as `missing_canonical`.
-
-### Decision
-
-1. `public.checklist_items` is the only supported table for current application code.
-2. Keep `public.task_checklist_items` temporarily with its existing owner-scoped policies to avoid an unreviewed compatibility break for unknown older clients. It is a transitional compatibility surface, not a second source of truth.
-3. Do not add dual-write/synchronization behavior, change legacy RLS/write permissions, or drop the legacy table in this audit. Those choices require an explicit compatibility window and owner approval.
-4. Before a future sunset, inventory deployed clients and observe PostgREST/API logs for legacy-table reads/writes over an owner-approved window after the table exists in the target environment. Review every row returned by the conflict report against a complete backup restored in isolation.
-5. A future deprecation should be staged: first restrict legacy writes through a reviewed forward migration while preserving a read/export window and rollback period; remove the table only in a separate later migration after the retention and rollback criteria are met.
-
-### Current production limitation
-
-As of the read-only inspection on 2026-11-19, the live project has 8 applied migrations and neither checklist table exists. Therefore production legacy-table traffic cannot yet be measured, and the branch's compatibility behavior is not deployed. The branch's 18-migration replay and mocked service tests do not replace a production backup restore or authenticated PostgREST isolation test.
-
 ## Verified checkpoint — 2026-11-19
 
 The live project was rechecked read-only: ACTIVE_HEALTHY on PostgreSQL 17.11.0.003, exactly 8 applied migrations, and 9 public application tables with RLS enabled. All 9 currently report zero rows. Both checklist tables and the task-organization trigger are absent; `projects.name`, `goals.unit`, and `goals.target` are absent. The live migration ledger remains unchanged.
@@ -276,36 +249,3 @@ It joins legacy and canonical checklist rows by ID and reports owner, task, and 
 The disposable migration fixture now seeds one cross-owner same-ID collision. Assertions verify the canonical Owner B row remains unchanged, the Owner A legacy source row remains intact, and neither owner can read the other's row. The migration replay script executes the general preflight and then the dedicated conflict report after all 18 migrations. [CI #290](https://github.com/mohith-krishnaa/personal-os/actions/runs/44514046666) passed the exact code/test head `83c4e99ce30ae47a558931fbc93e6f6d9cf4159f`, including migration replay, both read-only reports, RLS assertions, hierarchy concurrency, 58 application tests, typecheck, and production build.
 
 Fresh live read-only SQL still shows 8 applied migrations; `projects` and `tasks` exist with RLS enabled, while both checklist tables are absent. No live checklist conflict can be inspected until a restored schema contains those tables. No production changes were made.
-
-
-## Post-reconciliation legacy-write drift — 2026-11-19
-
-The migration `20261015000200_reconcile_checklist_tables.sql` performs a one-time insert from `task_checklist_items` into `checklist_items`. It does not create an ongoing legacy-to-canonical synchronization trigger. Because the legacy table is retained and its owner-scoped policies still permit writes, a valid legacy-client write after the migration can remain absent from the canonical table used by the current application.
-
-The read-only `supabase/operations/checklist-reconciliation-conflicts.sql` report now classifies:
-- `missing_task`: legacy task reference cannot be resolved (defensive detection for malformed/constraint-drifted data).
-- `task_owner_mismatch`: the referenced task belongs to another owner.
-- `missing_canonical`: a valid same-owner legacy row has no canonical row, including a write made after the one-time reconciliation.
-- `canonical_id_collision`: the canonical ID exists but owner, task, or payload differs.
-
-CI #293 ([run](https://github.com/mohith-krishnaa/personal-os/actions/runs/44522858528)) replayed all 18 migrations on disposable PostgreSQL 17, then seeded one valid legacy-only row after reconciliation. The report returned exactly three seeded unresolved rows: one task-owner mismatch, one non-identical canonical ID collision, and one missing-canonical row. It did not return the two valid legacy rows that were copied successfully. The same run passed Organization RLS assertions, hierarchy concurrency, the general read-only preflight, 58/58 application tests, typecheck, and production build.
-
-This is disposable CI evidence only. Live Supabase still has 8 applied migrations and neither checklist table exists, so no live legacy-write drift can currently be measured. Do not add a trigger, disable legacy writes, delete legacy data, or repair rows in production until the owner-controlled backup/restore and explicit rollout approval gates are satisfied. The next repository task is to inspect all runtime callers and determine whether legacy writes are still supported by any deployed client before choosing a compatibility/deprecation policy.
-
-
-
-## Checklist task-FK drift assertion — 2026-11-19
-
-The checklist conflict report includes `missing_task` as a defensive drift category. Under the expected schema, this should not occur: both checklist tables have a NOT NULL `task_id` column with a validated FK to `public.tasks(id)` and `ON DELETE CASCADE`. The full migration replay assertion now verifies those properties for both tables. If it ever fails, stop rollout and inspect the table definition/constraint validation on the restored copy; do not repair production by writing data or altering constraints during preflight.
-
-Code/test commit: `7e3d75f46214d078cfc1d4ba7a416584127aa05b`. [CI #296](https://github.com/mohith-krishnaa/personal-os/actions/runs/44542112681) passed the 18-migration PostgreSQL 17 replay, RLS assertions, hierarchy concurrency, 58/58 application tests, typecheck, and production build. [CI #297](https://github.com/mohith-krishnaa/personal-os/actions/runs/44542401798) passed on the subsequent documentation head `ab6a3381109d50496e1171494f9191f304b03298`. Live Supabase remains read-only with 8 applied migrations and both checklist tables absent. No production changes were made.
-
-## Project/task/checklist FK preflight — 2026-11-19
-
-Read-only live schema inspection confirms the current legacy project/task relationships exist and the live project remains on the eight-migration core ledger. The checklist tables do not exist in production, so their contracts cannot be verified there yet.
-
-Repository query 11 now reports five expected relationships: `tasks.project_id -> projects.id SET NULL`, `tasks.parent_task_id -> tasks.id CASCADE`, `projects.goal_id -> goals.id SET NULL`, and each checklist table's `task_id -> tasks.id CASCADE`. It counts every FK containing each source column, including composite constraints, and separately reports whether the exact validated single-column target/action is present.
-
-The disposable migration assertion requires each checklist `task_id` to be NOT NULL and to participate in exactly one FK, which must be a validated single-column reference to `public.tasks(id) ON DELETE CASCADE`. CI #302 also injects an extra NOT VALID FK from each checklist task_id to `auth.users(id)` in a transaction and confirms the assertion rejects the schema before the transaction is rolled back. The job log explicitly confirms the negative test passed. [CI #302](https://github.com/mohith-krishnaa/personal-os/actions/runs/44563968200) passed the full 18-migration PostgreSQL 17 replay, Organization/RLS assertions, read-only preflight, negative FK test, reconciliation conflict report, hierarchy concurrency, 58/58 application tests, typecheck, and production build.
-
-No migration was added; the branch remains at 18 SQL migrations. The negative test is disposable PostgreSQL evidence, not a production restore or live PostgREST test. Production remains read-only and rollout remains blocked by the owner-controlled complete schema/data/roles backup and successful isolated restore, followed by authenticated two-user PostgREST CRUD/isolation testing.
