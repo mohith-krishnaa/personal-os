@@ -45,7 +45,7 @@ This establishes the repository's current client behavior only. It does not esta
 
 ### Current production limitation
 
-As of the read-only inspection on 2026-11-19, the live project has 8 applied migrations and neither checklist table exists. Therefore production legacy-table traffic cannot yet be measured, and the branch's compatibility behavior is not deployed. The branch's 18-migration replay and mocked service tests do not replace a production backup restore or authenticated PostgREST isolation test.
+As of the read-only inspection on 2026-11-19, the live project has 8 applied migrations and neither checklist table exists. Therefore production legacy-table traffic cannot yet be measured, and the branch's compatibility behavior is not deployed. The branch's 19-migration replay and mocked service tests do not replace a production backup restore or authenticated PostgREST isolation test.
 
 ## Verified checkpoint — 2026-11-19
 
