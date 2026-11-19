@@ -93,7 +93,7 @@ PERSONAL OS
 1. Recurring Tasks V1 — DONE
 2. Reminders V1 — DONE
 3. Progress & Streaks V1 — application implementation complete; live `goals.unit` / `goals.target` compatibility repair pending
-4. **Organization V1 — IN PROGRESS:** branch implementation and 18-migration disposable PostgreSQL verification pass; production backup/restore and live authenticated API gates remain open
+4. **Organization V1 — IN PROGRESS:** branch implementation and 19-migration disposable PostgreSQL verification pass; production backup/restore and live authenticated API gates remain open
 5. Analytics V1 — queued until Organization production acceptance
 6. AI Assistant V1
 7. Research Agent V1
