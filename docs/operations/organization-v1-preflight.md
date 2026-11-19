@@ -8,11 +8,14 @@ This runbook records the live read-only inspection and the safe path to complete
 
 ## Verified checkpoint — 2026-11-19
 
-The live project was rechecked read-only: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, 8 applied migrations, and 9 public application tables with RLS enabled. Both checklist tables and the task-organization trigger are absent; `projects.name`, `goals.unit`, and `goals.target` are absent. The live migration ledger remains unchanged.
+The live project was rechecked read-only: ACTIVE_HEALTHY on PostgreSQL 17.11.0.003, exactly 8 applied migrations, and 9 public application tables with RLS enabled. All 9 currently report zero rows. Both checklist tables and the task-organization trigger are absent; `projects.name`, `goals.unit`, and `goals.target` are absent. The live migration ledger remains unchanged.
 
-The repository branch contains 18 numbered migrations: 8 live versions plus 10 local-only migrations (7 Organization, 1 Progress compatibility, 2 RLS performance). [CI #244](https://github.com/mohith-krishnaa/personal-os/actions/runs/44486737299) passed on test commit `bd31ebe48d13f4ddf0c65192cb18bd3f175dfa06`: full PostgreSQL 17 migration replay/RLS assertions, hierarchy concurrency integration, 58/58 application tests, typecheck, production build, and npm install with 0 vulnerabilities. The strengthened RLS assertion matrix checks the role, command, owner predicate, and progress-goal relationship for all ten optimized policies.
+The branch contains 18 numbered migrations: 8 live versions plus 10 local-only migrations (7 Organization, 1 Progress compatibility, 2 RLS performance). [CI #254](https://github.com/mohith-krishnaa/personal-os/actions/runs/44488227025) passed on documentation head `e5f7d0cbcc5761864ba1aa60af49889a4ed81ea6`; all configured PostgreSQL replay/RLS, hierarchy concurrency, application test, typecheck, and production-build steps succeeded.
 
-[CI #245](https://github.com/mohith-krishnaa/personal-os/actions/runs/44486843806) passed on documentation commit `7fea1351ee42eb957cd55c4ebf1b524df95ed99a`. CI #246 was running on the next documentation commit at the time of this checkpoint. The backup instructions were refreshed against the current Supabase CLI docs: linked-project `db dump`, separate schema/data/role exports, `--use-copy` for data, and linked migration history verification. No production changes were made.
+The next test change extends preflight query 5 to include `reminders`, `notifications`, and `progress_entries`, so the 10 reminder/notification/progress policies are visible alongside Organization and goals policies. The disposable bootstrap now supplies a minimal `supabase_migrations.schema_migrations` fixture, and `organization-migrations.sh` executes the exact read-only preflight after replay. [CI #257](https://github.com/mohith-krishnaa/personal-os/actions/runs/44495009597) is running on `c492e6e89f46e65f695d1bddd7439c9f0d01fd92`; its result is not yet known. Later documentation commits will have separate CI runs.
+
+The owner-controlled schema/data/roles backup and successful isolated restore are still missing. No production changes or PR merge were made.
+
 ## Current live evidence
 
 Read-only Supabase project, migration, table, policy, constraint, and advisor calls are working again. Project metadata is ACTIVE_HEALTHY.
@@ -51,6 +54,12 @@ The seven Organization migrations remain local-only and unapplied:
 6. 20261016000100_projects_name_title_compatibility.sql
 7. 20261117000200_harden_checklist_select_ownership.sql
 
+The other three local-only migrations are:
+
+- `20261117000100_reconcile_progress_goal_metrics.sql` — Progress compatibility.
+- `20261119000100_deduplicate_goals_owner_policies.sql` — remove four redundant goals policies.
+- `20261119000200_optimize_reminder_progress_rls.sql` — optimize ten reminder, notification, and progress policy expressions.
+
 Do not run migration up or migration repair until the local/remote history has been reviewed using the Supabase CLI and the rollout plan has been approved.
 
 ## Backup gate — Free Plan
@@ -87,11 +96,12 @@ The current automation environment has no Docker daemon, pg_dump binary, or data
 
 - Security advisor: no lints.
 - Health advisor: no lints.
-- Performance advisor snapshot (2026-11-18):
+- Performance advisor snapshot (read-only, 2026-11-19):
   - 4 unindexed foreign keys: notifications.task_id, projects.goal_id, tasks.parent_task_id, tasks.project_id.
-  - 14 auth_rls_initplan warnings.
+  - 14 auth_rls_initplan warnings across goals, reminders, notifications, and progress_entries.
   - 13 unused-index findings. Do not drop indexes solely because they are currently unused.
   - 4 multiple-permissive-policy findings on goals because goals_owner overlaps the four command-specific policies.
+  - Security and health advisors returned no lints.
 - A fresh read-only index probe confirmed that the expected index names `notifications_task_id_idx`, `projects_goal_id_idx`, `tasks_parent_task_id_idx`, and `tasks_project_id_idx` are absent from the live database.
 - The pending migration chain already creates the latter three indexes: the two task indexes in `20260905170000_organization_v1.sql`, and the conditional project-goal index in `20261016000100_projects_name_title_compatibility.sql`. The full migration replay assertion now checks that each exists and is valid/ready. They remain absent from production until the migrations are approved and applied.
 - `notifications.task_id` has no corresponding pending migration and remains outside Organization V1; track it for reminder/production hardening.
@@ -100,7 +110,7 @@ Do not change live policies or indexes as part of this preflight. Review each fi
 
 ## Read-only SQL preflight
 
-Run supabase/operations/organization-v1-preflight.sql in the Supabase SQL Editor. It contains SELECT statements only and reports the migration ledger, required table/column presence, RLS flags, policies, triggers, constraints, and indexes. Re-run it immediately before and after any approved rollout.
+Run supabase/operations/organization-v1-preflight.sql in the Supabase SQL Editor. It contains SELECT statements only and reports the migration ledger, required table/column presence, RLS flags, policies, triggers, constraints, and indexes. Query 5 includes Organization, goals, reminders, notifications, and progress_entries so the pending 14-policy initplan remediation can be reviewed after rollout. The exact preflight file is also executed at the end of the disposable migration replay in CI; the test bootstrap creates only a minimal migration-ledger fixture so the preflight syntax and catalog queries are exercised without connecting to production. Re-run it immediately before and after any approved rollout.
 
 ## Safe rollout sequence
 
