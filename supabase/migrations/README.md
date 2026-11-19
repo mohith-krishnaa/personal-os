@@ -29,9 +29,11 @@ The trigger also prevents moving a parent task to a different owner or project w
 
 ## Full migration-chain verification
 
-CI now replays every numbered SQL migration in a disposable PostgreSQL 17 database. The fixture bootstraps the Supabase roles, `auth.users`, `auth.uid()`, and the platform-managed `rls_auto_enable()` function, then replays the eight live migrations followed by the seven Organization migrations and the Progress metrics compatibility repair.
+CI now replays every numbered SQL migration in a disposable PostgreSQL 17 database. The fixture bootstraps the Supabase roles, `auth.users`, `auth.uid()`, and the platform-managed `rls_auto_enable()` function, then replays all 18 migrations: the eight live-ledger migrations, seven Organization migrations, one Progress metrics compatibility repair, and two RLS policy/performance migrations.
 
-The replay seeds legacy `projects.title` and `task_checklist_items` rows before the compatibility/reconciliation migrations. It verifies that canonical reconciliation copies only same-owner task rows, malformed canonical and legacy checklist rows attached to another owner's task are hidden by SELECT RLS, the project title/name dual-write remains available, and authenticated Owner A/Owner B sessions cannot read or mutate one another's Organization records. This is a disposable PostgreSQL test, not a production backup restore or a live PostgREST test.
+The replay seeds legacy `projects.title` and `task_checklist_items` rows before the compatibility/reconciliation migrations. It verifies that canonical reconciliation copies only same-owner task rows, malformed canonical and legacy checklist rows attached to another owner's task are hidden by SELECT RLS, the project title/name dual-write remains available, and authenticated Owner A/Owner B sessions cannot read or mutate one another's Organization records. The assertion script verifies the exact 13-policy Organization matrix across projects, tasks, and both checklist tables, including authenticated roles, command scopes, owner predicates, and task-owner link checks. It also verifies the ten optimized reminder/notification/progress policies preserve their authenticated role, command, owner predicate, and progress-to-goal ownership check; the canonical `goals_owner` policy must remain initplan-safe.
+
+This is a disposable PostgreSQL test, not a production backup restore or a live PostgREST test.
 
 ## Progress goal metrics compatibility repair
 
