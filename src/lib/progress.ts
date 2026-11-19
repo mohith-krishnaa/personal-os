@@ -25,7 +25,9 @@ export function getGoalProgressPresentation(
 
     return {
       kind: 'historical',
-      totalLabel: `Historical total: ${total} (unit unavailable)`,
+      totalLabel: typeof goal.unit === 'string' && goal.unit.trim().length > 0
+        ? `Historical total: ${total} ${goal.unit.trim()}`
+        : `Historical total: ${total} (unit unavailable)`,
       statusLabel: missingDetails.join(' · '),
     }
   }
