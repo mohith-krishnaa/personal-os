@@ -382,3 +382,12 @@ The migration replay now verifies five exact foreign-key contracts:
 For both checklist tables, the assertion requires `task_id` to be NOT NULL and participate in exactly one FK; that FK must be a validated single-column reference to `public.tasks(id)` with CASCADE deletion. The source-column count includes composite FKs as well as single-column FKs. A disposable negative test adds a second, NOT VALID FK from each checklist `task_id` to `auth.users(id)`, reruns the assertion, requires the exact contract error, and lets the failed connection roll back the test transaction.
 
 Read-only preflight query 11 reports all five relationships, exact target columns, validation state, delete behavior, and the count of every FK involving each source column. [CI #302](https://github.com/mohith-krishnaa/personal-os/actions/runs/44563968200) passed on exact code head `f0c8a250c617b7bb3342671275582b78a9dab781`: 18-migration PostgreSQL 17 replay, RLS assertions, preflight, negative FK test, checklist conflict report, hierarchy concurrency, 58/58 application tests, typecheck, and production build. This remains disposable-database verification; the checklist tables are absent from production.
+
+
+## Project/task foreign-key recovery guard — 2026-11-19
+
+The earlier Organization migration conditionally adds project/task FKs when it cannot find any FK whose definition mentions the source column. A drifted schema could therefore contain a wrong or composite FK and cause the original migration to skip the required relationship. The branch-only `20261119000300_ensure_project_task_foreign_keys.sql` now closes that gap after the existing migration sequence.
+
+The guard accepts exactly one FK per source column when it targets the specified single target column and has the specified delete action. It creates the expected FK only when no FK uses the source column, validates an exact but unvalidated FK, and fails closed when any conflicting, duplicate, or composite FK is present. It does not drop or rewrite constraints; unexpected definitions require operator review. CI #309 verifies idempotent replay, missing-FK repair, NOT VALID validation, and conflict rejection on disposable PostgreSQL 17.
+
+This guard is branch-only and is not authorization to apply production DDL. Production still requires a complete owner-controlled schema/data/roles backup restored successfully in isolation, followed by authenticated two-user PostgREST CRUD and isolation tests.

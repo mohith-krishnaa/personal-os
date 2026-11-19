@@ -13,7 +13,7 @@ The filenames below use the exact live version and name. Do not change their tim
 - 20260830141616_progress_goals_v1.sql
 - 20260905162251_restrict_rls_auto_enable_execute.sql
 
-The seven Organization V1 migrations, one Progress goal-metrics compatibility migration, and two RLS performance migrations are local-only (10 local-only migrations total) and are not present in the live ledger. The branch contains 18 numbered SQL migrations: 8 matching the live ledger plus those 10 pending migrations. They must not be applied until a verified backup exists and the migration sequence has been tested against the live legacy schema.
+The eight Organization V1 migrations, one Progress goal-metrics compatibility migration, and two RLS performance migrations are local-only (11 local-only migrations total) and are not present in the live ledger. The branch contains 19 numbered SQL migrations: 8 matching the live ledger plus those 11 pending migrations. They must not be applied until a verified backup exists and the migration sequence has been tested against the live legacy schema.
 
 The duplicate 20260830181600_reminder_notifications.sql file was not present in the live ledger and was removed. Its additional policy/index definitions must not be reintroduced without a reviewed migration.
 
@@ -157,3 +157,18 @@ The full migration replay verifies five exact relationships: project and parent-
 Read-only preflight query 11 reports the same five contracts, including exact target, validation, delete action, and the count of all FKs containing the source column. A negative CI fixture adds duplicate NOT VALID checklist task FKs inside a disposable transaction and confirms the migration assertion rejects the schema.
 
 [CI #302](https://github.com/mohith-krishnaa/personal-os/actions/runs/44563968200) passed on code head `f0c8a250c617b7bb3342671275582b78a9dab781`: full 18-migration PostgreSQL 17 replay, Organization/RLS assertions, preflight, negative FK test, reconciliation conflict report, hierarchy concurrency, 58/58 application tests, TypeScript typecheck, and production build. No migration was added; the chain remains 18 SQL files. Production checklist tables remain absent, and no production DDL was performed.
+
+
+## Project/task foreign-key recovery guard — 2026-11-19
+
+The branch-only forward migration `20261119000300_ensure_project_task_foreign_keys.sql` closes a gap in the earlier conditional FK creation checks. It verifies the exact source/target columns and delete action for:
+
+- `tasks.project_id -> projects.id ON DELETE SET NULL`
+- `tasks.parent_task_id -> tasks.id ON DELETE CASCADE`
+- `projects.goal_id -> goals.id ON DELETE SET NULL`
+
+If no FK uses the source column, the migration creates the expected relationship. If exactly one expected relationship exists but is NOT VALID, it validates it. If a wrong, duplicate, or composite FK uses the source column, it raises and leaves every existing constraint untouched for explicit review. It never drops or rewrites an unexpected constraint.
+
+CI #309 passed on exact branch head `020877abbbf63719716a9d0c615160a097744716`. The disposable PostgreSQL 17 test replay verified the migration can be reapplied, repairs a missing FK inside a rollback-only transaction, validates an exact NOT VALID FK inside a rollback-only transaction, and rejects an unexpected additional FK. Full 19-migration replay, Organization/RLS assertions, read-only preflight, checklist conflict tests, hierarchy concurrency, 58/58 application tests, typecheck, and production build all passed.
+
+The live Supabase ledger remains at 8 versions. Read-only inspection confirms the three existing live project/task FKs already match these contracts. This migration remains unapplied in production; no production DDL was performed. Production rollout remains blocked on a complete owner-controlled schema/data/roles backup successfully restored in isolation and authenticated two-user PostgREST verification.

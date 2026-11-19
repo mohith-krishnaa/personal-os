@@ -309,3 +309,14 @@ Repository query 11 now reports five expected relationships: `tasks.project_id -
 The disposable migration assertion requires each checklist `task_id` to be NOT NULL and to participate in exactly one FK, which must be a validated single-column reference to `public.tasks(id) ON DELETE CASCADE`. CI #302 also injects an extra NOT VALID FK from each checklist task_id to `auth.users(id)` in a transaction and confirms the assertion rejects the schema before the transaction is rolled back. The job log explicitly confirms the negative test passed. [CI #302](https://github.com/mohith-krishnaa/personal-os/actions/runs/44563968200) passed the full 18-migration PostgreSQL 17 replay, Organization/RLS assertions, read-only preflight, negative FK test, reconciliation conflict report, hierarchy concurrency, 58/58 application tests, typecheck, and production build.
 
 No migration was added; the branch remains at 18 SQL migrations. The negative test is disposable PostgreSQL evidence, not a production restore or live PostgREST test. Production remains read-only and rollout remains blocked by the owner-controlled complete schema/data/roles backup and successful isolated restore, followed by authenticated two-user PostgREST CRUD/isolation testing.
+
+
+## Project/task foreign-key recovery guard — 2026-11-19
+
+The branch now contains the forward-only migration `20261119000300_ensure_project_task_foreign_keys.sql`. It checks the exact contracts for `tasks.project_id`, `tasks.parent_task_id`, and `projects.goal_id`. It adds a missing relationship only if no FK uses the source column, validates a sole exact NOT VALID FK, and aborts if any wrong, duplicate, or composite FK is present. It never removes or rewrites constraints automatically.
+
+CI #309 passed on exact head `020877abbbf63719716a9d0c615160a097744716`, including full 19-migration PostgreSQL 17 replay, FK guard idempotence, missing-FK repair, NOT VALID validation, unexpected-FK rejection, Organization/RLS assertions, read-only preflight, checklist reconciliation tests, hierarchy concurrency, 58/58 application tests, typecheck, and production build.
+
+Read-only live inspection confirms the three existing project/task FKs already match the expected targets and delete actions and are validated. The migration is not applied to production. The live ledger remains at 8 versions; all 9 public tables have RLS enabled and report zero rows. Production still lacks `projects.name`, both checklist tables, Organization validation triggers, and `goals.unit/target`.
+
+Do not apply the branch migration until the owner-controlled complete schema/data/roles backup has been successfully restored in an isolated environment and the authenticated two-user PostgREST acceptance tests are complete. No production DDL or PR merge is authorized by this run.
