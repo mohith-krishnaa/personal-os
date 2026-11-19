@@ -64,14 +64,16 @@ The Supabase Dashboard confirms that the Free Plan does not include scheduled pr
 
 The supported Supabase CLI db dump command runs pg_dump in a container and excludes Supabase-managed schemas such as auth and storage. It does not include table data or custom roles in the default schema dump; those require separate data-only and role-only exports. See the [Supabase CLI db dump reference](https://supabase.com/docs/reference/cli/supabase-db-dump).
 
-On an owner-controlled Windows machine with Docker Desktop and the Supabase CLI installed, use the current CLI v3 syntax:
+On an owner-controlled Windows machine with Docker Desktop and the Supabase CLI installed, authenticate and link the project. Then export roles, schema, and data separately using the linked target explicitly:
 
     supabase login
     supabase link --project-ref gujzvkyytxsnervovvrt
-    supabase db dump --remote --file backups/personal-os-schema.sql
-    supabase db dump --remote --data-only --file backups/personal-os-data.sql
-    supabase db dump --remote --role-only --file backups/personal-os-roles.sql
-    supabase migration list --remote
+    supabase db dump --linked -f backups/personal-os-roles.sql --role-only
+    supabase db dump --linked -f backups/personal-os-schema.sql
+    supabase db dump --linked -f backups/personal-os-data.sql --use-copy --data-only
+    supabase migration list
+
+The official CLI reference documents `db dump` as operating on the linked project by default; `--linked` makes the target explicit. The `--role-only` and `--data-only` exports are required because the default dump contains neither custom roles nor table data. `--use-copy` is included for the data export as recommended by Supabase's platform restore guide.
 
 Keep these backup files outside the public repository and protect them as private database artifacts. Do not put database passwords, connection strings, access tokens, or service-role keys in Git or ChatGPT.
 
