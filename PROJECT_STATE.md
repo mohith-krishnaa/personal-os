@@ -555,3 +555,12 @@ Next safe action: create private schema/data/role exports, restore-test them in 
 - Live verification before the change: five goals policies, with the canonical ALL policy plus four duplicate command policies. Security advisor: 0 findings. Performance advisor: four overlapping goals policies.
 - CI has not yet been observed for this new branch head; do not claim the migration replay or tests passed until GitHub Actions confirms it.
 - No production migration, DDL, RLS policy change, data write, backup, restore, or PR merge was performed.
+
+## Follow-up — reminder/progress RLS initialization-plan optimization (2026-11-19)
+
+- Read-only inspection of live `pg_policies` identified the 14 direct-auth warnings as four duplicate `goals` policies, four `reminders` policies, two `notifications` policies, and four `progress_entries` policies.
+- The four redundant goals policies are handled by `20261119000100_deduplicate_goals_owner_policies.sql`, retaining the original core `goals_owner` policy.
+- Added `20261119000200_optimize_reminder_progress_rls.sql` to recreate the ten reminder, notification, and progress policies with scalar `(select auth.uid())` calls. Existing authenticated role scopes, commands, owner predicates, and progress-entry-to-goal ownership checks are preserved.
+- Extended disposable migration assertions to require all ten expected policies and reject remaining direct per-row `auth.uid()` expressions.
+- Updated migration README. These changes are branch-only; production remains unchanged.
+- CI has not yet been verified for the newest head. The policy rewrite is not considered accepted until full migration replay and assertions pass.
