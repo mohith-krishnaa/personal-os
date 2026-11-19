@@ -407,3 +407,14 @@ Next safe action: create private schema/data/role exports, restore-test them in 
 - The latest code-bearing checkpoint passed CI #222; the subsequent documentation-only checkpoint passed CI #223 on current PR head `a97c180578d1712c9023a970b4eff091c6dbb0b0`.
 - Progress & Streaks V1 is now explicitly labeled implementation-complete with live schema repair pending, matching the verified `public.goals` schema.
 - The Personal-OS Builder automation is paused until a private backup/restore and live authenticated API test environment are available.
+
+## 2026-11-19 — Goals RLS policy deduplication (branch-only)
+
+- Read-only inspection confirmed `public.goals` has five authenticated policies: the core `goals_owner` policy for ALL commands plus four Progress V1 command-specific policies. The four duplicates use direct `auth.uid()`; the canonical policy uses `(select auth.uid())`.
+- Added `20261119000100_deduplicate_goals_owner_policies.sql` to remove only the four redundant command-specific policies and retain the existing owner-scoped ALL policy.
+- Added migration replay assertions for the retained canonical policy and absence of the four duplicate policies.
+- Updated `supabase/migrations/README.md` and `PROJECT_STATE.md`.
+- Latest docs commit: `e1c9986e3976d7422da12831bd163625bce4b3bd`. The new migration and assertion are committed on `feature/organization-v1`.
+- CI status for this new head has not yet been verified. Do not claim tests pass until the workflow reports success.
+- No live production DDL, policy changes, migration application, data writes, backup/restore, or PR merge occurred.
+- Next: verify CI replay; then address the remaining RLS initialization warnings by reviewing each policy's exact authorization semantics before preparing any further migration. Do not drop unused indexes based only on zero-row usage statistics.
