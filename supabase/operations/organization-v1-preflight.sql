@@ -74,7 +74,8 @@ left join information_schema.columns c
  and c.column_name = e.column_name
 order by e.table_name, e.column_name;
 
--- 5. Current owner policies for Organization and related tables.
+-- 5. Owner and performance-sensitive policies for Organization, reminders, and progress.
+-- The related tables are included so rollout can verify the pending initplan-safe RLS repairs.
 select
   schemaname,
   tablename,
@@ -86,7 +87,7 @@ select
   with_check
 from pg_policies
 where schemaname = 'public'
-  and tablename in ('projects', 'tasks', 'checklist_items', 'task_checklist_items', 'goals')
+  and tablename in ('projects', 'tasks', 'checklist_items', 'task_checklist_items', 'goals', 'reminders', 'notifications', 'progress_entries')
 order by tablename, policyname;
 
 -- 6. User-defined triggers on Organization tables.
