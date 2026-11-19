@@ -148,4 +148,4 @@ CI #293 seeds a valid legacy-only write after reconciliation and verifies that t
 
 The full migration replay assertions verify that both `checklist_items.task_id` and `task_checklist_items.task_id` remain NOT NULL and have a validated single-column foreign key to `public.tasks(id)` with `ON DELETE CASCADE`. The conflict report's `missing_task` category is defensive detection for constraint/schema drift, not an expected state under this contract. No migration was added; the migration count remains 18.
 
-The assertion is on code/test commit `7e3d75f46214d078cfc1d4ba7a416584127aa05b`; [CI #296](https://github.com/mohith-krishnaa/personal-os/actions/runs/44542112681) must finish successfully before it is treated as verified.
+The assertion is on code/test commit `7e3d75f46214d078cfc1d4ba7a416584127aa05b`; [CI #296](https://github.com/mohith-krishnaa/personal-os/actions/runs/44542112681) passed the full configured workflow, and [CI #297](https://github.com/mohith-krishnaa/personal-os/actions/runs/44542401798) passed on documentation head `ab6a3381109d50496e1171494f9191f304b03298`.
