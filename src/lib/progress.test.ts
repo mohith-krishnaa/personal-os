@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { calculateStreak, hasUsableGoalMetrics, progressPercent } from './progress'
+import { calculateStreak, getGoalProgressPresentation, hasUsableGoalMetrics, progressPercent } from './progress'
 
 describe('hasUsableGoalMetrics', () => {
   it('accepts a non-empty unit and finite positive target', () => {
@@ -50,6 +50,41 @@ describe('calculateStreak', () => {
       { value: 2, occurred_on: '2026-08-29' },
       { value: 1, occurred_on: '2026-08-30' },
     ], today).current, 2)
+  })
+})
+
+describe('getGoalProgressPresentation', () => {
+  it('shows legacy history without inventing a unit, target, or percentage', () => {
+    assert.deepEqual(getGoalProgressPresentation({ unit: null, target: null }, 3, 0), {
+      kind: 'historical',
+      totalLabel: 'Historical total: 3 (unit unavailable)',
+      statusLabel: 'Target not set · Unit unavailable',
+    })
+  })
+
+  it('preserves an available unit when only the target is missing', () => {
+    assert.deepEqual(getGoalProgressPresentation({ unit: 'pages', target: null }, 3, 0), {
+      kind: 'historical',
+      totalLabel: 'Historical total: 3 pages',
+      statusLabel: 'Target not set',
+    })
+  })
+
+  it('explains when the measurement unit is unavailable', () => {
+    assert.deepEqual(getGoalProgressPresentation({ unit: '   ', target: 10 }, 3, 0), {
+      kind: 'historical',
+      totalLabel: 'Historical total: 3 (unit unavailable)',
+      statusLabel: 'Unit unavailable',
+    })
+  })
+
+  it('shows totals, units, and percentages only for usable metrics', () => {
+    assert.deepEqual(getGoalProgressPresentation({ unit: ' pages ', target: 10 }, 3, 30), {
+      kind: 'measurable',
+      totalLabel: '3 / 10 pages',
+      percentLabel: '30%',
+      percent: 30,
+    })
   })
 })
 
