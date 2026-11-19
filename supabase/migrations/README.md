@@ -17,7 +17,7 @@ The seven Organization V1 migrations, one Progress goal-metrics compatibility mi
 
 The duplicate 20260830181600_reminder_notifications.sql file was not present in the live ledger and was removed. Its additional policy/index definitions must not be reintroduced without a reviewed migration.
 
-Use `supabase migration list` after linking the project to verify local/remote version alignment. Do not run migration repair, migration up, or a remote reset to make the histories appear aligned. Do not run migration repair, migration up, or a remote reset to make the histories appear aligned.
+Use `supabase migration list` after linking the project to verify local/remote version alignment. Do not run migration repair, migration up, or a remote reset to make the histories appear aligned.
 
 
 ## Organization hierarchy concurrency guard
@@ -88,3 +88,8 @@ The branch contains 18 numbered migrations: 8 applied in the live ledger and 10 
 ## Notifications task foreign-key index — fresh live evidence
 
 Read-only inspection on 2026-11-19 confirms `notifications_task_id_fkey` is `FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE`. The `notifications` table has only `notifications_pkey`, `notifications_reminder_unique` on `reminder_id`, and `notifications_user_created_at_idx` on `(user_id, created_at DESC)`; there is no index beginning with `task_id`. A dedicated B-tree index on `notifications(task_id)` is justified to support referenced-task delete/cascade checks and task relationship lookups. This is a recommendation only: no production index was created. Add it through a new reviewed migration using `supabase migration new`, include a replay assertion for validity/readiness, and rerun CI before any production rollout.
+
+
+## Read-only rollout preflight in CI — 2026-11-19
+
+The disposable migration bootstrap creates a minimal `supabase_migrations.schema_migrations(version, name)` fixture. After replay and RLS assertions, `supabase/tests/organization-migrations.sh` runs `supabase/operations/organization-v1-preflight.sql` with `ON_ERROR_STOP=1`. This checks that the same SELECT-only preflight used by operators parses and executes against the resulting PostgreSQL 17 schema. Query 5 includes Organization tables plus goals, reminders, notifications, and progress_entries so the ten reminder/notification/progress policy optimizations and canonical goals policy can be inspected after an approved rollout. This test is disposable-database verification only; it does not connect to or alter production.
