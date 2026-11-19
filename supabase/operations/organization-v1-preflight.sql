@@ -181,3 +181,75 @@ select
       and app_name is distinct from legacy_title
   ) as rows_with_name_title_drift
 from normalized;
+
+-- 11. Exact project/task/checklist foreign-key contracts.
+-- Report missing, duplicate, unvalidated, incorrectly targeted, or incorrectly configured FKs.
+with expected_foreign_keys(
+  source_table, source_column, target_table, target_column,
+  expected_delete_action, delete_action_code
+) as (
+  values
+    ('tasks', 'project_id', 'projects', 'id', 'SET NULL', 'n'::"char"),
+    ('tasks', 'parent_task_id', 'tasks', 'id', 'CASCADE', 'c'::"char"),
+    ('projects', 'goal_id', 'goals', 'id', 'SET NULL', 'n'::"char"),
+    ('checklist_items', 'task_id', 'tasks', 'id', 'CASCADE', 'c'::"char"),
+    ('task_checklist_items', 'task_id', 'tasks', 'id', 'CASCADE', 'c'::"char")
+),
+resolved as (
+  select
+    e.*,
+    to_regclass(format('public.%I', e.source_table)) as source_oid,
+    to_regclass(format('public.%I', e.target_table)) as target_oid
+  from expected_foreign_keys e
+)
+select
+  e.source_table,
+  e.source_column,
+  e.target_table,
+  e.target_column,
+  e.expected_delete_action,
+  con.conname as constraint_name,
+  coalesce(con.convalidated, false) as constraint_validated,
+  con.oid is not null as exact_constraint_present,
+  (
+    select count(*)
+    from pg_constraint other_con
+    where other_con.conrelid = e.source_oid
+      and other_con.contype = 'f'
+      and (
+        select a.attnum from pg_attribute a
+        where a.attrelid = e.source_oid
+          and a.attname = e.source_column
+          and not a.attisdropped
+      ) = any(other_con.conkey)
+  ) as source_column_foreign_key_count,
+  pg_get_constraintdef(con.oid) as actual_definition
+from resolved e
+left join lateral (
+  select candidate.*
+  from pg_constraint candidate
+  where candidate.conrelid = e.source_oid
+    and candidate.confrelid = e.target_oid
+    and candidate.contype = 'f'
+    and candidate.convalidated
+    and candidate.confdeltype = e.delete_action_code
+    and candidate.conkey = array[
+      (
+        select a.attnum from pg_attribute a
+        where a.attrelid = e.source_oid
+          and a.attname = e.source_column
+          and not a.attisdropped
+      )
+    ]::smallint[]
+    and candidate.confkey = array[
+      (
+        select a.attnum from pg_attribute a
+        where a.attrelid = e.target_oid
+          and a.attname = e.target_column
+          and not a.attisdropped
+      )
+    ]::smallint[]
+  order by candidate.conname
+  limit 1
+) con on true
+order by e.source_table, e.source_column;
