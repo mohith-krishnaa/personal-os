@@ -31,7 +31,7 @@ left join pg_class c
   on c.oid = to_regclass(format('public.%I', e.table_name))
 order by e.table_name;
 
--- 4. Organization columns expected by the application and migrations.
+-- 4. Organization and Progress compatibility columns expected by the application and migrations.
 with expected_columns(table_name, column_name) as (
   values
     ('projects', 'id'),
@@ -43,6 +43,8 @@ with expected_columns(table_name, column_name) as (
     ('projects', 'priority'),
     ('projects', 'start_date'),
     ('projects', 'target_date'),
+    ('goals', 'unit'),
+    ('goals', 'target'),
     ('tasks', 'id'),
     ('tasks', 'user_id'),
     ('tasks', 'project_id'),
@@ -253,3 +255,31 @@ left join lateral (
   limit 1
 ) con on true
 order by e.source_table, e.source_column;
+
+-- 12. Progress goal-metric compatibility.
+-- Metrics remain nullable for legacy goals; validated checks reject blank units
+-- and non-positive targets.
+with expected_metrics(column_name, expected_data_type, constraint_name) as (
+  values
+    ('unit', 'text', 'goals_unit_nonempty'),
+    ('target', 'numeric', 'goals_target_positive')
+)
+select
+  e.column_name,
+  e.expected_data_type,
+  c.data_type,
+  c.is_nullable,
+  c.column_name is not null as column_present,
+  con.conname as constraint_name,
+  coalesce(con.convalidated, false) as constraint_validated,
+  pg_get_constraintdef(con.oid) as constraint_definition
+from expected_metrics e
+left join information_schema.columns c
+  on c.table_schema = 'public'
+ and c.table_name = 'goals'
+ and c.column_name = e.column_name
+left join pg_constraint con
+  on con.conrelid = to_regclass('public.goals')
+ and con.conname = e.constraint_name
+ and con.contype = 'c'
+order by e.column_name;

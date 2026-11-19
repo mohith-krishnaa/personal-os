@@ -37,6 +37,8 @@ if [[ "$applied_migrations" -ne "$expected_migrations" ]]; then
 fi
 
 psql -X -v ON_ERROR_STOP=1 -f supabase/tests/organization-migration-assertions.sql
+echo "Verifying Progress goal-metric compatibility"
+psql -X -v ON_ERROR_STOP=1 -f supabase/tests/progress-goal-compatibility.sql
 
 echo "Reapplying the project/task FK guard to verify idempotence"
 psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261119000300_ensure_project_task_foreign_keys.sql
