@@ -17,7 +17,7 @@ The seven Organization V1 migrations, one Progress goal-metrics compatibility mi
 
 The duplicate 20260830181600_reminder_notifications.sql file was not present in the live ledger and was removed. Its additional policy/index definitions must not be reintroduced without a reviewed migration.
 
-Use the Supabase CLI migration list --remote command to verify local/remote version alignment after linking the project. Do not run migration repair, migration up, or a remote reset to make the histories appear aligned.
+Use `supabase migration list` after linking the project to verify local/remote version alignment. Do not run migration repair, migration up, or a remote reset to make the histories appear aligned. Do not run migration repair, migration up, or a remote reset to make the histories appear aligned.
 
 
 ## Organization hierarchy concurrency guard
