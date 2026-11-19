@@ -2,7 +2,7 @@
 
 ## Latest verified branch checkpoint — 2026-11-19
 
-- Branch `feature/organization-v1` is at `8df69700e6e4075ca1a906a4a4414523672e7cc1`; PR #11 is open, unmerged, and its head matches.
+- Immediately before this documentation-only refresh, branch `feature/organization-v1` was at `11062bc6b8fa1815bffbe322cd7b30274ced4772`, which passed CI #316. PR #11 is open and unmerged; read its current metadata for the post-refresh head.
 - The branch has 19 numbered migrations: 8 match the live ledger and 11 remain branch-only (8 Organization, 1 Progress compatibility, 2 RLS performance).
 - Code/test CI #309 passed on `020877abbbf63719716a9d0c615160a097744716`; current exact branch-head CI #312 passed on `8df69700e6e4075ca1a906a4a4414523672e7cc1`.
 - Live Supabase remains at 8 applied migrations. All 9 public tables have RLS enabled and report zero rows; the Organization schema is not deployed.

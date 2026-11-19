@@ -2,7 +2,7 @@
 
 Status: implementation is under review in PR #11. This document records repository-level design decisions; it does not certify the live Supabase schema or deployment.
 
-Latest verification (2026-11-19): branch HEAD `8df69700e6e4075ca1a906a4a4414523672e7cc1` passed CI #312 with the complete 19-migration PostgreSQL 17 replay and all configured application/typecheck/build steps. Live Supabase remains at 8 migrations; Organization rollout is blocked on a complete owner-controlled backup restored in isolation and authenticated two-user PostgREST verification.
+Latest verification before this documentation-only refresh (2026-11-19): branch HEAD `11062bc6b8fa1815bffbe322cd7b30274ced4772` passed CI #316 with the complete 19-migration PostgreSQL 17 replay and all configured application/typecheck/build steps. Verify the current PR head and its own workflow after this documentation commit. Live Supabase remains at 8 migrations; Organization rollout is blocked on a complete owner-controlled backup restored in isolation and authenticated two-user PostgREST verification.
 
 ## Trust boundaries
 
