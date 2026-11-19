@@ -300,12 +300,12 @@ The checklist conflict report includes `missing_task` as a defensive drift categ
 
 Code/test commit: `7e3d75f46214d078cfc1d4ba7a416584127aa05b`. [CI #296](https://github.com/mohith-krishnaa/personal-os/actions/runs/44542112681) passed the 18-migration PostgreSQL 17 replay, RLS assertions, hierarchy concurrency, 58/58 application tests, typecheck, and production build. [CI #297](https://github.com/mohith-krishnaa/personal-os/actions/runs/44542401798) passed on the subsequent documentation head `ab6a3381109d50496e1171494f9191f304b03298`. Live Supabase remains read-only with 8 applied migrations and both checklist tables absent. No production changes were made.
 
-## Project/task FK preflight — 2026-11-19
+## Project/task/checklist FK preflight — 2026-11-19
 
-Read-only catalog inspection confirmed the live legacy schema currently has these validated constraints:
+Read-only live schema inspection confirms the current legacy project/task relationships exist and the live project remains on the eight-migration core ledger. The checklist tables do not exist in production, so their contracts cannot be verified there yet.
 
-- `tasks_project_id_fkey`: `tasks(project_id) -> projects(id) ON DELETE SET NULL`.
-- `tasks_parent_task_id_fkey`: `tasks(parent_task_id) -> tasks(id) ON DELETE CASCADE`.
-- `projects_goal_id_fkey`: `projects(goal_id) -> goals(id) ON DELETE SET NULL`.
+Repository query 11 now reports five expected relationships: `tasks.project_id -> projects.id SET NULL`, `tasks.parent_task_id -> tasks.id CASCADE`, `projects.goal_id -> goals.id SET NULL`, and each checklist table's `task_id -> tasks.id CASCADE`. It counts every FK containing each source column, including composite constraints, and separately reports whether the exact validated single-column target/action is present.
 
-The repository preflight now includes query 11 to report exact FK targets, validation, delete behavior, and single-column FK counts. The migration replay assertion fails if any relationship is missing, unvalidated, incorrectly targeted, has the wrong delete action, or has multiple single-column FKs on the same source column. Code head `9805fe3d24279cf38dfa688f8132c1b942cea7cb`; [CI #299](https://github.com/mohith-krishnaa/personal-os/actions/runs/44552846437) passed migration replay, assertions, preflight, hierarchy concurrency, 58/58 application tests, typecheck, and production build. No production DDL/DML was executed. The owner-controlled full backup and successful isolated restore remain mandatory before rollout.
+The disposable migration assertion requires each checklist `task_id` to be NOT NULL and to participate in exactly one FK, which must be a validated single-column reference to `public.tasks(id) ON DELETE CASCADE`. CI #302 also injects an extra NOT VALID FK from each checklist task_id to `auth.users(id)` in a transaction and confirms the assertion rejects the schema before the transaction is rolled back. The job log explicitly confirms the negative test passed. [CI #302](https://github.com/mohith-krishnaa/personal-os/actions/runs/44563968200) passed the full 18-migration PostgreSQL 17 replay, Organization/RLS assertions, read-only preflight, negative FK test, reconciliation conflict report, hierarchy concurrency, 58/58 application tests, typecheck, and production build.
+
+No migration was added; the branch remains at 18 SQL migrations. The negative test is disposable PostgreSQL evidence, not a production restore or live PostgREST test. Production remains read-only and rollout remains blocked by the owner-controlled complete schema/data/roles backup and successful isolated restore, followed by authenticated two-user PostgREST CRUD/isolation testing.
