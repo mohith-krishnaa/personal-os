@@ -41,6 +41,9 @@ psql -X -v ON_ERROR_STOP=1 -f supabase/tests/organization-migration-assertions.s
 echo "Executing read-only Organization rollout preflight against the replayed schema"
 psql -X -v ON_ERROR_STOP=1 -f supabase/operations/organization-v1-preflight.sql >/dev/null
 
+echo "Seeding a valid legacy-only write after one-time reconciliation"
+psql -X -v ON_ERROR_STOP=1 -f supabase/tests/organization-migration-seed-post-reconciliation.sql
+
 echo "Executing read-only checklist reconciliation conflict report"
 conflict_report="$(psql -X -v ON_ERROR_STOP=1 -A -t -f supabase/operations/checklist-reconciliation-conflicts.sql)"
 printf '%s\n' "$conflict_report"
@@ -55,8 +58,13 @@ if ! grep -Fq '30000000-0000-4000-8000-000000000005|canonical_id_collision|' <<<
   exit 1
 fi
 
+if ! grep -Fq '30000000-0000-4000-8000-000000000006|missing_canonical|' <<<"$conflict_report"; then
+  echo "Checklist conflict report did not identify a valid legacy-only write after reconciliation."
+  exit 1
+fi
+
 reported_conflicts="$(printf '%s\n' "$conflict_report" | sed '/^[[:space:]]*$/d' | wc -l | tr -d ' ')"
-if [[ "$reported_conflicts" -ne 2 ]]; then
-  echo "Expected exactly two seeded checklist reconciliation conflicts, found $reported_conflicts."
+if [[ "$reported_conflicts" -ne 3 ]]; then
+  echo "Expected exactly three seeded checklist reconciliation conflicts, found $reported_conflicts."
   exit 1
 fi
