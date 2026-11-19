@@ -41,6 +41,13 @@ This does not authorize production DDL. The migration remains unapplied until a 
 - `getGoalsWithProgress` reads goals through the authenticated Supabase client; the goals query is constrained by the table's existing owner RLS policy.
 - It fetches progress entries only for the goal IDs returned by that RLS-scoped query. The progress-entry table's owner RLS policy remains authoritative for row visibility.
 - Entries are grouped by `goal_id` while preserving the database's descending `occurred_on` order. The grouping loop appends in linear time rather than copying each accumulated array on every entry.
-- Legacy goals with NULL `unit` and `target` remain in the result. Their historical entries, total, and streak are retained; progress percentage remains zero because no target is invented. The dashboard displays “Target not set” and does not offer the progress-entry form.
+- Legacy goals with incomplete measurement metadata remain in the result. Their historical entries, total, and streak are retained. The dashboard labels the aggregate as a historical total, includes any known unit, identifies missing target/unit details, omits the percentage and progress bar, and does not offer the progress-entry form. It never presents a synthetic 0% as a measured result.
 - Errors from either the goals query or progress-entry query are propagated; the dashboard must not silently present a partial or empty history when a read fails.
 - CI #327 passed on code/test head `c9329a95b770b55168e85d349b1bd2fbde3e8bd8`: 71/71 application tests, 19-migration PostgreSQL 17 replay, Organization/RLS assertions, hierarchy checks, typecheck, and production build. New tests cover legacy grouping, measurable-goal aggregation, empty-goal short-circuiting, empty progress results, and both query-error paths.
+
+
+## Dashboard presentation regression — 2026-11-20
+
+- `getGoalProgressPresentation` returns a discriminated measurable/historical presentation. A measurable goal shows its total, target, trimmed unit, percentage, accessible progress bar, and progress-entry form. A legacy/incomplete goal shows a historical total with a known unit when available (otherwise an explicit unit-unavailable label), the missing measurement details, and its existing streak; it renders neither a percentage/progress bar nor a progress-entry form.
+- Four tests cover both metrics missing, missing target with known unit, missing unit with known target, and valid measurable metrics.
+- CI #331 exposed TS18047 because TypeScript could not infer `goal.unit` narrowing from the boolean helper. The code now normalizes the unit to a local string before formatting. CI #332 passed on `beedd5778a45d5ea72cf46a8675ed4bfd35099f6`: 19-migration PostgreSQL 17 replay, hierarchy checks, 75/75 application tests, typecheck, and production build.
