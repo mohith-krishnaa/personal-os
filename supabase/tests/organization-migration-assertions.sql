@@ -119,6 +119,31 @@ BEGIN
     RAISE EXCEPTION 'Expected owner-scoped Organization policies are missing.';
   END IF;
 
+  -- goals_owner is the single owner-scoped policy after deduplication.
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'goals'
+      AND policyname = 'goals_owner' AND cmd = 'ALL'
+      AND roles = ARRAY['authenticated']::name[]
+      AND qual LIKE '%auth.uid%'
+      AND with_check LIKE '%auth.uid%'
+  ) THEN
+    RAISE EXCEPTION 'The canonical authenticated goals_owner policy is missing.';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'goals'
+      AND policyname IN (
+        'Users can read own goals',
+        'Users can create own goals',
+        'Users can update own goals',
+        'Users can delete own goals'
+      )
+  ) THEN
+    RAISE EXCEPTION 'Redundant legacy goals policies remain after deduplication.';
+  END IF;
+
   IF has_function_privilege('anon', 'public.rls_auto_enable()', 'EXECUTE')
      OR has_function_privilege('authenticated', 'public.rls_auto_enable()', 'EXECUTE') THEN
     RAISE EXCEPTION 'Client roles must not execute rls_auto_enable().';
