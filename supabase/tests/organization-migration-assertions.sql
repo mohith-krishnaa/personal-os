@@ -144,6 +144,55 @@ BEGIN
     RAISE EXCEPTION 'Redundant legacy goals policies remain after deduplication.';
   END IF;
 
+  -- Reminder/notification/progress ownership policies must use initplan-safe auth calls.
+  IF (
+    SELECT count(*)
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND (
+        (tablename = 'reminders' AND policyname IN (
+          'reminders_owner_select', 'reminders_owner_insert',
+          'reminders_owner_update', 'reminders_owner_delete'
+        ))
+        OR (tablename = 'notifications' AND policyname IN (
+          'notifications_owner_select', 'notifications_owner_update'
+        ))
+        OR (tablename = 'progress_entries' AND policyname IN (
+          'Users can read own progress', 'Users can create own progress',
+          'Users can update own progress', 'Users can delete own progress'
+        ))
+      )
+  ) <> 10 THEN
+    RAISE EXCEPTION 'Expected all ten reminder, notification, and progress owner policies.';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND (
+        (tablename = 'reminders' AND policyname IN (
+          'reminders_owner_select', 'reminders_owner_insert',
+          'reminders_owner_update', 'reminders_owner_delete'
+        ))
+        OR (tablename = 'notifications' AND policyname IN (
+          'notifications_owner_select', 'notifications_owner_update'
+        ))
+        OR (tablename = 'progress_entries' AND policyname IN (
+          'Users can read own progress', 'Users can create own progress',
+          'Users can update own progress', 'Users can delete own progress'
+        ))
+      )
+      AND (
+        coalesce(qual, '') LIKE '%auth.uid()%'
+          AND coalesce(qual, '') NOT LIKE '%SELECT auth.uid()%'
+        OR coalesce(with_check, '') LIKE '%auth.uid()%'
+          AND coalesce(with_check, '') NOT LIKE '%SELECT auth.uid()%'
+      )
+  ) THEN
+    RAISE EXCEPTION 'A reminder, notification, or progress policy still evaluates auth.uid() per row.';
+  END IF;
+
   IF has_function_privilege('anon', 'public.rls_auto_enable()', 'EXECUTE')
      OR has_function_privilege('authenticated', 'public.rls_auto_enable()', 'EXECUTE') THEN
     RAISE EXCEPTION 'Client roles must not execute rls_auto_enable().';
