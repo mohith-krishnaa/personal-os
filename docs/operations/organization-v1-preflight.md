@@ -8,16 +8,11 @@ This runbook records the live read-only inspection and the safe path to complete
 
 ## Verified checkpoint — 2026-11-19
 
-The live project was rechecked read-only: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, 8 applied migrations, and 9 public application tables with RLS enabled. Both checklist tables and the task-organization trigger are still absent; `projects.name`, `goals.unit`, and `goals.target` are also absent. The live migration ledger remains unchanged.
+The live project was rechecked read-only: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, 8 applied migrations, and 9 public application tables with RLS enabled. Both checklist tables and the task-organization trigger are absent; `projects.name`, `goals.unit`, and `goals.target` are absent. The live migration ledger remains unchanged.
 
-The repository branch contains 18 numbered migrations: the 8 live versions plus 10 local-only migrations (7 Organization, 1 Progress compatibility, 2 RLS performance). [CI #241](https://github.com/mohith-krishnaa/personal-os/actions/runs/44480778181) passed on branch head `d697ff9b3249e7b1795a52ded88829260fae51b4`: full PostgreSQL 17 migration replay/RLS assertions, hierarchy concurrency integration, application tests, typecheck, and production build.
+The repository branch contains 18 numbered migrations: 8 live versions plus 10 local-only migrations (7 Organization, 1 Progress compatibility, 2 RLS performance). [CI #244](https://github.com/mohith-krishnaa/personal-os/actions/runs/44486737299) passed on test commit `bd31ebe48d13f4ddf0c65192cb18bd3f175dfa06`: full PostgreSQL 17 migration replay/RLS assertions, hierarchy concurrency integration, 58/58 application tests, typecheck, production build, and npm install with 0 vulnerabilities. The strengthened RLS assertion matrix checks the role, command, owner predicate, and progress-goal relationship for all ten optimized policies.
 
-Fresh advisor results: security and health returned no lints. Performance reports 4 unindexed foreign keys, 14 auth_rls_initplan warnings, 13 unused-index findings, and 4 overlapping permissive policies on goals. The branch-only migrations address three Organization/compatibility indexes, remove the four redundant goal policies, and convert ten reminder/notification/progress policy expressions to initplan-safe forms. None has been applied to production. `notifications.task_id` remains a separate unindexed FK outside Organization V1.
-
-PR #11 is open, unmerged, non-draft, and mergeable. PR #12 remains an open superseded draft. The Personal-OS Builder automation is enabled; it continues safe repository work but cannot create an owner-controlled backup or prove live API isolation.
-
-No production DDL, migration, RLS change, data write, restore, or PR merge occurred. The production rollout gate remains a private schema/data/roles backup that has been successfully restored in isolation, followed by authenticated two-user PostgREST verification.
-
+[CI #245](https://github.com/mohith-krishnaa/personal-os/actions/runs/44486843806) passed on documentation commit `7fea1351ee42eb957cd55c4ebf1b524df95ed99a`. CI #246 was running on the next documentation commit at the time of this checkpoint. The backup instructions were refreshed against the current Supabase CLI docs: linked-project `db dump`, separate schema/data/role exports, `--use-copy` for data, and linked migration history verification. No production changes were made.
 ## Current live evidence
 
 Read-only Supabase project, migration, table, policy, constraint, and advisor calls are working again. Project metadata is ACTIVE_HEALTHY.
