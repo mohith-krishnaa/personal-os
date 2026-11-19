@@ -52,6 +52,26 @@ describe('createGoal', () => {
 })
 
 describe('logProgress', () => {
+  it('rejects an invalid date format before database access', async () => {
+    let fromCalls = 0
+    const supabase = {
+      from() {
+        fromCalls += 1
+        throw new Error('database should not be reached')
+      },
+    } as any
+
+    await assert.rejects(
+      () => logProgress(supabase, 'owner-1', {
+        goalId: 'goal-1',
+        value: 1,
+        occurredOn: 'not-a-date',
+      }),
+      /Invalid progress entry/,
+    )
+    assert.equal(fromCalls, 0)
+  })
+
   it('checks goal ownership and measurement metadata before inserting progress', async () => {
     const filters: Array<[string, string]> = []
     let inserted: Record<string, unknown> | undefined
