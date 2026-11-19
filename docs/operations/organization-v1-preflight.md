@@ -299,3 +299,13 @@ This is disposable CI evidence only. Live Supabase still has 8 applied migration
 The checklist conflict report includes `missing_task` as a defensive drift category. Under the expected schema, this should not occur: both checklist tables have a NOT NULL `task_id` column with a validated FK to `public.tasks(id)` and `ON DELETE CASCADE`. The full migration replay assertion now verifies those properties for both tables. If it ever fails, stop rollout and inspect the table definition/constraint validation on the restored copy; do not repair production by writing data or altering constraints during preflight.
 
 Code/test commit: `7e3d75f46214d078cfc1d4ba7a416584127aa05b`. [CI #296](https://github.com/mohith-krishnaa/personal-os/actions/runs/44542112681) passed the 18-migration PostgreSQL 17 replay, RLS assertions, hierarchy concurrency, 58/58 application tests, typecheck, and production build. [CI #297](https://github.com/mohith-krishnaa/personal-os/actions/runs/44542401798) passed on the subsequent documentation head `ab6a3381109d50496e1171494f9191f304b03298`. Live Supabase remains read-only with 8 applied migrations and both checklist tables absent. No production changes were made.
+
+## Project/task FK preflight — 2026-11-19
+
+Read-only catalog inspection confirmed the live legacy schema currently has these validated constraints:
+
+- `tasks_project_id_fkey`: `tasks(project_id) -> projects(id) ON DELETE SET NULL`.
+- `tasks_parent_task_id_fkey`: `tasks(parent_task_id) -> tasks(id) ON DELETE CASCADE`.
+- `projects_goal_id_fkey`: `projects(goal_id) -> goals(id) ON DELETE SET NULL`.
+
+The repository preflight now includes query 11 to report exact FK targets, validation, delete behavior, and single-column FK counts. The migration replay assertion fails if any relationship is missing, unvalidated, incorrectly targeted, has the wrong delete action, or has multiple single-column FKs on the same source column. Code head `9805fe3d24279cf38dfa688f8132c1b942cea7cb`; CI #299 remains in progress, with PostgreSQL-client installation running and migration replay/tests/typecheck/build still pending. No production DDL/DML was executed. The owner-controlled full backup and successful isolated restore remain mandatory before rollout.
