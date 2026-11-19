@@ -103,20 +103,66 @@ BEGIN
     RAISE EXCEPTION 'An Organization table is missing row-level security.';
   END IF;
 
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies
-    WHERE schemaname = 'public' AND tablename = 'projects'
-      AND policyname = 'projects_select_own' AND cmd = 'SELECT'
-  ) OR NOT EXISTS (
-    SELECT 1 FROM pg_policies
-    WHERE schemaname = 'public' AND tablename = 'checklist_items'
-      AND policyname = 'checklist_items_insert_own' AND cmd = 'INSERT'
-  ) OR NOT EXISTS (
-    SELECT 1 FROM pg_policies
-    WHERE schemaname = 'public' AND tablename = 'task_checklist_items'
-      AND policyname = 'task_checklist_items_insert_own' AND cmd = 'INSERT'
+  -- Assert the complete Organization policy matrix, not just representative rows.
+  IF (
+    SELECT count(*)
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename IN ('projects', 'tasks', 'checklist_items', 'task_checklist_items')
+  ) <> 13 THEN
+    RAISE EXCEPTION 'Expected exactly thirteen owner-scoped Organization policies.';
+  END IF;
+
+  IF EXISTS (
+    WITH expected(tablename, policyname, command_name, needs_using, needs_check, needs_task_link) AS (
+      VALUES
+        ('projects', 'projects_select_own', 'SELECT', true, false, false),
+        ('projects', 'projects_insert_own', 'INSERT', false, true, false),
+        ('projects', 'projects_update_own', 'UPDATE', true, true, false),
+        ('projects', 'projects_delete_own', 'DELETE', true, false, false),
+        ('tasks', 'tasks_owner', 'ALL', true, true, false),
+        ('checklist_items', 'checklist_items_select_own', 'SELECT', true, false, true),
+        ('checklist_items', 'checklist_items_insert_own', 'INSERT', false, true, true),
+        ('checklist_items', 'checklist_items_update_own', 'UPDATE', true, true, true),
+        ('checklist_items', 'checklist_items_delete_own', 'DELETE', true, false, false),
+        ('task_checklist_items', 'task_checklist_items_select_own', 'SELECT', true, false, true),
+        ('task_checklist_items', 'task_checklist_items_insert_own', 'INSERT', false, true, true),
+        ('task_checklist_items', 'task_checklist_items_update_own', 'UPDATE', true, true, true),
+        ('task_checklist_items', 'task_checklist_items_delete_own', 'DELETE', true, false, false)
+    )
+    SELECT 1
+    FROM expected e
+    LEFT JOIN pg_policies p
+      ON p.schemaname = 'public'
+     AND p.tablename = e.tablename
+     AND p.policyname = e.policyname
+    WHERE p.policyname IS NULL
+       OR p.roles <> ARRAY['authenticated']::name[]
+       OR p.cmd <> e.command_name
+       OR (
+         e.needs_using
+         AND (
+           coalesce(p.qual, '') NOT LIKE '%SELECT auth.uid()%'
+           OR coalesce(p.qual, '') NOT LIKE '%user_id%'
+         )
+       )
+       OR (
+         e.needs_check
+         AND (
+           coalesce(p.with_check, '') NOT LIKE '%SELECT auth.uid()%'
+           OR coalesce(p.with_check, '') NOT LIKE '%user_id%'
+         )
+       )
+       OR (
+         e.needs_task_link
+         AND (
+           coalesce(p.qual, '') || ' ' || coalesce(p.with_check, '') NOT LIKE '%EXISTS%'
+           OR coalesce(p.qual, '') || ' ' || coalesce(p.with_check, '') NOT LIKE '%t.user_id%'
+           OR coalesce(p.qual, '') || ' ' || coalesce(p.with_check, '') NOT LIKE '%SELECT auth.uid()%'
+         )
+       )
   ) THEN
-    RAISE EXCEPTION 'Expected owner-scoped Organization policies are missing.';
+    RAISE EXCEPTION 'An Organization policy changed its authenticated role, command, owner predicate, or task ownership check.';
   END IF;
 
   -- goals_owner is the single owner-scoped policy after deduplication.
