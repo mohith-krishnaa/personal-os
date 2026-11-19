@@ -8,6 +8,36 @@ export function hasUsableGoalMetrics(goal: Pick<Goal, 'unit' | 'target'>): boole
   return Number.isFinite(target) && target > 0
 }
 
+export type GoalProgressPresentation =
+  | { kind: 'measurable'; totalLabel: string; percentLabel: string; percent: number }
+  | { kind: 'historical'; totalLabel: string; statusLabel: string }
+
+export function getGoalProgressPresentation(
+  goal: Pick<Goal, 'unit' | 'target'>,
+  total: number,
+  percent: number,
+): GoalProgressPresentation {
+  if (!hasUsableGoalMetrics(goal)) {
+    const missingDetails: string[] = []
+    const target = goal.target == null ? Number.NaN : Number(goal.target)
+    if (!Number.isFinite(target) || target <= 0) missingDetails.push('Target not set')
+    if (typeof goal.unit !== 'string' || goal.unit.trim().length === 0) missingDetails.push('Unit unavailable')
+
+    return {
+      kind: 'historical',
+      totalLabel: `Historical total: ${total} (unit unavailable)`,
+      statusLabel: missingDetails.join(' · '),
+    }
+  }
+
+  return {
+    kind: 'measurable',
+    totalLabel: `${total} / ${goal.target} ${goal.unit.trim()}`,
+    percentLabel: `${percent}%`,
+    percent,
+  }
+}
+
 export function calculateStreak(entries: Pick<ProgressEntry, 'value' | 'occurred_on'>[], today = new Date()): Streak {
   const days = new Set(entries.map((entry) => entry.occurred_on.slice(0, 10)))
   const date = new Date(today)
