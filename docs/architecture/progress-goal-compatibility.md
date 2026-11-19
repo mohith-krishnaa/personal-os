@@ -18,6 +18,8 @@ The application progress service selects `unit` and `target` on every dashboard 
 
 ## Verification
 
-CI #189 passed the complete 15-migration replay against disposable PostgreSQL 17, and CI #195 passed again on the latest project documentation checkpoint. Both verified the goal metric columns, authenticated two-owner RLS, hierarchy concurrency, 58/58 tests, typecheck, production build, and npm audit with 0 vulnerabilities. A unit test verifies that legacy goals without a target produce a safe 0% progress summary.
+- [CI #321](https://github.com/mohith-krishnaa/personal-os/actions/runs/44597240060) passed on code/test commit `9cf0327b94c0238783cdd3c9d0a95978f01ce035`: all 19 migrations replayed on PostgreSQL 17; the new goal-metric compatibility regression, Organization/RLS assertions, task hierarchy checks, application tests, TypeScript typecheck, and production build passed.
+- `supabase/tests/progress-goal-compatibility.sql` verifies that `unit` is nullable text and `target` is nullable numeric; both named constraints exist and are validated; legacy goals with null metrics and valid measurable goals are accepted; whitespace-only units and zero/negative targets are rejected. The test transaction rolls back.
+- Read-only preflight query 4 now lists both metrics, and query 12 reports their expected types, nullability, constraint presence, validation state, and definitions. Executing query 12 against live Supabase confirms both columns and constraints are still absent because the repair migration remains unapplied.
 
-This does not authorize production DDL. The migration remains unapplied until a private backup/restore path is established and the production rollout is separately approved.
+This does not authorize production DDL. The migration remains unapplied until a complete owner-controlled schema/data/roles backup is successfully restored in isolation and the production rollout is separately approved.

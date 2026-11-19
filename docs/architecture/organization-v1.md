@@ -2,7 +2,7 @@
 
 Status: implementation is under review in PR #11. This document records repository-level design decisions; it does not certify the live Supabase schema or deployment.
 
-Latest verification before this documentation-only refresh (2026-11-19): branch HEAD `1d0ad43319e3a85f6280632e1d663c8d0c4e3b16` passed CI #319 with the complete 19-migration PostgreSQL 17 replay and all configured application/typecheck/build steps. Verify the current PR head and its own workflow after this documentation commit. Live Supabase remains at 8 migrations; Organization rollout is blocked on a complete owner-controlled backup restored in isolation and authenticated two-user PostgREST verification.
+Latest code/test verification (2026-11-20): commit `9cf0327b94c0238783cdd3c9d0a95978f01ce035` passed CI #321 with the complete 19-migration PostgreSQL 17 replay, Organization/RLS and hierarchy checks, Progress goal-metric compatibility regression, application tests, typecheck, and production build. The read-only preflight now includes goals.unit/target and a dedicated query 12 for their constraints. Live Supabase remains at 8 migrations; Organization rollout is blocked on a complete owner-controlled backup restored in isolation and authenticated two-user PostgREST verification.
 
 ## Trust boundaries
 

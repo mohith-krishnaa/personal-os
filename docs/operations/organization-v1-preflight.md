@@ -1,24 +1,24 @@
 # Organization V1 — Live Preflight and Recovery Runbook
 
-Last verified: 2026-11-19  
+Last verified: 2026-11-20  
 Supabase project: gujzvkyytxsnervovvrt (ap-southeast-1, PostgreSQL 17.11.0.003)  
 Application rollout: BLOCKED — no recoverable backup has been produced.
 
 This runbook records the live read-only inspection and the safe path to complete Organization V1. It does not authorize production DDL or a PR merge.
 
-## Latest verified checkpoint — 2026-11-19
+## Latest verified checkpoint — 2026-11-20
 
-Immediately before this documentation-only refresh, remote branch `feature/organization-v1` was at `1d0ad43319e3a85f6280632e1d663c8d0c4e3b16`, which passed CI #319. PR #11 is open and unmerged; verify its post-refresh head in GitHub. The branch was 354 commits ahead of `main`, 0 behind. It contains 19 migrations: 8 exact live-ledger versions and 11 branch-only migrations (8 Organization, 1 Progress compatibility, 2 RLS performance).
+Code/test head `9cf0327b94c0238783cdd3c9d0a95978f01ce035` passed [CI #321](https://github.com/mohith-krishnaa/personal-os/actions/runs/44597240060): full 19-migration PostgreSQL 17 replay, Organization/RLS assertions, task hierarchy concurrency, Progress goal-metric compatibility regression, application tests, typecheck, and production build. The test verifies nullable legacy `goals.unit`/`goals.target`, validated named checks, accepted valid values, and rejection of blank units and non-positive targets; it rolls back its test transaction.
 
-[CI #309](https://github.com/mohith-krishnaa/personal-os/actions/runs/44576380568) passed on the code/test commit, including the full 19-migration PostgreSQL 17 replay, Organization/RLS assertions, FK recovery/idempotence/fail-closed cases, checklist reconciliation tests, hierarchy concurrency, 58/58 application tests, typecheck, and production build. [CI #319](https://github.com/mohith-krishnaa/personal-os/actions/runs/44587907725) passed on the exact pre-refresh branch HEAD; every configured workflow step completed successfully. The current documentation commit requires its own CI result.
+The preflight now includes `goals.unit` and `goals.target` in query 4 and query 12 reports their type, nullability, constraint presence, validation state, and definition. The new query was executed read-only against production and correctly reported both columns and constraints absent.
 
-Fresh read-only production checks: ACTIVE_HEALTHY on PostgreSQL 17.11.0.003; exactly 8 applied migrations; 9 public tables, all with RLS enabled and all reporting zero rows. `projects.name`, both checklist tables, Organization user-defined triggers, `goals.unit`, and `goals.target` are absent. The existing project/task FKs have the expected definitions and are validated.
+Fresh live inspection: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, 8 applied migrations, 9 public tables with RLS enabled and zero reported rows. The live goals table has `goals_owner` plus four legacy command-specific policies; pending migration `20261119000100_deduplicate_goals_owner_policies.sql` drops only those four named duplicates. Live reminder/notification/progress policies still have direct `auth.uid()` predicates; pending migration `20261119000200_optimize_reminder_progress_rls.sql` recreates the same command/owner checks with scalar SELECT wrappers.
 
-No complete owner-controlled schema/data/roles backup or successful isolated restore exists. No authenticated two-user PostgREST CRUD/isolation test has been completed. No production migration, DDL/DML, RLS change, backup/restore, or PR merge was performed. Production rollout remains blocked.
+PR #11 is open, unmerged, non-draft, and mergeable at code/test head `9cf0327b94c0238783cdd3c9d0a95978f01ce035`. No local checkout is attached, so local `git status` is unavailable. No production migration, DDL/DML, RLS change, backup/restore, or PR merge occurred. The owner-controlled complete schema/data/roles backup, isolated restore, restored-copy checklist conflict review, and authenticated two-user PostgREST CRUD/isolation tests remain rollout gates.
 
-The Personal-OS Builder automation is enabled. Its recorded last run `2137c85a-2500-832c-b819-9896e93be753` remains recorded as in progress without a completion timestamp; latest stored result `603cd95a-511c-8321-9ad7-6459f2953f51` predates that run. This status does not prove worker liveness.
+Personal-OS Builder is enabled. Recorded last run `546365dd-9274-8323-bdbb-d8c18357a5e0` is `in_progress` with no completion timestamp; latest stored result `2137c85a-2500-832c-b819-9896e93be753` predates it. This does not prove worker liveness.
 
-**Next repository task:** continue read-only static review of the 19-migration sequence and preflight against the verified 8-migration legacy schema. The owner must supply a complete private schema/data/roles backup and successful isolated-restore evidence before any production rollout.
+**Next repository task:** audit the Progress service and dashboard behavior against nullable legacy goal metrics. Do not advance to Analytics until Organization acceptance is genuinely complete.
 
 ## Legacy checklist compatibility contract — 2026-11-19
 
@@ -152,7 +152,7 @@ Do not change live policies or indexes as part of this preflight. Review each fi
 
 ## Read-only SQL preflight
 
-Run supabase/operations/organization-v1-preflight.sql in the Supabase SQL Editor. It contains SELECT statements only and reports the migration ledger, required table/column presence, RLS flags, policies, triggers, constraints, and indexes. Query 5 includes Organization, goals, reminders, notifications, and progress_entries so the pending reminder/progress policy optimizations can be reviewed after rollout. The exact preflight file is also executed at the end of the disposable migration replay in CI; the test bootstrap creates only a minimal migration-ledger fixture so the preflight syntax and catalog queries are exercised without connecting to production. Re-run it immediately before and after any approved rollout.
+Run supabase/operations/organization-v1-preflight.sql in the Supabase SQL Editor. It contains SELECT statements only and reports the migration ledger, required table/column presence, RLS flags, policies, triggers, constraints, and indexes. Query 4 includes the Progress compatibility columns `goals.unit` and `goals.target`. Query 5 includes Organization, goals, reminders, notifications, and progress_entries policies. Query 12 reports the goal metric column types/nullability and the `goals_unit_nonempty` / `goals_target_positive` constraint definitions and validation state. These checks can run before and after the pending migrations because the base `goals` table already exists. The exact preflight file is also executed at the end of the disposable migration replay in CI; the test bootstrap creates only a minimal migration-ledger fixture so the preflight syntax and catalog queries are exercised without connecting to production. Re-run it immediately before and after any approved rollout.
 
 Query 10 reports `rows_blocking_name_compatibility` and `rows_with_name_title_drift` for `projects`. It uses `to_jsonb(p)->>'name'` and `->>'title'`, so it can run before the optional `name` column exists. It counts null, blank, space-only, tab/newline-only, and over-120-character resulting names as blocking; it separately reports rows where both columns exist but disagree. Do not apply the compatibility migration while either count is non-zero. Do not silently truncate or overwrite existing project names; any remediation must be reviewed and covered by a verified backup/restore plan. The 2026-11-19 read-only live probe returned 0 projects, 0 blocking rows, and 0 drift rows.
 

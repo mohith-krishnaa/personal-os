@@ -1,12 +1,15 @@
 # Supabase migration history
 
-## Latest verified branch checkpoint — 2026-11-19
+## Latest verified branch checkpoint — 2026-11-20
 
-- Immediately before this documentation-only refresh, branch `feature/organization-v1` was at `1d0ad43319e3a85f6280632e1d663c8d0c4e3b16`, which passed CI #319. PR #11 is open and unmerged; read its current metadata for the post-refresh head.
-- The branch has 19 numbered migrations: 8 match the live ledger and 11 remain branch-only (8 Organization, 1 Progress compatibility, 2 RLS performance).
-- Code/test CI #309 passed on `020877abbbf63719716a9d0c615160a097744716`; pre-refresh branch-head CI #319 passed on `1d0ad43319e3a85f6280632e1d663c8d0c4e3b16`.
-- Live Supabase remains at 8 applied migrations. All 9 public tables have RLS enabled and report zero rows; the Organization schema is not deployed.
-- Do not apply branch-only migrations until the complete owner-controlled schema/data/roles backup has been restored successfully in isolation and rollout is separately authorized.
+- Code/test head `9cf0327b94c0238783cdd3c9d0a95978f01ce035` passed [CI #321](https://github.com/mohith-krishnaa/personal-os/actions/runs/44597240060): full 19-migration PostgreSQL 17 replay, Organization/RLS assertions, hierarchy checks, Progress goal-metric compatibility regression, application tests, typecheck, and production build.
+- The read-only Organization preflight now includes `goals.unit` and `goals.target` in query 4 and adds query 12 for their types, nullability, named check constraints, validation state, and definitions.
+- `supabase/tests/progress-goal-compatibility.sql` verifies nullable legacy metrics, valid measurable goals, rejection of whitespace-only units, and rejection of zero/negative targets. It runs transactionally and rolls back.
+- Migration count remains 19: 8 versions match the live ledger and 11 are branch-only (8 Organization, 1 Progress compatibility, 2 RLS performance). No migration was added or modified.
+- Live Supabase remains ACTIVE_HEALTHY on PostgreSQL 17.11.0.003 with 8 applied migrations. Both goal metric columns and their constraints remain absent; query 12 was executed read-only and reported that absence. All 9 public tables have RLS enabled and report zero rows.
+- PR #11 is open and unmerged. The owner-controlled complete schema/data/roles backup, isolated restore, checklist conflict review against the restore, and authenticated two-user PostgREST CRUD/isolation tests remain required before rollout.
+- No production DDL/DML, migration, RLS change, backup/restore, or PR merge was performed. No local checkout is attached, so local working-tree status is unverified.
+
 
 The eight migrations already recorded in the live project were reconstructed from the exact SQL statements stored in supabase_migrations.schema_migrations on 2026-11-17.
 
@@ -180,3 +183,8 @@ If no FK uses the source column, the migration creates the expected relationship
 CI #309 passed on exact branch head `020877abbbf63719716a9d0c615160a097744716`. The disposable PostgreSQL 17 test replay verified the migration can be reapplied, repairs a missing FK inside a rollback-only transaction, validates an exact NOT VALID FK inside a rollback-only transaction, and rejects an unexpected additional FK. Full 19-migration replay, Organization/RLS assertions, read-only preflight, checklist conflict tests, hierarchy concurrency, 58/58 application tests, typecheck, and production build all passed.
 
 The live Supabase ledger remains at 8 versions. Read-only inspection confirms the three existing live project/task FKs already match these contracts. This migration remains unapplied in production; no production DDL was performed. Production rollout remains blocked on a complete owner-controlled schema/data/roles backup successfully restored in isolation and authenticated two-user PostgREST verification.
+
+
+## Progress goal-metric compatibility regression — 2026-11-20
+
+The disposable migration replay now runs `supabase/tests/progress-goal-compatibility.sql` after the full chain. It verifies that `goals.unit` remains nullable text and `goals.target` remains nullable numeric for legacy non-measurable goals; both named check constraints must exist and be validated. Positive measurable values are accepted, whitespace-only units are rejected, and zero/negative targets are rejected. The test is wrapped in a transaction and rolls back. CI #321 passed this test as part of the full replay. This does not establish that the migration has been applied to production; the live ledger remains at eight versions and the columns are absent.
