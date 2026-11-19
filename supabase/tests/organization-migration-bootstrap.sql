@@ -50,3 +50,12 @@ $function$;
 
 REVOKE ALL ON FUNCTION public.rls_auto_enable() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.rls_auto_enable() TO anon, authenticated, service_role;
+
+-- The read-only rollout preflight inspects the Supabase migration ledger.
+-- Provide its minimal shape in the disposable fixture so CI can execute the
+-- exact production preflight SQL after replay without connecting to production.
+CREATE SCHEMA IF NOT EXISTS supabase_migrations;
+CREATE TABLE IF NOT EXISTS supabase_migrations.schema_migrations (
+  version text PRIMARY KEY,
+  name text NOT NULL
+);
