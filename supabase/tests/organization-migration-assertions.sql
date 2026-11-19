@@ -23,6 +23,46 @@ BEGIN
     RAISE EXCEPTION 'Both canonical and legacy checklist tables must exist.';
   END IF;
 
+  -- The missing_task report category is a drift detector, not an expected row:
+  -- both checklist tables must enforce a non-null, validated task foreign key.
+  IF EXISTS (
+    WITH expected(table_name, relation_oid) AS (
+      VALUES
+        ('checklist_items', 'public.checklist_items'::regclass),
+        ('task_checklist_items', 'public.task_checklist_items'::regclass)
+    )
+    SELECT 1
+    FROM expected e
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM pg_attribute a
+      WHERE a.attrelid = e.relation_oid
+        AND a.attname = 'task_id'
+        AND a.attnotnull
+        AND NOT a.attisdropped
+    )
+    OR NOT EXISTS (
+      SELECT 1
+      FROM pg_constraint con
+      WHERE con.conrelid = e.relation_oid
+        AND con.contype = 'f'
+        AND con.confrelid = 'public.tasks'::regclass
+        AND con.convalidated
+        AND con.confdeltype = 'c'
+        AND con.conkey = ARRAY[
+          (
+            SELECT a.attnum
+            FROM pg_attribute a
+            WHERE a.attrelid = e.relation_oid
+              AND a.attname = 'task_id'
+              AND NOT a.attisdropped
+          )
+        ]::smallint[]
+    )
+  ) THEN
+    RAISE EXCEPTION 'Both checklist task_id columns must be NOT NULL and reference public.tasks with a validated ON DELETE CASCADE foreign key.';
+  END IF;
+
   SELECT is_nullable INTO project_name_nullable
   FROM information_schema.columns
   WHERE table_schema = 'public'
