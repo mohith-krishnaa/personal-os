@@ -151,3 +151,32 @@ left join pg_index i
   on i.indexrelid = idx.oid
  and i.indrelid = t.oid
 order by e.table_name, e.column_name;
+
+-- 10. Project name/title compatibility safety check.
+-- Uses row JSON so this query works both before and after the name column is added.
+-- Do not apply the compatibility migration if blocking rows or existing column drift are reported.
+with project_values as (
+  select
+    to_jsonb(p)->>'name' as app_name,
+    to_jsonb(p)->>'title' as legacy_title
+  from public.projects p
+),
+normalized as (
+  select
+    app_name,
+    legacy_title,
+    coalesce(app_name, legacy_title) as resulting_name
+  from project_values
+)
+select
+  count(*) as total_projects,
+  count(*) filter (
+    where resulting_name is null
+       or char_length(trim(resulting_name)) not between 1 and 120
+  ) as rows_blocking_name_compatibility,
+  count(*) filter (
+    where app_name is not null
+      and legacy_title is not null
+      and app_name is distinct from legacy_title
+  ) as rows_with_name_title_drift
+from normalized;
