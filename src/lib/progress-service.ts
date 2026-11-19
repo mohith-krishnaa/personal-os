@@ -10,7 +10,7 @@ export async function createGoal(supabase: SupabaseClient, userId: string, input
 }
 
 export async function logProgress(supabase: SupabaseClient, userId: string, input: { goalId: string; value: number; occurredOn: string }) {
-  if (!userId || !input.goalId || !Number.isFinite(input.value) || input.value <= 0 || !/^\\d{4}-\\d{2}-\\d{2}$/.test(input.occurredOn)) throw new Error('Invalid progress entry')
+  if (!userId || !input.goalId || !Number.isFinite(input.value) || input.value <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(input.occurredOn)) throw new Error('Invalid progress entry')
 
   const { data: goal, error: goalError } = await supabase
     .from('goals')
