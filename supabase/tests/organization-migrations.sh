@@ -42,4 +42,21 @@ echo "Executing read-only Organization rollout preflight against the replayed sc
 psql -X -v ON_ERROR_STOP=1 -f supabase/operations/organization-v1-preflight.sql >/dev/null
 
 echo "Executing read-only checklist reconciliation conflict report"
-psql -X -v ON_ERROR_STOP=1 -f supabase/operations/checklist-reconciliation-conflicts.sql >/dev/null
+conflict_report="$(psql -X -v ON_ERROR_STOP=1 -A -t -f supabase/operations/checklist-reconciliation-conflicts.sql)"
+printf '%s\n' "$conflict_report"
+
+if ! grep -Fq '30000000-0000-4000-8000-000000000002|task_owner_mismatch|' <<<"$conflict_report"; then
+  echo "Checklist conflict report did not identify the legacy row linked to another owner's task."
+  exit 1
+fi
+
+if ! grep -Fq '30000000-0000-4000-8000-000000000005|canonical_id_collision|' <<<"$conflict_report"; then
+  echo "Checklist conflict report did not identify the non-identical canonical ID collision."
+  exit 1
+fi
+
+reported_conflicts="$(printf '%s\n' "$conflict_report" | sed '/^[[:space:]]*$/d' | wc -l | tr -d ' ')"
+if [[ "$reported_conflicts" -ne 2 ]]; then
+  echo "Expected exactly two seeded checklist reconciliation conflicts, found $reported_conflicts."
+  exit 1
+fi
