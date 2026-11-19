@@ -63,6 +63,66 @@ BEGIN
     RAISE EXCEPTION 'Both checklist task_id columns must be NOT NULL and reference public.tasks with a validated ON DELETE CASCADE foreign key.';
   END IF;
 
+  -- Verify the project/task relationship foreign keys exactly. The migration
+  -- conditionally adds these only when no FK mentioning the source column
+  -- exists, so a wrong pre-existing FK must fail this replay assertion.
+  IF EXISTS (
+    WITH expected(
+      table_oid, source_column, target_oid, target_column, delete_action
+    ) AS (
+      VALUES
+        ('public.tasks'::regclass, 'project_id', 'public.projects'::regclass, 'id', 'n'::"char"),
+        ('public.tasks'::regclass, 'parent_task_id', 'public.tasks'::regclass, 'id', 'c'::"char"),
+        ('public.projects'::regclass, 'goal_id', 'public.goals'::regclass, 'id', 'n'::"char")
+    )
+    SELECT 1
+    FROM expected e
+    WHERE (
+      SELECT count(*)
+      FROM pg_constraint con
+      WHERE con.conrelid = e.table_oid
+        AND con.contype = 'f'
+        AND con.conkey = ARRAY[
+          (
+            SELECT a.attnum
+            FROM pg_attribute a
+            WHERE a.attrelid = e.table_oid
+              AND a.attname = e.source_column
+              AND NOT a.attisdropped
+          )
+        ]::smallint[]
+    ) <> 1
+    OR NOT EXISTS (
+      SELECT 1
+      FROM pg_constraint con
+      WHERE con.conrelid = e.table_oid
+        AND con.confrelid = e.target_oid
+        AND con.contype = 'f'
+        AND con.convalidated
+        AND con.confdeltype = e.delete_action
+        AND con.conkey = ARRAY[
+          (
+            SELECT a.attnum
+            FROM pg_attribute a
+            WHERE a.attrelid = e.table_oid
+              AND a.attname = e.source_column
+              AND NOT a.attisdropped
+          )
+        ]::smallint[]
+        AND con.confkey = ARRAY[
+          (
+            SELECT a.attnum
+            FROM pg_attribute a
+            WHERE a.attrelid = e.target_oid
+              AND a.attname = e.target_column
+              AND NOT a.attisdropped
+          )
+        ]::smallint[]
+    )
+  ) THEN
+    RAISE EXCEPTION 'Project/task relationship foreign keys must be single-column, validated, and preserve SET NULL/CASCADE delete behavior.';
+  END IF;
+
   SELECT is_nullable INTO project_name_nullable
   FROM information_schema.columns
   WHERE table_schema = 'public'
