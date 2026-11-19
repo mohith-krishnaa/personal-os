@@ -315,7 +315,7 @@ No migration was added; the branch remains at 18 SQL migrations. The negative te
 
 The branch now contains the forward-only migration `20261119000300_ensure_project_task_foreign_keys.sql`. It checks the exact contracts for `tasks.project_id`, `tasks.parent_task_id`, and `projects.goal_id`. It adds a missing relationship only if no FK uses the source column, validates a sole exact NOT VALID FK, and aborts if any wrong, duplicate, or composite FK is present. It never removes or rewrites constraints automatically.
 
-CI #309 passed on exact head `020877abbbf63719716a9d0c615160a097744716`, including full 19-migration PostgreSQL 17 replay, FK guard idempotence, missing-FK repair, NOT VALID validation, unexpected-FK rejection, Organization/RLS assertions, read-only preflight, checklist reconciliation tests, hierarchy concurrency, 58/58 application tests, typecheck, and production build.
+CI #309 passed on exact code/test head `020877abbbf63719716a9d0c615160a097744716`, including full 19-migration PostgreSQL 17 replay, FK guard idempotence, missing-FK repair, NOT VALID validation, unexpected-FK rejection, Organization/RLS assertions, read-only preflight, checklist reconciliation tests, hierarchy concurrency, 58/58 application tests, typecheck, and production build. Documentation checkpoints CI #310 and #311 also passed.
 
 Read-only live inspection confirms the three existing project/task FKs already match the expected targets and delete actions and are validated. The migration is not applied to production. The live ledger remains at 8 versions; all 9 public tables have RLS enabled and report zero rows. Production still lacks `projects.name`, both checklist tables, Organization validation triggers, and `goals.unit/target`.
 
