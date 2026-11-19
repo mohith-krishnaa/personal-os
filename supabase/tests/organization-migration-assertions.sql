@@ -319,6 +319,43 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'A legacy checklist item attached to another owner task was copied.';
   END IF;
+
+  -- A primary-key collision must not overwrite or take ownership of the
+  -- pre-existing canonical row. The legacy source row must remain intact.
+  SELECT count(*) INTO copied_count
+  FROM public.checklist_items
+  WHERE id = '30000000-0000-4000-8000-000000000005'
+    AND user_id = '22222222-2222-4222-8222-222222222222'
+    AND task_id = '20000000-0000-4000-8000-000000000001'
+    AND title = 'Pre-existing canonical record wins'
+    AND is_completed IS TRUE
+    AND position = 9;
+
+  IF copied_count <> 1 THEN
+    RAISE EXCEPTION 'Checklist reconciliation overwrote or removed the pre-existing canonical record on ID collision.';
+  END IF;
+
+  SELECT count(*) INTO copied_count
+  FROM public.task_checklist_items
+  WHERE id = '30000000-0000-4000-8000-000000000005'
+    AND user_id = '11111111-1111-4111-8111-111111111111'
+    AND task_id = '10000000-0000-4000-8000-000000000001'
+    AND title = 'Legacy record with colliding ID'
+    AND is_completed IS FALSE
+    AND position = 4;
+
+  IF copied_count <> 1 THEN
+    RAISE EXCEPTION 'Checklist reconciliation removed or changed the legacy source row on ID collision.';
+  END IF;
+
+  SELECT count(*) INTO copied_count
+  FROM public.checklist_items
+  WHERE id = '30000000-0000-4000-8000-000000000005'
+    AND user_id = '11111111-1111-4111-8111-111111111111';
+
+  IF copied_count <> 0 THEN
+    RAISE EXCEPTION 'Checklist reconciliation transferred a conflicting canonical ID to the legacy owner.';
+  END IF;
 END
 $assert_schema$;
 
@@ -365,8 +402,8 @@ BEGIN
       visible_projects, visible_tasks, visible_checklists;
   END IF;
 
-  IF visible_legacy_checklists <> 1 THEN
-    RAISE EXCEPTION 'Owner A must see only its one valid legacy checklist row; found %.',
+  IF visible_legacy_checklists <> 2 THEN
+    RAISE EXCEPTION 'Owner A must see its valid legacy row and preserved ID-collision source row; found %.',
       visible_legacy_checklists;
   END IF;
 
@@ -378,7 +415,7 @@ BEGIN
     WHERE id = '20000000-0000-4000-8000-000000000001'
   ) OR EXISTS (
     SELECT 1 FROM public.checklist_items
-    WHERE id = '30000000-0000-4000-8000-000000000003'
+    WHERE id IN ('30000000-0000-4000-8000-000000000003', '30000000-0000-4000-8000-000000000005')
   ) OR EXISTS (
     SELECT 1 FROM public.task_checklist_items
     WHERE id = '30000000-0000-4000-8000-000000000003'
@@ -661,8 +698,8 @@ BEGIN
   SELECT count(*) INTO visible_checklists FROM public.checklist_items;
   SELECT count(*) INTO visible_legacy_checklists FROM public.task_checklist_items;
 
-  IF visible_projects <> 1 OR visible_tasks <> 1 OR visible_checklists <> 1 THEN
-    RAISE EXCEPTION 'Owner B visibility is incorrect: projects %, tasks %, checklists %.',
+  IF visible_projects <> 1 OR visible_tasks <> 1 OR visible_checklists <> 2 THEN
+    RAISE EXCEPTION 'Owner B visibility is incorrect: projects %, tasks %, canonical checklists %.',
       visible_projects, visible_tasks, visible_checklists;
   END IF;
 
@@ -682,7 +719,7 @@ BEGIN
     WHERE id = '30000000-0000-4000-8000-000000000001'
   ) OR EXISTS (
     SELECT 1 FROM public.task_checklist_items
-    WHERE id = '30000000-0000-4000-8000-000000000001'
+    WHERE id IN ('30000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000005')
   ) THEN
     RAISE EXCEPTION 'Owner B can read Owner A organization records.';
   END IF;
