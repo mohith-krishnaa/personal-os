@@ -4,6 +4,7 @@
 DO $assert_schema$
 DECLARE
   project_name_nullable text;
+  project_name_check_valid boolean;
   copied_count integer;
 BEGIN
   IF NOT EXISTS (
@@ -37,6 +38,26 @@ BEGIN
     WHERE table_schema = 'public' AND table_name = 'projects' AND column_name = 'title'
   ) THEN
     RAISE EXCEPTION 'Legacy projects.title must be preserved.';
+  END IF;
+
+  SELECT convalidated INTO project_name_check_valid
+  FROM pg_constraint
+  WHERE conrelid = 'public.projects'::regclass
+    AND conname = 'projects_name_length_check'
+    AND contype = 'c';
+
+  IF project_name_check_valid IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'The project name length constraint must exist and be validated.';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM public.projects
+    WHERE name IS NULL
+       OR char_length(trim(name)) NOT BETWEEN 1 AND 120
+       OR title IS DISTINCT FROM name
+  ) THEN
+    RAISE EXCEPTION 'Existing project name/title values are invalid or inconsistent.';
   END IF;
 
   IF NOT EXISTS (
@@ -417,6 +438,49 @@ BEGIN
   IF project_title <> 'Created through authenticated API' THEN
     RAISE EXCEPTION 'Name-only project insert did not satisfy the legacy title column.';
   END IF;
+
+  -- Both application-name and legacy-title write paths must reject invalid names.
+  BEGIN
+    INSERT INTO public.projects (id, user_id, name)
+    VALUES (
+      'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee2',
+      auth.uid(),
+      '   '
+    );
+    RAISE EXCEPTION 'Project compatibility accepted a blank application name.';
+  EXCEPTION WHEN check_violation THEN
+    NULL;
+  END;
+
+  BEGIN
+    INSERT INTO public.projects (id, user_id, name)
+    VALUES (
+      'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee3',
+      auth.uid(),
+      repeat('x', 121)
+    );
+    RAISE EXCEPTION 'Project compatibility accepted an application name longer than 120 characters.';
+  EXCEPTION WHEN check_violation THEN
+    NULL;
+  END;
+
+  BEGIN
+    UPDATE public.projects
+    SET title = '   '
+    WHERE id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    RAISE EXCEPTION 'Project compatibility accepted a blank legacy title.';
+  EXCEPTION WHEN check_violation THEN
+    NULL;
+  END;
+
+  BEGIN
+    UPDATE public.projects
+    SET title = repeat('x', 121)
+    WHERE id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    RAISE EXCEPTION 'Project compatibility accepted a legacy title longer than 120 characters.';
+  EXCEPTION WHEN check_violation THEN
+    NULL;
+  END;
 
   BEGIN
     INSERT INTO public.projects (id, user_id, name)
