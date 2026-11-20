@@ -29,9 +29,9 @@ function canonicalize(value: unknown): unknown {
 }
 
 export function hashClientRequestPayload(payload: unknown) {
-  return createHash('sha256')
-    .update(JSON.stringify(canonicalize(payload)))
-    .digest('hex')
+  const serialized = JSON.stringify(canonicalize(payload))
+  if (serialized === undefined) throw new Error('Task creation payload cannot be serialized.')
+  return createHash('sha256').update(serialized).digest('hex')
 }
 
 function toTask(row: TaskRequestRow, expectedHash: string): Task {
