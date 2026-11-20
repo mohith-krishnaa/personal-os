@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { listTasksForUser } from './task-queries'
-import { updateTaskForUser, type UpdateTaskInput } from './tasks'
+import { setTaskStatusForUser, updateTaskForUser, type UpdateTaskInput } from './tasks'
 import { assertTaskOrganizationLinks, canCreateTaskInProject, isInactiveProjectAssignmentError, isNewProjectAssignment, resolveTaskOrganizationLinks } from './task-relationships'
 
 test('listTasksForUser scopes reads to the owner and optional project while preserving task ordering', async () => {
@@ -379,6 +379,48 @@ function validTaskUpdate(): UpdateTaskInput {
   }
 }
 
+test('setTaskStatusForUser retries a missing recurrence occurrence when completion was already committed', async () => {
+  const task = {
+    id: 'task-recurring', user_id: 'owner-1', project_id: null, parent_task_id: null,
+    recurrence_parent_id: 'task-recurring', recurrence_rule: { frequency: 'DAILY', interval: 1 },
+    recurrence_until: null, due_at: '2099-01-01T09:00:00.000Z', scheduled_start: null,
+    scheduled_end: null, title: 'Recurring', description: null, status: 'COMPLETED',
+    priority: 'MEDIUM', estimated_minutes: null, actual_minutes: null,
+    completed_at: '2099-01-01T10:00:00.000Z', created_at: '2098-01-01T00:00:00.000Z',
+    updated_at: '2099-01-01T10:00:00.000Z',
+  }
+  const calls: Array<{ table: string; action?: string; payload?: Record<string, unknown>; filters: Array<[string, string]> }> = []
+  const plans = [
+    { table: 'tasks', action: 'select', data: task },
+    { table: 'tasks', action: 'update', data: null },
+    { table: 'tasks', action: 'select', data: task },
+    { table: 'tasks', action: 'insert', data: { ...task, id: 'occurrence-1', due_at: '2099-01-02T09:00:00.000Z' } },
+  ]
+  const supabase = {
+    from(table: string) {
+      const call = { table, filters: [] as Array<[string, string]>, action: undefined as string | undefined, payload: undefined as Record<string, unknown> | undefined }
+      calls.push(call)
+      return {
+        select() { if (!call.action) call.action = 'select'; return this },
+        update(payload: Record<string, unknown>) { call.action = 'update'; call.payload = payload; return this },
+        insert(payload: Record<string, unknown>) { call.action = 'insert'; call.payload = payload; return this },
+        eq(column: string, value: string) { call.filters.push([column, value]); return this },
+        neq() { return this },
+        single() { const plan = plans.shift(); assert.ok(plan); assert.equal(plan.table, table); assert.equal(plan.action, call.action); return Promise.resolve({ data: plan.data ?? null, error: plan.error ?? null }) },
+        maybeSingle() { const plan = plans.shift(); assert.ok(plan); assert.equal(plan.table, table); assert.equal(plan.action, call.action); return Promise.resolve({ data: plan.data ?? null, error: plan.error ?? null }) },
+      }
+    },
+  } as any
+
+  const result = await setTaskStatusForUser(supabase, 'owner-1', 'task-recurring', 'COMPLETED')
+
+  assert.equal(result.id, 'task-recurring')
+  assert.equal(calls.length, 4)
+  assert.equal(calls[3].payload?.recurrence_parent_id, 'task-recurring')
+  assert.equal(calls[3].payload?.due_at, '2099-01-02T09:00:00.000Z')
+  assert.equal(plans.length, 0)
+})
+
 test('updateTaskForUser rejects a missing owner before database access', async () => {
   let fromCalls = 0
   const supabase = {
@@ -398,7 +440,6 @@ test('updateTaskForUser rejects a missing owner before database access', async (
 test('updateTaskForUser leaves omitted relationships untouched and enforces its update allowlist', async () => {
   const { supabase, calls, remainingPlans } = createUpdateTaskSupabase([
     { table: 'tasks', action: 'update', data: { id: 'task-1', user_id: 'owner-1' } },
-    { table: 'activity_events', action: 'insert' },
   ])
   const input = {
     ...validTaskUpdate(),
@@ -430,13 +471,6 @@ test('updateTaskForUser leaves omitted relationships untouched and enforces its 
   assert.equal(calls[0].payload?.status, undefined)
   assert.equal(calls[0].payload?.recurrence_parent_id, undefined)
   assert.equal(typeof calls[0].payload?.updated_at, 'string')
-  assert.deepEqual(calls[1].payload, {
-    user_id: 'owner-1',
-    event_type: 'TASK_UPDATED',
-    entity_type: 'TASK',
-    entity_id: 'task-1',
-    metadata: { source: 'dashboard', recurrence_scope: 'occurrence_only' },
-  })
   assert.equal(remainingPlans(), 0)
 })
 
@@ -446,7 +480,6 @@ test('updateTaskForUser validates a parent change while preserving an omitted pr
     { table: 'tasks', action: 'select', data: { id: 'new-parent', user_id: 'owner-1', project_id: 'project-1' } },
     { table: 'projects', action: 'select', data: { id: 'project-1' } },
     { table: 'tasks', action: 'update', data: { id: 'task-1', parent_task_id: 'new-parent' } },
-    { table: 'activity_events', action: 'insert' },
   ])
 
   await updateTaskForUser(supabase, 'owner-1', 'task-1', {
@@ -469,7 +502,6 @@ test('updateTaskForUser treats an explicit null parent as a clear while preservi
     { table: 'tasks', action: 'select', data: { project_id: 'project-1', parent_task_id: 'old-parent' } },
     { table: 'projects', action: 'select', data: { id: 'project-1' } },
     { table: 'tasks', action: 'update', data: { id: 'task-1', project_id: 'project-1', parent_task_id: null } },
-    { table: 'activity_events', action: 'insert' },
   ])
 
   await updateTaskForUser(supabase, 'owner-1', 'task-1', {
@@ -488,7 +520,6 @@ test('updateTaskForUser treats an explicit null project as a clear when the pare
   const { supabase, calls, remainingPlans } = createUpdateTaskSupabase([
     { table: 'tasks', action: 'select', data: { project_id: 'project-1', parent_task_id: null } },
     { table: 'tasks', action: 'update', data: { id: 'task-1', project_id: null, parent_task_id: null } },
-    { table: 'activity_events', action: 'insert' },
   ])
 
   await updateTaskForUser(supabase, 'owner-1', 'task-1', {
@@ -507,7 +538,6 @@ test('updateTaskForUser requires an ACTIVE owner project before a new project as
     { table: 'tasks', action: 'select', data: { project_id: null, parent_task_id: null } },
     { table: 'projects', action: 'select', data: { id: 'project-2', status: 'ACTIVE' } },
     { table: 'tasks', action: 'update', data: { id: 'task-1', project_id: 'project-2' } },
-    { table: 'activity_events', action: 'insert' },
   ])
 
   await updateTaskForUser(supabase, 'owner-1', 'task-1', {

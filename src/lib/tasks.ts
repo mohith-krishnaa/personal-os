@@ -47,7 +47,6 @@ export async function createTask(input: { title: string; priority?: TaskPriority
     if (linkError) throw linkError
     data.recurrence_parent_id = linked.recurrence_parent_id
   }
-  await supabase.from('activity_events').insert({ user_id: user.id, event_type: 'TASK_CREATED', entity_type: 'TASK', entity_id: data.id, metadata: { source: 'dashboard', recurring: Boolean(input.recurrence_rule) } })
   return data as Task
 }
 
@@ -106,7 +105,6 @@ export async function updateTaskForUser(
   if (input.parent_task_id !== undefined) patch.parent_task_id = input.parent_task_id
   const { data, error } = await supabase.from('tasks').update(patch).eq('id', id).eq('user_id', userId).select('*').single()
   if (error) throw error
-  await supabase.from('activity_events').insert({ user_id: userId, event_type: 'TASK_UPDATED', entity_type: 'TASK', entity_id: id, metadata: { source: 'dashboard', recurrence_scope: 'occurrence_only' } })
   return data as Task
 }
 
@@ -125,28 +123,40 @@ async function getExistingOccurrence(supabase: Awaited<ReturnType<typeof createC
   return data as Task | null
 }
 
-export async function setTaskStatus(id: string, status: TaskStatus) {
-  const supabase = await createClient(); const user = await getCurrentUser(); if (!user) throw new Error('Unauthorized')
-  const { data: task, error: taskError } = await supabase.from('tasks').select('*').eq('id', id).eq('user_id', user.id).single()
+export async function setTaskStatusForUser(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  id: string,
+  status: TaskStatus,
+) {
+  if (!userId) throw new Error('Unauthorized')
+  const { data: task, error: taskError } = await supabase.from('tasks').select('*').eq('id', id).eq('user_id', userId).single()
   if (taskError) throw taskError
+  if (!task) throw new Error('Task not found.')
+
   const now = new Date().toISOString()
-  const updateQuery = supabase.from('tasks').update({ status, completed_at: status === 'COMPLETED' ? now : null, updated_at: now }).eq('id', id).eq('user_id', user.id)
+  const updateQuery = supabase.from('tasks').update({ status, completed_at: status === 'COMPLETED' ? now : null, updated_at: now }).eq('id', id).eq('user_id', userId)
   const guardedQuery = status === 'COMPLETED' ? updateQuery.neq('status', 'COMPLETED') : updateQuery
   const { data, error } = await guardedQuery.select('*').maybeSingle()
   if (error) throw error
-  if (!data) {
-    const { data: current, error: currentError } = await supabase.from('tasks').select('*').eq('id', id).eq('user_id', user.id).single()
+
+  // A repeated COMPLETED request must still retry occurrence generation if the
+  // prior occurrence INSERT rolled back with its activity event.
+  let currentTask = data as Task | null
+  if (!currentTask) {
+    const { data: current, error: currentError } = await supabase.from('tasks').select('*').eq('id', id).eq('user_id', userId).single()
     if (currentError) throw currentError
-    return current as Task
+    currentTask = current as Task
   }
-  if (status === 'COMPLETED' && task.recurrence_rule && task.due_at) {
-    let projectCanReceiveTasks = !task.project_id
-    if (task.project_id) {
+
+  if (status === 'COMPLETED' && currentTask.recurrence_rule && currentTask.due_at) {
+    let projectCanReceiveTasks = !currentTask.project_id
+    if (currentTask.project_id) {
       const { data: project, error: projectError } = await supabase
         .from('projects')
         .select('status')
-        .eq('id', task.project_id)
-        .eq('user_id', user.id)
+        .eq('id', currentTask.project_id)
+        .eq('user_id', userId)
         .maybeSingle()
       if (projectError) throw projectError
       projectCanReceiveTasks = canCreateTaskInProject(project?.status)
@@ -155,13 +165,27 @@ export async function setTaskStatus(id: string, status: TaskStatus) {
     // Archiving/completing a project preserves existing tasks but ends automatic
     // recurrence creation for that project.
     if (projectCanReceiveTasks) {
-      const nextDue = nextOccurrence(new Date(task.due_at), task.recurrence_rule as RecurrenceRule)
-      if (!task.recurrence_until || nextDue <= new Date(task.recurrence_until)) {
-        const duration = task.scheduled_start && task.scheduled_end ? new Date(task.scheduled_end).getTime() - new Date(task.scheduled_start).getTime() : null
-        const nextStart = task.scheduled_start ? nextOccurrence(new Date(task.scheduled_start), task.recurrence_rule as RecurrenceRule) : null
+      const nextDue = nextOccurrence(new Date(currentTask.due_at), currentTask.recurrence_rule as RecurrenceRule)
+      if (!currentTask.recurrence_until || nextDue <= new Date(currentTask.recurrence_until)) {
+        const duration = currentTask.scheduled_start && currentTask.scheduled_end ? new Date(currentTask.scheduled_end).getTime() - new Date(currentTask.scheduled_start).getTime() : null
+        const nextStart = currentTask.scheduled_start ? nextOccurrence(new Date(currentTask.scheduled_start), currentTask.recurrence_rule as RecurrenceRule) : null
         const nextEnd = nextStart && duration != null ? new Date(nextStart.getTime() + duration).toISOString() : null
-        const nextParentId = task.recurrence_parent_id ?? task.id
-        const { data: occurrence, error: occurrenceError } = await supabase.from('tasks').insert({ user_id: user.id, project_id: task.project_id, parent_task_id: task.parent_task_id, title: task.title, description: task.description, priority: task.priority, estimated_minutes: task.estimated_minutes, due_at: nextDue.toISOString(), scheduled_start: nextStart?.toISOString() ?? null, scheduled_end: nextEnd, recurrence_rule: task.recurrence_rule, recurrence_until: task.recurrence_until, recurrence_parent_id: nextParentId }).select('*').single()
+        const nextParentId = currentTask.recurrence_parent_id ?? currentTask.id
+        const { error: occurrenceError } = await supabase.from('tasks').insert({
+          user_id: userId,
+          project_id: currentTask.project_id,
+          parent_task_id: currentTask.parent_task_id,
+          title: currentTask.title,
+          description: currentTask.description,
+          priority: currentTask.priority,
+          estimated_minutes: currentTask.estimated_minutes,
+          due_at: nextDue.toISOString(),
+          scheduled_start: nextStart?.toISOString() ?? null,
+          scheduled_end: nextEnd,
+          recurrence_rule: currentTask.recurrence_rule,
+          recurrence_until: currentTask.recurrence_until,
+          recurrence_parent_id: nextParentId,
+        }).select('*').single()
         if (occurrenceError) {
           if (isInactiveProjectAssignmentError(occurrenceError)) {
             // A concurrent project archive/completion won the race after the read.
@@ -169,15 +193,21 @@ export async function setTaskStatus(id: string, status: TaskStatus) {
           } else if (occurrenceError.code !== '23505') {
             throw occurrenceError
           } else {
-            const existing = await getExistingOccurrence(supabase, user.id, nextParentId, nextDue.toISOString())
+            const existing = await getExistingOccurrence(supabase, userId, nextParentId, nextDue.toISOString())
             if (!existing) throw occurrenceError
           }
-        } else {
-          await supabase.from('activity_events').insert({ user_id: user.id, event_type: 'TASK_RECURRENCE_GENERATED', entity_type: 'TASK', entity_id: occurrence.id, metadata: { source_task_id: task.id } })
         }
       }
     }
   }
-  await supabase.from('activity_events').insert({ user_id: user.id, event_type: status === 'COMPLETED' ? 'TASK_COMPLETED' : 'TASK_STATUS_CHANGED', entity_type: 'TASK', entity_id: id, metadata: { status } })
-  return data as Task
+  return currentTask
+}
+
+export async function setTaskStatus(id: string, status: TaskStatus) {
+  const supabase = await createClient()
+  const { data: userData, error: userError } = await supabase.auth.getUser()
+  if (userError) throw userError
+  const user = userData.user
+  if (!user) throw new Error('Unauthorized')
+  return setTaskStatusForUser(supabase, user.id, id, status)
 }

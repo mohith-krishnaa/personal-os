@@ -347,3 +347,26 @@ join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public'
   and p.proname = 'claim_due_reminders'
   and pg_get_function_identity_arguments(p.oid) = 'p_limit integer';
+
+
+-- 16. Transactional task activity-event contract.
+select
+  t.tgname is not null and t.tgenabled = 'O' as task_activity_trigger_enabled,
+  p.prosecdef = false as trigger_is_security_invoker,
+  coalesce(p.proconfig, array[]::text[]) @> array['search_path=pg_catalog, public']::text[] as trigger_search_path_safe,
+  has_function_privilege('authenticated', p.oid, 'EXECUTE') as authenticated_can_execute_trigger,
+  has_function_privilege('service_role', p.oid, 'EXECUTE') as service_role_can_execute_trigger,
+  has_function_privilege('anon', p.oid, 'EXECUTE') as anon_can_execute_trigger,
+  has_table_privilege('authenticated', 'public.activity_events', 'INSERT') as authenticated_can_insert_activity_events,
+  exists (
+    select 1 from pg_policies policy
+    where policy.schemaname = 'public'
+      and policy.tablename = 'activity_events'
+      and policy.policyname = 'activity_events_owner'
+      and policy.cmd = 'ALL'
+  ) as activity_event_owner_policy_present
+from pg_trigger t
+join pg_proc p on p.oid = t.tgfoid
+where t.tgrelid = 'public.tasks'::regclass
+  and t.tgname = 'tasks_record_activity_event'
+  and not t.tgisinternal;
