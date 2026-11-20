@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Project, ProjectStatus } from '@/types/project'
+import type { Project, ProjectStatus, ProjectStatusUpdate } from '@/types/project'
 import { validateProjectName } from './project-validation'
 
 export async function listProjects(supabase: SupabaseClient, status?: ProjectStatus) {
@@ -17,6 +17,13 @@ export async function listProjects(supabase: SupabaseClient, status?: ProjectSta
   return (data ?? []) as Project[]
 }
 
+export function getProjectManagerSections(projects: Project[]) {
+  return {
+    active: projects.filter(project => project.status === 'ACTIVE'),
+    completed: projects.filter(project => project.status === 'COMPLETED'),
+  }
+}
+
 export async function createProject(supabase: SupabaseClient, input: { name: string; description?: string | null }) {
   const validation = validateProjectName(input.name)
   if (validation) throw new Error(validation)
@@ -27,7 +34,7 @@ export async function createProject(supabase: SupabaseClient, input: { name: str
   return data as Project
 }
 
-export async function updateProject(supabase: SupabaseClient, id: string, input: { name?: string; description?: string | null; status?: ProjectStatus }) {
+export async function updateProject(supabase: SupabaseClient, id: string, input: { name?: string; description?: string | null; status?: ProjectStatusUpdate }) {
   if (!id) throw new Error('Project id is required')
   if (input.name !== undefined) {
     const validation = validateProjectName(input.name)

@@ -1,4 +1,5 @@
-export type ProjectStatus = 'ACTIVE' | 'ARCHIVED'
+export type ProjectStatus = 'ACTIVE' | 'COMPLETED' | 'ARCHIVED'
+export type ProjectStatusUpdate = Exclude<ProjectStatus, 'COMPLETED'>
 
 export type Project = {
   id: string

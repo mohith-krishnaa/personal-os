@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createProject, listProjects, updateProject } from './projects'
+import { createProject, getProjectManagerSections, listProjects, updateProject } from './projects'
+import type { Project } from '@/types/project'
 import { validateProjectName } from './project-validation'
 
 test('organization project contract accepts valid names', () => {
@@ -17,6 +18,62 @@ test('organization project contract rejects blank names', () => {
 
 test('organization project contract rejects names over 120 characters', () => {
   assert.equal(validateProjectName('P'.repeat(121)), 'Project name must be 120 characters or fewer')
+})
+
+
+test('getProjectManagerSections keeps completed projects separate and excludes archived projects', () => {
+  const projects = [
+    { id: 'active', status: 'ACTIVE' },
+    { id: 'completed', status: 'COMPLETED' },
+    { id: 'archived', status: 'ARCHIVED' },
+  ] as Project[]
+
+  const sections = getProjectManagerSections(projects)
+
+  assert.deepEqual(sections.active.map(project => project.id), ['active'])
+  assert.deepEqual(sections.completed.map(project => project.id), ['completed'])
+})
+
+test('listProjects preserves legacy COMPLETED status without rewriting it', async () => {
+  const userId = 'authenticated-owner'
+  const filters: Array<[string, string]> = []
+  const projects = [{ id: 'completed-project', user_id: userId, name: 'Finished', description: null, status: 'COMPLETED', created_at: '', updated_at: '' }]
+  const query = {
+    eq(column: string, value: string) {
+      filters.push([column, value])
+      return this
+    },
+    order: async () => ({ data: projects, error: null }),
+  }
+  const supabase = {
+    auth: { getUser: async () => ({ data: { user: { id: userId } }, error: null }) },
+    from(table: string) {
+      assert.equal(table, 'projects')
+      return { select: () => query }
+    },
+  } as any
+
+  const result = await listProjects(supabase, 'COMPLETED')
+
+  assert.deepEqual(filters, [['user_id', userId], ['status', 'COMPLETED']])
+  assert.equal(result[0].status, 'COMPLETED')
+})
+
+test('updateProject rejects a transition to legacy COMPLETED status', async () => {
+  let fromCalls = 0
+  const supabase = {
+    auth: { getUser: async () => ({ data: { user: { id: 'authenticated-owner' } }, error: null }) },
+    from() {
+      fromCalls += 1
+      throw new Error('database should not be reached')
+    },
+  } as any
+
+  await assert.rejects(
+    () => updateProject(supabase, 'project-1', { status: 'COMPLETED' } as any),
+    /Project status is invalid/,
+  )
+  assert.equal(fromCalls, 0)
 })
 
 test('listProjects scopes reads to the authenticated owner and optional status', async () => {
