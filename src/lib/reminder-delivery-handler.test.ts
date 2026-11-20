@@ -10,11 +10,18 @@ type RpcResult = {
   error: { message: string } | null
 }
 
-function createHarness(
-  expectedSecret: string | undefined = 'test-worker-secret',
-  result: RpcResult = { data: [{ id: 'reminder-1' }, { id: 'reminder-2' }], error: null },
-  rejectedError?: Error,
-) {
+function createHarness(options: {
+  expectedSecret?: string | null
+  result?: RpcResult
+  rejectedError?: Error
+} = {}) {
+  const expectedSecret = options.expectedSecret === null
+    ? undefined
+    : options.expectedSecret ?? 'test-worker-secret'
+  const result = options.result ?? {
+    data: [{ id: 'reminder-1' }, { id: 'reminder-2' }],
+    error: null,
+  }
   let adminClientCreations = 0
   const rpcCalls: Array<{ functionName: string; args: { p_limit: number } }> = []
 
@@ -25,7 +32,7 @@ function createHarness(
       return {
         rpc: async (functionName, args) => {
           rpcCalls.push({ functionName, args })
-          if (rejectedError) throw rejectedError
+          if (options.rejectedError) throw options.rejectedError
           return result
         },
       }
@@ -55,7 +62,7 @@ test('worker secret resolver prefers REMINDER_WORKER_SECRET and falls back to CR
 
 for (const method of ['GET', 'POST'] as const) {
   test(`${method} rejects requests when no worker secret is configured`, async () => {
-    const harness = createHarness(undefined)
+    const harness = createHarness({ expectedSecret: null })
     const response = await harness.handlers[method](makeRequest(method, 'Bearer test-worker-secret'))
 
     assert.equal(response.status, 401)
@@ -90,10 +97,9 @@ for (const method of ['GET', 'POST'] as const) {
   })
 
   test(`${method} reports an RPC error as HTTP 500 without reporting successful delivery`, async () => {
-    const harness = createHarness(
-      'test-worker-secret',
-      { data: null, error: { message: 'database unavailable' } },
-    )
+    const harness = createHarness({
+      result: { data: null, error: { message: 'database unavailable' } },
+    })
     const response = await harness.handlers[method](makeRequest(method, 'Bearer test-worker-secret'))
     const body = await response.json()
 
@@ -104,11 +110,9 @@ for (const method of ['GET', 'POST'] as const) {
   })
 
   test(`${method} reports a rejected RPC promise as a generic HTTP 500`, async () => {
-    const harness = createHarness(
-      'test-worker-secret',
-      { data: null, error: null },
-      new Error('sensitive database detail'),
-    )
+    const harness = createHarness({
+      rejectedError: new Error('sensitive database detail'),
+    })
     const response = await harness.handlers[method](makeRequest(method, 'Bearer test-worker-secret'))
     const body = await response.text()
 
@@ -121,7 +125,7 @@ for (const method of ['GET', 'POST'] as const) {
 }
 
 test('a successful empty claim returns zero counts', async () => {
-  const harness = createHarness('test-worker-secret', { data: [], error: null })
+  const harness = createHarness({ result: { data: [], error: null } })
   const response = await harness.handlers.GET(makeRequest('GET', 'Bearer test-worker-secret'))
 
   assert.equal(response.status, 200)
