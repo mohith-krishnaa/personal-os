@@ -727,13 +727,13 @@ BEGIN
   SELECT count(*) INTO visible_checklists FROM public.checklist_items;
   SELECT count(*) INTO visible_legacy_checklists FROM public.task_checklist_items;
 
-  IF visible_projects <> 1 OR visible_tasks <> 6 OR visible_checklists <> 1 THEN
+  IF visible_projects <> 1 OR visible_tasks <> 6 OR visible_checklists <> 2 THEN
     RAISE EXCEPTION 'Owner A visibility is incorrect: projects %, tasks %, checklists %.',
       visible_projects, visible_tasks, visible_checklists;
   END IF;
 
-  IF visible_legacy_checklists <> 2 THEN
-    RAISE EXCEPTION 'Owner A must see its valid legacy row and preserved ID-collision source row; found %.',
+  IF visible_legacy_checklists <> 3 THEN
+    RAISE EXCEPTION 'Owner A must see its valid legacy row and both preserved ID-collision source rows; found %.',
       visible_legacy_checklists;
   END IF;
 
