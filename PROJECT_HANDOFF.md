@@ -1,12 +1,13 @@
 ## Latest resume checkpoint — task activity-event consistency audit (2026-11-20)
 
 - Starting PR head: `736882c5b42945356106efdcf7d2cb4f6b7cadc0`; starting-head CI #404 passed: https://github.com/mohith-krishnaa/personal-os/actions/runs/44783219198
-- Branch: `feature/organization-v1`; PR #11 is open, unmerged, non-draft, and mergeable. PR #12 is still an open superseded draft. Branch compare: 456 ahead of main, 0 behind.
+- Audit documentation commit `cc6493df0bbb080eb2c18fa53f0d5ae4c9254b9c` passed [CI #405](https://github.com/mohith-krishnaa/personal-os/actions/runs/44790955563): 17/17 PostgREST preflight tests, 22/22 PostgreSQL 17 migrations with Organization/RLS and concurrency assertions, 132/132 application tests, typecheck, production build, and 0 npm vulnerabilities.
+- Branch: `feature/organization-v1`; PR #11 is open, unmerged, non-draft, and mergeable. PR #12 is still an open superseded draft. Branch compare after the audit commit: 457 ahead of main, 0 behind.
 - Inspected task create/update/status/recurrence event writes, the `activity_events` schema and RLS policy, reminder delivery's atomic RPC, task service tests, README principles, and roadmap.
 - Confirmed task mutation event inserts await Supabase but ignore returned `error` values. The primary task write has already committed, so a returned insert error can silently lose the event. A rejected request can surface an error after the task write committed; a retry can duplicate an event because no idempotency key exists.
 - `activity_events` is not an immutable audit log: `entity_id` has no entity FK, owner RLS is `FOR ALL`, and no event idempotency constraint exists. Reminder delivery is separately atomic: notification, delivery event, and delivered marker are written in one RPC transaction.
 - No runtime change was made. Changing only `updateTaskForUser` would leave create/status/recurrence inconsistent; throwing after the task write would create ambiguous retries. Interim rule: task activity events are best-effort/non-atomic and not a complete or exactly-once analytics source.
-- ADR: `docs/architecture/activity-event-consistency.md`. No migration, code, test, RLS, or production data changed. CI #404 is only the verified starting-head run; the documentation commit requires its own CI.
+- ADR: `docs/architecture/activity-event-consistency.md`. No migration, code, test, RLS, or production data changed. The documentation-only audit commit passed CI #405; no runtime behavior changed.
 - A fresh local clone failed because github.com could not be resolved. Local working-tree status is therefore unverified; remote branch/PR metadata and diff were inspected.
 
 **Next task:** design one durable, idempotent database transaction boundary for task create, update, status changes, and recurrence generation. Add injected failure and retry/idempotency tests. Do not make Analytics depend on task event completeness until that work is verified.

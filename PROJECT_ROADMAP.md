@@ -8,7 +8,7 @@ No code change was made: changing only `updateTaskForUser` would leave other tas
 
 Organization V1 remains **in progress**. The isolated PostgREST harness is prepared but has not been run against a verified restored copy. Complete owner-controlled schema/data/roles backup, successful isolated restore, checklist reconciliation review, and two-owner authenticated PostgREST acceptance remain mandatory. Analytics remains queued and must not assume a complete task event stream.
 
-Starting PR head `736882c5b42945356106efdcf7d2cb4f6b7cadc0` passed [CI #404](https://github.com/mohith-krishnaa/personal-os/actions/runs/44783219198). This is a documentation-only audit; the new documentation commit needs its own CI result.
+Starting PR head `736882c5b42945356106efdcf7d2cb4f6b7cadc0` passed [CI #404](https://github.com/mohith-krishnaa/personal-os/actions/runs/44783219198). The audit documentation commit `cc6493df0bbb080eb2c18fa53f0d5ae4c9254b9c` passed [CI #405](https://github.com/mohith-krishnaa/personal-os/actions/runs/44790955563): 17/17 PostgREST preflight tests, 22/22 PostgreSQL 17 migrations and Organization/RLS/concurrency assertions, 132/132 application tests, typecheck, production build, and 0 npm vulnerabilities.
 
 **Next bounded task:** design a shared transactionally durable and idempotent event-writing boundary for task create, update, status changes, and recurrence generation. Add failure-injection and retry tests before event-backed Analytics.
 ---

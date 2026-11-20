@@ -6,7 +6,7 @@ The `activity_events` schema is owner-scoped, but it is not a strict audit log: 
 
 The README's historical-analysis principle and Analytics roadmap do not define task-event failure semantics. The interim contract is therefore explicit: current task mutation events are best-effort/non-atomic and are not a complete or exactly-once source for analytics. Do not fix only the update path or throw after a committed task write. Before event-backed Analytics, provide one durable, idempotent transaction boundary for task creation, updates, status changes, and recurrence generation.
 
-Audit and next action: [Activity-event consistency ADR](activity-event-consistency.md). No runtime code, migration, RLS policy, or production data changed in this audit.
+Audit and next action: [Activity-event consistency ADR](activity-event-consistency.md). No runtime code, migration, RLS policy, or production data changed in this audit. The documentation-only audit commit `cc6493df0bbb080eb2c18fa53f0d5ae4c9254b9c` passed [CI #405](https://github.com/mohith-krishnaa/personal-os/actions/runs/44790955563): 17/17 PostgREST preflight tests, 22/22 PostgreSQL 17 migrations, 132/132 application tests, typecheck, production build, and 0 npm vulnerabilities.
 
 ---
 
