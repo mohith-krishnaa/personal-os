@@ -81,7 +81,55 @@ unexpected_notification_fk_status=$?
 set -e
 
 if [[ "$unexpected_notification_fk_status" -eq 0 ]] || ! grep -Fq 'Unexpected foreign-key contract for public.notifications.reminder_id' <<<"$unexpected_notification_fk_output"; then
-  echo "Notification ownership migration did not fail closed on an unexpected reminder_id foreign key:"
+  echo "Verifying the reminder ownership migration rejects a noncanonical ON UPDATE action"
+set +e
+unexpected_reminder_update_output="$(
+  psql -X -v ON_ERROR_STOP=1 2>&1 <<'SQL'
+BEGIN;
+ALTER TABLE public.reminders DROP CONSTRAINT reminders_task_owner_fkey;
+ALTER TABLE public.reminders
+  ADD CONSTRAINT reminders_task_id_fkey
+  FOREIGN KEY (task_id) REFERENCES public.tasks(id)
+  ON DELETE CASCADE ON UPDATE CASCADE NOT VALID;
+\\i supabase/migrations/20261120000200_enforce_reminder_notification_ownership.sql
+ROLLBACK;
+SQL
+)"
+unexpected_reminder_update_status=$?
+set -e
+
+if [[ "$unexpected_reminder_update_status" -eq 0 ]] || ! grep -Fq 'Unexpected foreign-key contract for public.reminders.task_id' <<<"$unexpected_reminder_update_output"; then
+  echo "The reminder ownership migration accepted a noncanonical ON UPDATE action or failed for an unexpected reason:"
+  printf '%s\\n' "$unexpected_reminder_update_output"
+  exit 1
+fi
+
+echo "Noncanonical reminder/task ON UPDATE behavior was rejected as expected."
+
+echo "Verifying the notification ownership migration rejects a noncanonical ON UPDATE action"
+set +e
+unexpected_notification_update_output="$(
+  psql -X -v ON_ERROR_STOP=1 2>&1 <<'SQL'
+BEGIN;
+ALTER TABLE public.notifications DROP CONSTRAINT notifications_reminder_owner_task_fkey;
+ALTER TABLE public.notifications
+  ADD CONSTRAINT notifications_reminder_id_fkey
+  FOREIGN KEY (reminder_id) REFERENCES public.reminders(id)
+  ON DELETE CASCADE ON UPDATE CASCADE NOT VALID;
+\\i supabase/migrations/20261120000200_enforce_reminder_notification_ownership.sql
+ROLLBACK;
+SQL
+)"
+unexpected_notification_update_status=$?
+set -e
+
+if [[ "$unexpected_notification_update_status" -eq 0 ]] || ! grep -Fq 'Unexpected foreign-key contract for public.notifications.reminder_id' <<<"$unexpected_notification_update_output"; then
+  echo "The notification ownership migration accepted a noncanonical ON UPDATE action or failed for an unexpected reason:"
+  printf '%s\\n' "$unexpected_notification_update_output"
+  exit 1
+fi
+
+echo "Noncanonical notification/reminder ON UPDATE behavior was rejected as expected."
   printf '%s\n' "$unexpected_notification_fk_output"
   exit 1
 fi
@@ -183,6 +231,31 @@ if ! grep -Fq 'Unexpected foreign-key contract for public.tasks.project_id' <<<"
 fi
 
 echo "Unexpected additional project/task foreign keys were rejected as expected."
+
+echo "Verifying the project/task FK guard rejects noncanonical ON UPDATE behavior"
+set +e
+unexpected_update_fk_output="$(
+  psql -X -v ON_ERROR_STOP=1 2>&1 <<'SQL'
+BEGIN;
+ALTER TABLE public.tasks DROP CONSTRAINT tasks_project_id_fkey;
+ALTER TABLE public.tasks
+  ADD CONSTRAINT tasks_project_id_fkey
+  FOREIGN KEY (project_id) REFERENCES public.projects(id)
+  ON DELETE SET NULL ON UPDATE CASCADE NOT VALID;
+\\i supabase/migrations/20261119000300_ensure_project_task_foreign_keys.sql
+ROLLBACK;
+SQL
+)"
+unexpected_update_fk_status=$?
+set -e
+
+if [[ "$unexpected_update_fk_status" -eq 0 ]] || ! grep -Fq 'Unexpected foreign-key contract for public.tasks.project_id' <<<"$unexpected_update_fk_output"; then
+  echo "The project/task FK guard accepted a noncanonical ON UPDATE action or failed for an unexpected reason:"
+  printf '%s\\n' "$unexpected_update_fk_output"
+  exit 1
+fi
+
+echo "Noncanonical project/task ON UPDATE behavior was rejected as expected."
 
 echo "Executing read-only Organization rollout preflight against the replayed schema"
 psql -X -v ON_ERROR_STOP=1 -f supabase/operations/organization-v1-preflight.sql >/dev/null

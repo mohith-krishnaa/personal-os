@@ -182,6 +182,7 @@ BEGIN
       AND conkey = ARRAY[source_task_attnum]::smallint[]
       AND confkey = ARRAY[target_id_attnum]::smallint[]
       AND confdeltype = 'c'
+      AND confupdtype = 'a'
   ) INTO old_exact;
 
   IF old_name_exists THEN
@@ -311,6 +312,7 @@ BEGIN
       AND conkey = ARRAY[source_reminder_attnum]::smallint[]
       AND confkey = ARRAY[target_id_attnum]::smallint[]
       AND confdeltype = 'c'
+      AND confupdtype = 'a'
   ) INTO old_exact;
 
   IF old_name_exists THEN

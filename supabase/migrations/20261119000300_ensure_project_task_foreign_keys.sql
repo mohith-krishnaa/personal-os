@@ -1,4 +1,6 @@
 -- Ensure the project/task foreign-key contracts are exact before Organization rollout.
+-- The baseline contract also requires ON UPDATE NO ACTION; do not silently accept
+-- an alternate update action while preserving only the delete action.
 -- Repair a missing relationship, validate an exact NOT VALID relationship, and
 -- fail closed on any unexpected FK involving the source column. Never drop or
 -- rewrite an existing constraint automatically.
@@ -61,18 +63,21 @@ BEGIN
           AND con.conkey = ARRAY[source_attnum]::smallint[]
           AND con.confkey = ARRAY[target_attnum]::smallint[]
           AND con.confdeltype = expected.delete_action_code
+          AND con.confupdtype = 'a'::"char"
       )::integer,
       min(con.conname::text) FILTER (
         WHERE con.confrelid = target_relation
           AND con.conkey = ARRAY[source_attnum]::smallint[]
           AND con.confkey = ARRAY[target_attnum]::smallint[]
           AND con.confdeltype = expected.delete_action_code
+          AND con.confupdtype = 'a'::"char"
       ),
       bool_and(con.convalidated) FILTER (
         WHERE con.confrelid = target_relation
           AND con.conkey = ARRAY[source_attnum]::smallint[]
           AND con.confkey = ARRAY[target_attnum]::smallint[]
           AND con.confdeltype = expected.delete_action_code
+          AND con.confupdtype = 'a'::"char"
       )
     INTO
       foreign_key_count,

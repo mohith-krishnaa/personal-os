@@ -188,14 +188,15 @@ from normalized;
 -- Report missing, duplicate, unvalidated, incorrectly targeted, or incorrectly configured FKs.
 with expected_foreign_keys(
   source_table, source_column, target_table, target_column,
-  expected_delete_action, delete_action_code
+  expected_delete_action, delete_action_code,
+  expected_update_action, update_action_code
 ) as (
   values
-    ('tasks', 'project_id', 'projects', 'id', 'SET NULL', 'n'::"char"),
-    ('tasks', 'parent_task_id', 'tasks', 'id', 'CASCADE', 'c'::"char"),
-    ('projects', 'goal_id', 'goals', 'id', 'SET NULL', 'n'::"char"),
-    ('checklist_items', 'task_id', 'tasks', 'id', 'CASCADE', 'c'::"char"),
-    ('task_checklist_items', 'task_id', 'tasks', 'id', 'CASCADE', 'c'::"char")
+    ('tasks', 'project_id', 'projects', 'id', 'SET NULL', 'n'::"char", 'NO ACTION', 'a'::"char"),
+    ('tasks', 'parent_task_id', 'tasks', 'id', 'CASCADE', 'c'::"char", 'NO ACTION', 'a'::"char"),
+    ('projects', 'goal_id', 'goals', 'id', 'SET NULL', 'n'::"char", 'NO ACTION', 'a'::"char"),
+    ('checklist_items', 'task_id', 'tasks', 'id', 'CASCADE', 'c'::"char", 'NO ACTION', 'a'::"char"),
+    ('task_checklist_items', 'task_id', 'tasks', 'id', 'CASCADE', 'c'::"char", 'NO ACTION', 'a'::"char")
 ),
 resolved as (
   select
@@ -210,6 +211,7 @@ select
   e.target_table,
   e.target_column,
   e.expected_delete_action,
+  e.expected_update_action,
   con.conname as constraint_name,
   coalesce(con.convalidated, false) as constraint_validated,
   con.oid is not null as exact_constraint_present,
@@ -235,6 +237,7 @@ left join lateral (
     and candidate.contype = 'f'
     and candidate.convalidated
     and candidate.confdeltype = e.delete_action_code
+    and candidate.confupdtype = e.update_action_code
     and candidate.conkey = array[
       (
         select a.attnum from pg_attribute a
