@@ -370,3 +370,58 @@ join pg_proc p on p.oid = t.tgfoid
 where t.tgrelid = 'public.tasks'::regclass
   and t.tgname = 'tasks_record_activity_event'
   and not t.tgisinternal;
+
+-- 17. Per-owner task create request identity and immutability contract.
+-- This query is read-only and reports the request key, payload fingerprint,
+-- unique constraint, immutable trigger, SECURITY INVOKER setting, and grants.
+WITH trigger_function AS (
+  SELECT p.*
+  FROM pg_proc p
+  JOIN pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname = 'public'
+    AND p.proname = 'prevent_task_request_identity_change'
+), task_columns AS (
+  SELECT
+    max(a.attnotnull::int) FILTER (WHERE a.attname = 'client_request_id') = 1 AS request_id_not_null,
+    max(pg_get_expr(d.adbin, d.adrelid)) FILTER (WHERE a.attname = 'client_request_id') AS request_id_default,
+    bool_or(a.atttypid = 'uuid'::regtype) FILTER (WHERE a.attname = 'client_request_id') AS request_id_is_uuid,
+    bool_or(a.atttypid = 'text'::regtype) FILTER (WHERE a.attname = 'client_request_hash') AS request_hash_is_text
+  FROM pg_attribute a
+  LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
+  WHERE a.attrelid = 'public.tasks'::regclass
+    AND a.attname IN ('client_request_id', 'client_request_hash')
+    AND NOT a.attisdropped
+)
+SELECT
+  coalesce(c.request_id_not_null, false) AS task_request_id_not_null,
+  c.request_id_default AS task_request_id_default,
+  coalesce(c.request_id_is_uuid, false) AS task_request_id_is_uuid,
+  coalesce(c.request_hash_is_text, false) AS task_request_hash_is_text,
+  EXISTS (
+    SELECT 1 FROM pg_constraint con
+    WHERE con.conrelid = 'public.tasks'::regclass
+      AND con.conname = 'tasks_user_client_request_unique'
+      AND con.contype = 'u'
+      AND con.convalidated
+  ) AS task_request_unique_per_owner,
+  EXISTS (
+    SELECT 1 FROM pg_constraint con
+    WHERE con.conrelid = 'public.tasks'::regclass
+      AND con.conname = 'tasks_client_request_hash_check'
+      AND con.contype = 'c'
+      AND con.convalidated
+  ) AS task_request_hash_format_check,
+  EXISTS (
+    SELECT 1 FROM pg_trigger t
+    WHERE t.tgrelid = 'public.tasks'::regclass
+      AND t.tgname = 'tasks_request_identity_immutable'
+      AND NOT t.tgisinternal
+      AND t.tgenabled = 'O'
+  ) AS task_request_identity_trigger_enabled,
+  coalesce(p.prosecdef = false, false) AS request_trigger_is_security_invoker,
+  coalesce(p.proconfig, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog, public']::text[] AS request_trigger_search_path_safe,
+  CASE WHEN p.oid IS NULL THEN false ELSE has_function_privilege('authenticated', p.oid, 'EXECUTE') END AS authenticated_can_execute_request_trigger,
+  CASE WHEN p.oid IS NULL THEN false ELSE has_function_privilege('service_role', p.oid, 'EXECUTE') END AS service_role_can_execute_request_trigger,
+  CASE WHEN p.oid IS NULL THEN false ELSE has_function_privilege('anon', p.oid, 'EXECUTE') END AS anon_can_execute_request_trigger
+FROM task_columns c
+LEFT JOIN trigger_function p ON true;
