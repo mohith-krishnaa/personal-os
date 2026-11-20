@@ -328,7 +328,7 @@ function createUpdateTaskSupabase(plans: UpdateTaskPlan[]) {
     assert.ok(plan, `unexpected ${call.action} query for ${call.table}`)
     assert.equal(plan.table, call.table)
     assert.equal(plan.action, call.action)
-    return { data: plan.data ?? null, error: plan.error ?? null }
+    return { data: plan.data ?? null, error: ('error' in plan ? plan.error : null) ?? null }
   }
 
   const supabase = {
@@ -406,8 +406,8 @@ test('setTaskStatusForUser retries a missing recurrence occurrence when completi
         insert(payload: Record<string, unknown>) { call.action = 'insert'; call.payload = payload; return this },
         eq(column: string, value: string) { call.filters.push([column, value]); return this },
         neq() { return this },
-        single() { const plan = plans.shift(); assert.ok(plan); assert.equal(plan.table, table); assert.equal(plan.action, call.action); return Promise.resolve({ data: plan.data ?? null, error: plan.error ?? null }) },
-        maybeSingle() { const plan = plans.shift(); assert.ok(plan); assert.equal(plan.table, table); assert.equal(plan.action, call.action); return Promise.resolve({ data: plan.data ?? null, error: plan.error ?? null }) },
+        single() { const plan = plans.shift(); assert.ok(plan); assert.equal(plan.table, table); assert.equal(plan.action, call.action); return Promise.resolve({ data: plan.data ?? null, error: ('error' in plan ? plan.error : null) ?? null }) },
+        maybeSingle() { const plan = plans.shift(); assert.ok(plan); assert.equal(plan.table, table); assert.equal(plan.action, call.action); return Promise.resolve({ data: plan.data ?? null, error: ('error' in plan ? plan.error : null) ?? null }) },
       }
     },
   } as any
