@@ -333,7 +333,7 @@ function createUpdateTaskSupabase(plans: UpdateTaskPlan[]) {
 
   const supabase = {
     from(table: string) {
-      const call = { table, filters: [] as Array<[string, string]> }
+      const call: (typeof calls)[number] = { table, filters: [] }
       calls.push(call)
       return {
         select(columns: string) {
