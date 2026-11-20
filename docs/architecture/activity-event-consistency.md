@@ -35,7 +35,7 @@ Therefore, Analytics must not interpret event counts as counts of user intent, n
 
 The disposable PostgreSQL regression `supabase/tests/task-activity-events.sql` injects failures for TASK_CREATED, TASK_UPDATED, TASK_COMPLETED, and TASK_RECURRENCE_GENERATED. It verifies statement rollback, successful retry, no-op update behavior, recurring-root self-link suppression, recurrence uniqueness/source metadata, trigger SECURITY INVOKER/search_path/grants, and Owner A/B event isolation.
 
-[CI #408](https://github.com/mohith-krishnaa/personal-os/actions/runs/44802872792) passed on `e288c55768bca52e906d51fd6b9580f3ba0cff33`: 23/23 PostgreSQL 17 migrations, task-event fault-injection/retry assertions, migration reapplication, Organization/RLS and concurrency assertions, 133/133 application tests, typecheck, production build, and npm audit with 0 vulnerabilities. No lint script is configured.
+[CI #408](https://github.com/mohith-krishnaa/personal-os/actions/runs/44802872792) passed on code HEAD `e288c55768bca52e906d51fd6b9580f3ba0cff33`; [CI #409](https://github.com/mohith-krishnaa/personal-os/actions/runs/44803558307) passed on final documentation HEAD `7ff05d1c407c5f6e65b409806db55fc7a28fcf4a`. 23/23 PostgreSQL 17 migrations, task-event fault-injection/retry assertions, migration reapplication, Organization/RLS and concurrency assertions, 133/133 application tests, typecheck, production build, and npm audit with 0 vulnerabilities. No lint script is configured.
 
 ## Production rollout
 

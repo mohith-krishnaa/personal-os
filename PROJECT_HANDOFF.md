@@ -3,7 +3,7 @@
 - Starting HEAD: `431f311281bb432f2d722d671c9ad515ad27d275`.
 - Implementation commit: `daf399d7f09feea92f30e8b0e3429916f1d55400`.
 - TypeScript test-mock correction/final code HEAD: `e288c55768bca52e906d51fd6b9580f3ba0cff33`.
-- [CI #408](https://github.com/mohith-krishnaa/personal-os/actions/runs/44802872792) passed on the exact final code HEAD: 17/17 PostgREST safety preflight tests; 23/23 PostgreSQL 17 migrations; task activity failure/rollback/retry and migration reapplication assertions; Organization/RLS, archive, hierarchy and concurrency assertions; 133/133 application tests; typecheck; production build; npm audit 0 vulnerabilities. CI #407 failed typecheck only because the test mock accessed a union member not present on every plan; the mock was corrected before #408.
+- [CI #408](https://github.com/mohith-krishnaa/personal-os/actions/runs/44802872792) passed on the exact final code HEAD; [CI #409](https://github.com/mohith-krishnaa/personal-os/actions/runs/44803558307) passed on final documentation HEAD `7ff05d1c407c5f6e65b409806db55fc7a28fcf4a`.: 17/17 PostgREST safety preflight tests; 23/23 PostgreSQL 17 migrations; task activity failure/rollback/retry and migration reapplication assertions; Organization/RLS, archive, hierarchy and concurrency assertions; 133/133 application tests; typecheck; production build; npm audit 0 vulnerabilities. CI #407 failed typecheck only because the test mock accessed a union member not present on every plan; the mock was corrected before #408.
 - Migration `20261121000100_durable_task_activity_events.sql` installs a SECURITY INVOKER AFTER INSERT/UPDATE trigger on `public.tasks`. It writes task create/update/status/recurrence events in the same statement transaction. The app-side task event inserts were removed. Reminder delivery remains on its existing atomic RPC.
 - The trigger skips no-op updates and the recurring-root self-link initialization. `setTaskStatusForUser` retries recurrence generation when a task is already COMPLETED; the existing recurrence unique index prevents duplicate occurrences.
 - SQL fault-injection tests prove failed TASK_CREATED/TASK_UPDATED/TASK_COMPLETED/TASK_RECURRENCE_GENERATED inserts roll back their task statement; retry succeeds; Owner A cannot read Owner B events. Read-only preflight query 16 reports the trigger contract.
@@ -11,7 +11,7 @@
 - Repository migration count: 23. Last verified live ledger: 8 versions; this run did not query production, so 15 branch-only is conditional on that baseline remaining unchanged.
 - PR #11 is open/unmerged and its head matches `e288c557`; PR #12 remains a superseded open draft. No PR was merged or closed.
 - No production DDL/DML, migration, RLS modification, backup, restore, or live PostgREST test was performed. Owner-controlled complete backup, isolated restore, checklist conflict review, and authenticated two-owner PostgREST acceptance remain mandatory.
-- Remote diff from the starting HEAD contains six files. No local checkout is attached; local working-tree cleanliness is unverified.
+- Remote diff from the starting HEAD contains 13 files (6 implementation/test files and 7 documentation files). No local checkout is attached; local working-tree cleanliness is unverified.
 
 **Next task:** implement stable client-generated request IDs for task and subtask creation, with a per-owner unique database key and tests for same-request retries and concurrent duplicate submissions. Do not start Analytics yet.
 
