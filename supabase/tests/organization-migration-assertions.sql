@@ -624,6 +624,62 @@ BEGIN
     RAISE EXCEPTION 'Authenticated UPDATE could not reassign a task from another owned ACTIVE project.';
   END IF;
 
+  -- Reparent an existing task to another parent in the same owner/project.
+  UPDATE public.tasks
+  SET parent_task_id = '40000000-0000-4000-8000-000000000009'
+  WHERE id = '40000000-0000-4000-8000-000000000003';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+
+  IF affected_rows <> 1 OR NOT EXISTS (
+    SELECT 1 FROM public.tasks
+    WHERE id = '40000000-0000-4000-8000-000000000003'
+      AND project_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+      AND parent_task_id = '40000000-0000-4000-8000-000000000009'
+  ) THEN
+    RAISE EXCEPTION 'Authenticated UPDATE could not reassign a task to another parent in the same owned project.';
+  END IF;
+
+  -- A parent in another project owned by the same user must still be rejected.
+  BEGIN
+    UPDATE public.tasks
+    SET parent_task_id = '40000000-0000-4000-8000-000000000010'
+    WHERE id = '40000000-0000-4000-8000-000000000003';
+    RAISE EXCEPTION 'Authenticated parent reassignment into another project unexpectedly succeeded.'
+      USING ERRCODE = 'P0001';
+  EXCEPTION WHEN check_violation THEN
+    GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
+    IF error_message <> 'Subtask must belong to the same project as its parent.' THEN
+      RAISE EXCEPTION 'Cross-project parent reassignment failed for an unexpected reason: %', error_message;
+    END IF;
+  END;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.tasks
+    WHERE id = '40000000-0000-4000-8000-000000000003'
+      AND parent_task_id = '40000000-0000-4000-8000-000000000009'
+  ) THEN
+    RAISE EXCEPTION 'Rejected cross-project parent reassignment changed the existing parent link.';
+  END IF;
+
+  -- A task owned by another user is hidden by RLS and must not become a parent.
+  BEGIN
+    UPDATE public.tasks
+    SET parent_task_id = '20000000-0000-4000-8000-000000000001'
+    WHERE id = '40000000-0000-4000-8000-000000000003';
+    RAISE EXCEPTION 'Authenticated cross-owner parent reassignment unexpectedly succeeded.'
+      USING ERRCODE = 'P0001';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.tasks
+    WHERE id = '40000000-0000-4000-8000-000000000003'
+      AND parent_task_id = '40000000-0000-4000-8000-000000000009'
+  ) THEN
+    RAISE EXCEPTION 'Rejected cross-owner parent reassignment changed the existing parent link.';
+  END IF;
+
   -- An owned ACTIVE project must not allow a foreign owner's parent task.
   BEGIN
     INSERT INTO public.tasks (id, user_id, project_id, parent_task_id, title)
@@ -709,6 +765,22 @@ BEGIN
 
   IF affected_rows <> 1 THEN
     RAISE EXCEPTION 'Owner A could not archive its own completed project in the authenticated fixture.';
+  END IF;
+
+  -- Existing tasks in archived projects remain maintainable: changing only the
+  -- parent link must not create a new project assignment.
+  UPDATE public.tasks
+  SET parent_task_id = '10000000-0000-4000-8000-000000000001'
+  WHERE id = '40000000-0000-4000-8000-000000000003';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+
+  IF affected_rows <> 1 OR NOT EXISTS (
+    SELECT 1 FROM public.tasks
+    WHERE id = '40000000-0000-4000-8000-000000000003'
+      AND project_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+      AND parent_task_id = '10000000-0000-4000-8000-000000000001'
+  ) THEN
+    RAISE EXCEPTION 'An existing archived-project task could not be reparented within its historical project.';
   END IF;
 
   BEGIN
@@ -1290,6 +1362,14 @@ BEGIN
   EXCEPTION WHEN insufficient_privilege THEN
     NULL;
   END;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.tasks
+    WHERE id = '20000000-0000-4000-8000-000000000001'
+      AND parent_task_id IS NULL
+  ) THEN
+    RAISE EXCEPTION 'Rejected reciprocal cross-owner parent reassignment changed Owner B task state.';
+  END IF;
 
   BEGIN
     UPDATE public.checklist_items
