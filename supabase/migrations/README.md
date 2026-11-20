@@ -2,13 +2,15 @@
 
 ## Latest verified branch checkpoint — 2026-11-20
 
-- Code/test head `9cf0327b94c0238783cdd3c9d0a95978f01ce035` passed [CI #321](https://github.com/mohith-krishnaa/personal-os/actions/runs/44597240060): full 19-migration PostgreSQL 17 replay, Organization/RLS assertions, hierarchy checks, Progress goal-metric compatibility regression, application tests, typecheck, and production build.
-- The read-only Organization preflight now includes `goals.unit` and `goals.target` in query 4 and adds query 12 for their types, nullability, named check constraints, validation state, and definitions.
-- `supabase/tests/progress-goal-compatibility.sql` verifies nullable legacy metrics, valid measurable goals, rejection of whitespace-only units, and rejection of zero/negative targets. It runs transactionally and rolls back.
-- Migration count remains 19: 8 versions match the live ledger and 11 are branch-only (8 Organization, 1 Progress compatibility, 2 RLS performance). No migration was added or modified.
-- Live Supabase remains ACTIVE_HEALTHY on PostgreSQL 17.11.0.003 with 8 applied migrations. Both goal metric columns and their constraints remain absent; query 12 was executed read-only and reported that absence. All 9 public tables have RLS enabled and report zero rows.
-- PR #11 is open and unmerged. The owner-controlled complete schema/data/roles backup, isolated restore, checklist conflict review against the restore, and authenticated two-user PostgREST CRUD/isolation tests remain required before rollout.
-- No production DDL/DML, migration, RLS change, backup/restore, or PR merge was performed. No local checkout is attached, so local working-tree status is unverified.
+- Code/test head `569d384f88b2f137d78ec5da8b41f40e40b73b28` passed [CI #343](https://github.com/mohith-krishnaa/personal-os/actions/runs/44652747495): full 20-migration PostgreSQL 17 replay, active-project migration reapplication, project archive lifecycle assertions, Organization/RLS assertions, task hierarchy concurrency, 87/87 application tests, typecheck, and production build.
+- New local-only migration `20261120000100_enforce_active_project_task_links.sql` adds a SECURITY INVOKER task trigger. New task links and actual project/owner reassignment require an ACTIVE project; unchanged historical links survive project completion/archive. A `FOR SHARE` row lock serializes task assignment with project status changes.
+- The application preflight checks new assignments, and recurring task generation stops for completed/archived projects. The database trigger remains authoritative for direct PostgREST writes and races.
+- `supabase/tests/project-archive-lifecycle.sql` verifies existing links remain attached, existing archived-task edits and parent maintenance remain possible, new tasks/reassignments into inactive projects fail, and ACTIVE assignments succeed. `organization-migrations.sh` reapplies the new migration to verify idempotence.
+- Migration count is 20: 8 versions match the live ledger and 12 are branch-only (9 Organization, 1 Progress compatibility, 2 RLS performance).
+- Fresh read-only live inspection: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, 8 applied migrations, 9 public tables with RLS enabled, 0 reported rows. The legacy project status check includes ACTIVE/COMPLETED/ARCHIVED; `projects.name` and Organization task triggers remain absent. No production schema or data was changed.
+- PR #11 remains open and unmerged. Complete owner-controlled schema/data/roles backup, successful isolated restore, restored-copy checklist conflict review, and authenticated two-user PostgREST CRUD/isolation remain rollout gates. No local checkout is attached, so local working-tree status is unverified.
+- No lint script is configured; npm audit on CI #343 found 0 vulnerabilities. CI #341/#342 failed typecheck on a conditional select-union type; literal query branches fixed it and CI #343 passed.
+
 
 
 The eight migrations already recorded in the live project were reconstructed from the exact SQL statements stored in supabase_migrations.schema_migrations on 2026-11-17.
@@ -24,7 +26,7 @@ The filenames below use the exact live version and name. Do not change their tim
 - 20260830141616_progress_goals_v1.sql
 - 20260905162251_restrict_rls_auto_enable_execute.sql
 
-The eight Organization V1 migrations, one Progress goal-metrics compatibility migration, and two RLS performance migrations are local-only (11 local-only migrations total) and are not present in the live ledger. The branch contains 19 numbered SQL migrations: 8 matching the live ledger plus those 11 pending migrations. They must not be applied until a verified backup exists and the migration sequence has been tested against the live legacy schema.
+The nine Organization V1 migrations, one Progress goal-metrics compatibility migration, and two RLS performance migrations are local-only (12 local-only migrations total) and are not present in the live ledger. The branch contains 20 numbered SQL migrations: 8 matching the live ledger plus those 12 pending migrations. They must not be applied until a verified backup exists and the migration sequence has been tested against the live legacy schema.
 
 The duplicate 20260830181600_reminder_notifications.sql file was not present in the live ledger and was removed. Its additional policy/index definitions must not be reintroduced without a reviewed migration.
 
@@ -67,7 +69,7 @@ The trigger also prevents moving a parent task to a different owner or project w
 
 ## Full migration-chain verification
 
-CI now replays every numbered SQL migration in a disposable PostgreSQL 17 database. The fixture bootstraps the Supabase roles, `auth.users`, `auth.uid()`, and the platform-managed `rls_auto_enable()` function, then replays all 19 migrations: the eight live-ledger migrations, eight Organization migrations, one Progress metrics compatibility repair, and two RLS policy/performance migrations.
+CI now replays every numbered SQL migration in a disposable PostgreSQL 17 database. The fixture bootstraps the Supabase roles, `auth.users`, `auth.uid()`, and the platform-managed `rls_auto_enable()` function, then replays all 20 migrations: the eight live-ledger migrations, nine Organization migrations, one Progress metrics compatibility repair, and two RLS policy/performance migrations.
 
 The replay seeds legacy `projects.title` and `task_checklist_items` rows before the compatibility/reconciliation migrations. It verifies that canonical reconciliation copies only same-owner task rows, malformed canonical and legacy checklist rows attached to another owner's task are hidden by SELECT RLS, the project title/name dual-write remains available, and authenticated Owner A/Owner B sessions cannot read or mutate one another's Organization records. The assertion script verifies the exact 13-policy Organization matrix across projects, tasks, and both checklist tables, including authenticated roles, command scopes, owner predicates, and task-owner link checks. It also verifies the ten optimized reminder/notification/progress policies preserve their authenticated role, command, owner predicate, and progress-to-goal ownership check; the canonical `goals_owner` policy must remain initplan-safe.
 
@@ -188,3 +190,10 @@ The live Supabase ledger remains at 8 versions. Read-only inspection confirms th
 ## Progress goal-metric compatibility regression — 2026-11-20
 
 The disposable migration replay now runs `supabase/tests/progress-goal-compatibility.sql` after the full chain. It verifies that `goals.unit` remains nullable text and `goals.target` remains nullable numeric for legacy non-measurable goals; both named check constraints must exist and be validated. Positive measurable values are accepted, whitespace-only units are rejected, and zero/negative targets are rejected. The test is wrapped in a transaction and rolls back. CI #321 passed this test as part of the full replay. This does not establish that the migration has been applied to production; the live ledger remains at eight versions and the columns are absent.
+
+
+## Project archive lifecycle migration — 2026-11-20
+
+`20261120000100_enforce_active_project_task_links.sql` depends on the Organization task-link validation trigger from `20261015000300_prevent_task_hierarchy_cycles.sql`. It fails closed if that trigger or required columns are absent. The migration is forward-only and idempotent: it creates/replaces the SECURITY INVOKER function, replaces one named trigger, and does not rewrite task rows or project statuses.
+
+The new trigger rejects task INSERTs and actual owner/project reassignment into COMPLETED or ARCHIVED projects. Unchanged existing links remain valid, so archiving a project does not detach tasks. A row-level `FOR SHARE` lock serializes new assignments with concurrent project status updates. CI replays and reapplies this migration, then runs the rollback-only project archive lifecycle assertions. A separate two-session race test remains the next verification task.

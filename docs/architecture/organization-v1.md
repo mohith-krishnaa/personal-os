@@ -2,7 +2,7 @@
 
 Status: implementation is under review in PR #11. This document records repository-level design decisions; it does not certify the live Supabase schema or deployment.
 
-Latest code/test verification (2026-11-20): commit `7a4ec295972c0d64ff8f44a280563130ed375d40` passed [CI #338](https://github.com/mohith-krishnaa/personal-os/actions/runs/44644299182): all 19 PostgreSQL 17 migrations, Organization/RLS assertions, task hierarchy concurrency, 78/78 application tests, TypeScript typecheck, and production build. No lint script is configured. Live Supabase was not rechecked in this application-only run; the last documented ledger remains at 8 migrations, and complete backup/isolated-restore plus authenticated two-user PostgREST verification remain mandatory before rollout.
+Latest code/test verification (2026-11-20): commit `569d384f88b2f137d78ec5da8b41f40e40b73b28` passed [CI #343](https://github.com/mohith-krishnaa/personal-os/actions/runs/44652747495): all 20 PostgreSQL 17 migrations, active-project migration reapplication, archive lifecycle SQL assertions, Organization/RLS assertions, task hierarchy concurrency, 87/87 application tests, TypeScript typecheck, and production build. npm audit found 0 vulnerabilities. No lint script is configured. Fresh read-only live inspection still shows 8 applied migrations and no user-defined tasks triggers; production rollout remains blocked by complete backup/isolated-restore and authenticated two-user PostgREST verification.
 
 ## Trust boundaries
 
@@ -408,3 +408,13 @@ The earlier Organization migration conditionally adds project/task FKs when it c
 The guard accepts exactly one FK per source column when it targets the specified single target column and has the specified delete action. It creates the expected FK only when no FK uses the source column, validates an exact but unvalidated FK, and fails closed when any conflicting, duplicate, or composite FK is present. It does not drop or rewrite constraints; unexpected definitions require operator review. CI #309 verifies idempotent replay, missing-FK repair, NOT VALID validation, and conflict rejection on disposable PostgreSQL 17.
 
 This guard is branch-only and is not authorization to apply production DDL. Production still requires a complete owner-controlled schema/data/roles backup restored successfully in isolation, followed by authenticated two-user PostgREST CRUD and isolation tests.
+
+
+## Project archive lifecycle and active task links — 2026-11-20
+
+- A project status of `COMPLETED` or `ARCHIVED` is terminal for new task assignment. New task INSERTs and actual changes to `tasks.project_id` or task ownership must resolve to an ACTIVE project owned by the task owner.
+- The database trigger `require_active_project_for_new_task_links` is SECURITY INVOKER and runs before task INSERT or updates to `user_id`/`project_id`. It uses a `FOR SHARE` row lock so project status changes and task-link creation/reassignment serialize. The existing `validate_task_organization_links` trigger remains responsible for owner and hierarchy validation.
+- An unchanged historical project link is not a new assignment. Archiving/completing a project does not detach tasks; existing task content and same-project parent maintenance remain available. The dashboard still loads the full owner-scoped project list so existing task labels resolve for archived projects.
+- The task editor and server preflight expose only ACTIVE projects for new links. Direct authenticated PostgREST writes are covered by the database trigger, not just the UI filter.
+- Recurring task completion does not create another occurrence for a COMPLETED/ARCHIVED project. If a project is archived concurrently after the application read, the dedicated check-violation is treated as the expected end of that recurrence; unrelated insert errors still propagate.
+- `supabase/tests/project-archive-lifecycle.sql` verifies preserved links, allowed existing-task edits/parent maintenance, rejected new tasks/reassignments into inactive projects, and accepted ACTIVE assignments. The migration runner replays and reapplies the migration to verify idempotence. The row-lock race itself is a separate pending two-session regression.

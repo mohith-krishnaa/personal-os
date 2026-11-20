@@ -1,3 +1,21 @@
+> **Verified checkpoint — 2026-11-20 (project archive lifecycle and active-only task links).** Repository: `mohith-krishnaa/personal-os`; branch: `feature/organization-v1`; code/test HEAD: `569d384f88b2f137d78ec5da8b41f40e40b73b28` (384 commits ahead of `main`, 0 behind at this code checkpoint). PR #11 remains open and unmerged.
+>
+> The archive audit found that the UI filtered the task selector to ACTIVE projects, but the server preflight and database had no status invariant. Added `20261120000100_enforce_active_project_task_links.sql`. Its SECURITY INVOKER trigger rejects new task INSERTs and actual owner/project reassignment into COMPLETED or ARCHIVED projects. A `FOR SHARE` project-row lock serializes the decision with concurrent status changes. Unchanged historical task/project links are preserved; completing or archiving a project does not detach tasks, and existing task title/parent maintenance remains possible. The existing owner/project and hierarchy trigger remains authoritative for relationship integrity.
+>
+> Application preflight now checks ACTIVE status for task creation and changed project assignments. Existing unchanged links are not rejected. Recurring tasks stop generating new occurrences once their project is completed/archived; the exact database constraint error is handled if an archive wins the race after the application read. Owner-scoped reads remain intact, and the dashboard's unfiltered owner project list continues to include archived project names for existing task labels.
+>
+> Added rollback-only SQL lifecycle assertions for preserved links, allowed existing-task edits/parent maintenance, rejected new tasks and reassignments into COMPLETED/ARCHIVED projects, and allowed ACTIVE assignments. The migration runner now checks 20 migration files and reapplies the new migration to verify idempotence. The branch has 20 migrations: 8 exact live-ledger versions plus 12 local-only (9 Organization, 1 Progress compatibility, 2 RLS performance).
+>
+> [CI #343](https://github.com/mohith-krishnaa/personal-os/actions/runs/44652747495) passed on exact code/test HEAD `569d384f88b2f137d78ec5da8b41f40e40b73b28`: PostgreSQL 17 replay of all 20 migrations, active-project migration reapplication, project archive lifecycle SQL assertions, Organization/RLS assertions, task hierarchy concurrency, **87/87 application tests**, TypeScript typecheck, production build, and npm audit (0 vulnerabilities). CI #341 and #342 exposed the same TS2339 type error from a conditional Supabase select string; the query was split into literal-select branches and #343 passed. No lint script is configured.
+>
+> Fresh read-only production inspection: Supabase `ACTIVE_HEALTHY`, PostgreSQL 17.11.0.003, 8 applied migrations, 9 public tables with RLS enabled (9/9), and 0 reported rows. The live project status check still permits ACTIVE/COMPLETED/ARCHIVED; legacy `projects.name` is absent; the tasks table has its existing project/parent relationships; a read-only trigger query returned no user-defined tasks triggers. The new migration is repository/CI-only and has not been applied to production.
+>
+> No production DDL/DML, migration, RLS change, backup, restore, or PR merge occurred. The complete owner-controlled schema/data/roles backup, successful isolated restore, restored-copy checklist conflict review, and authenticated two-user PostgREST CRUD/isolation remain rollout gates. No local checkout is attached, so local `git status` is unverified.
+>
+> **Next task:** add a focused two-session concurrency regression proving that project archive/completion and task assignment serialize as intended. Do not repeat the already-passed sequential lifecycle tests. Keep Analytics queued until Organization acceptance is complete.
+>
+> ---
+
 > **Verified checkpoint — 2026-11-20 (legacy COMPLETED project status compatibility).** Repository: `mohith-krishnaa/personal-os`; branch: `feature/organization-v1`; code/test commit: `7a4ec295972c0d64ff8f44a280563130ed375d40` (379 commits ahead of `main`, 0 behind). PR #11 remains open, unmerged, and non-draft.
 >
 > The legacy core schema permits project statuses `ACTIVE`, `COMPLETED`, and `ARCHIVED`, while the TypeScript `ProjectStatus` contract previously omitted `COMPLETED`. The project manager also rendered only active projects, hiding valid legacy completed projects. The type now represents all three persisted states; `ProjectStatusUpdate` intentionally excludes `COMPLETED`, so this compatibility fix does not introduce a new completion transition. The project manager displays completed projects in a separate section; rows are not editable, but each offers an explicit Archive action. The task-creation selector remains ACTIVE-only; existing task labels still resolve because the dashboard retains the full owner-scoped project list.
@@ -89,15 +107,15 @@
 # Personal OS — Project Roadmap & Mind Map
 
 > Single source of truth for project direction. Verify GitHub/Supabase/CI before making claims.
-> Last reconciled: 2026-11-20. Code/test head `771f2b133bafc9cc834442449a07f1bfb4def5f4` passed CI #324, including 19-migration PostgreSQL 17 replay, 66/66 application tests, typecheck, and production build.
+> Last reconciled: 2026-11-20. Code/test head `569d384f88b2f137d78ec5da8b41f40e40b73b28` passed CI #343, including 20-migration PostgreSQL 17 replay, active-project lifecycle/idempotence assertions, 87/87 application tests, typecheck, and production build.
 
 ## Current position
 
 **Completed:** Core productivity, Recurring Tasks V1, and Reminders V1. Progress & Streaks V1 application implementation is complete, but live schema compatibility repair remains pending.
 
-**In progress:** Organization V1 remains under review on `feature/organization-v1` / PR #11. Code/test head `771f2b133bafc9cc834442449a07f1bfb4def5f4` passed [CI #324](https://github.com/mohith-krishnaa/personal-os/actions/runs/44607370912): all 19 PostgreSQL 17 migrations, Organization/RLS assertions, hierarchy concurrency, 66/66 application tests, typecheck, and production build. Progress UI and server logging now share a non-empty-unit/finite-positive-target check; `logProgress` also performs an owner-filtered goal lookup before insertion. The application check is not a substitute for a transactional database invariant or live RLS testing.
+**In progress:** Organization V1 remains under review on `feature/organization-v1` / PR #11. Code/test head `569d384f88b2f137d78ec5da8b41f40e40b73b28` passed [CI #343](https://github.com/mohith-krishnaa/personal-os/actions/runs/44652747495): all 20 PostgreSQL 17 migrations, active-project lifecycle/idempotence assertions, Organization/RLS assertions, hierarchy concurrency, 87/87 application tests, typecheck, and production build. New task creation/reassignment now requires ACTIVE projects at both application and database-trigger boundaries; existing task links survive completion/archive, and recurring generation stops for inactive projects.
 
-**Production acceptance blocked:** live Supabase still has only 8 migrations applied, lacks `projects.name`, both checklist tables, Organization triggers, and goal metric columns. No complete owner-controlled schema/data/roles backup has been restored in isolation, and authenticated two-user live PostgREST verification is outstanding. No production changes or PR merge were made.
+**Production acceptance blocked:** live Supabase still has only 8 migrations applied, lacks `projects.name`, both checklist tables, Organization task-link triggers, and goal metric columns. No complete owner-controlled schema/data/roles backup has been restored in isolation, and authenticated two-user live PostgREST verification is outstanding. No production changes or PR merge were made.
 
 **Queued:** Analytics V1 follows Organization production acceptance. AI Assistant, Research Agent, Adaptive Scheduling, and broader production hardening remain later milestones.
 
@@ -165,7 +183,7 @@ PERSONAL OS
 1. Recurring Tasks V1 — DONE
 2. Reminders V1 — DONE
 3. Progress & Streaks V1 — application implementation complete; live `goals.unit` / `goals.target` compatibility repair pending
-4. **Organization V1 — IN PROGRESS:** branch implementation and 19-migration disposable PostgreSQL verification pass; production backup/restore and live authenticated API gates remain open
+4. **Organization V1 — IN PROGRESS:** branch implementation and 20-migration disposable PostgreSQL verification pass, including active-only task links and archive preservation; production backup/restore and live authenticated API gates remain open
 5. Analytics V1 — queued until Organization production acceptance
 6. AI Assistant V1
 7. Research Agent V1

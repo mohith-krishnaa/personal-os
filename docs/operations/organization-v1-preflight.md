@@ -8,13 +8,14 @@ This runbook records the live read-only inspection and the safe path to complete
 
 ## Latest verified checkpoint — 2026-11-20
 
-Code/test head `9cf0327b94c0238783cdd3c9d0a95978f01ce035` passed [CI #321](https://github.com/mohith-krishnaa/personal-os/actions/runs/44597240060): full 19-migration PostgreSQL 17 replay, Organization/RLS assertions, task hierarchy concurrency, Progress goal-metric compatibility regression, application tests, typecheck, and production build. The test verifies nullable legacy `goals.unit`/`goals.target`, validated named checks, accepted valid values, and rejection of blank units and non-positive targets; it rolls back its test transaction.
+Code/test HEAD `569d384f88b2f137d78ec5da8b41f40e40b73b28` passed [CI #343](https://github.com/mohith-krishnaa/personal-os/actions/runs/44652747495): 20-migration PostgreSQL 17 replay, active-project migration reapplication, archive lifecycle SQL assertions, Organization/RLS assertions, task hierarchy concurrency, 87/87 application tests, typecheck, and production build.
 
-The preflight now includes `goals.unit` and `goals.target` in query 4 and query 12 reports their type, nullability, constraint presence, validation state, and definition. The new query was executed read-only against production and correctly reported both columns and constraints absent.
+The new local-only migration `20261120000100_enforce_active_project_task_links.sql` adds a SECURITY INVOKER trigger requiring ACTIVE projects for new task links and actual reassignment. Existing tasks remain attached when a project is completed/archived; existing task edits and same-project parent maintenance remain possible. A `FOR SHARE` lock serializes link creation with project status changes. The application preflight and recurring-task flow use the same ACTIVE-only rule.
 
-Fresh live inspection: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, 8 applied migrations, 9 public tables with RLS enabled and zero reported rows. The live goals table has `goals_owner` plus four legacy command-specific policies; pending migration `20261119000100_deduplicate_goals_owner_policies.sql` drops only those four named duplicates. Live reminder/notification/progress policies still have direct `auth.uid()` predicates; pending migration `20261119000200_optimize_reminder_progress_rls.sql` recreates the same command/owner checks with scalar SELECT wrappers.
+Fresh read-only live inspection: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, 8 applied migrations, 9 public tables with RLS enabled, and 0 reported rows. The live legacy `projects.status` check includes ACTIVE/COMPLETED/ARCHIVED; `projects.name`, Organization checklist tables, and user-defined task triggers remain absent. No production operation was performed.
 
-PR #11 is open, unmerged, non-draft, and mergeable at code/test head `9cf0327b94c0238783cdd3c9d0a95978f01ce035`. No local checkout is attached, so local `git status` is unavailable. No production migration, DDL/DML, RLS change, backup/restore, or PR merge occurred. The owner-controlled complete schema/data/roles backup, isolated restore, restored-copy checklist conflict review, and authenticated two-user PostgREST CRUD/isolation tests remain rollout gates.
+The owner-controlled complete schema/data/roles backup, successful isolated restore, restored-copy checklist conflict review, and authenticated two-user PostgREST CRUD/isolation tests remain mandatory. No local checkout is attached, so local working-tree status is unverified.
+
 
 Personal-OS Builder is enabled. Recorded last run `546365dd-9274-8323-bdbb-d8c18357a5e0` is `in_progress` with no completion timestamp; latest stored result `2137c85a-2500-832c-b819-9896e93be753` predates it. This does not prove worker liveness.
 
@@ -85,7 +86,7 @@ Read-only Supabase project, migration, table, policy, constraint, and advisor ca
 
 The SQL statement for each applied migration was read from supabase_migrations.schema_migrations. The repository's previous core migration filenames had timestamp drift; two applied migrations were missing locally, and a second reminder-notifications file was not represented in the live ledger. The branch now restores the eight exact ledger versions and removes the duplicate local-only core migration. See supabase/migrations/README.md.
 
-The eight Organization migrations remain local-only and unapplied:
+The nine Organization migrations remain local-only and unapplied:
 
 1. 20260905170000_organization_v1.sql
 2. 20260905170100_organization_v1_checklists.sql
@@ -95,6 +96,7 @@ The eight Organization migrations remain local-only and unapplied:
 6. 20261016000100_projects_name_title_compatibility.sql
 7. 20261117000200_harden_checklist_select_ownership.sql
 8. 20261119000300_ensure_project_task_foreign_keys.sql
+9. 20261120000100_enforce_active_project_task_links.sql
 
 The other three local-only migrations are:
 
