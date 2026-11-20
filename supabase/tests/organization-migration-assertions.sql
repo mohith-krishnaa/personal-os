@@ -1196,6 +1196,7 @@ DECLARE
   visible_checklists integer;
   visible_legacy_checklists integer;
   affected_rows integer;
+  error_message text;
 BEGIN
   IF current_user <> 'authenticated' THEN
     RAISE EXCEPTION 'Owner B assertions must execute as the authenticated database role; current_user is %.', current_user;
