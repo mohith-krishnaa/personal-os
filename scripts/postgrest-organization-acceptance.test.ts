@@ -119,3 +119,9 @@ test('rejects target URLs with a REST path or query parameters', () => {
   env.PERSONAL_OS_ACCEPTANCE_SUPABASE_URL = 'https://abcdefghijklmnopqrst.supabase.co/rest/v1'
   assert.throws(() => loadAcceptanceConfig(env, ['--execute']), /only the Supabase project origin/)
 })
+
+test('rejects a Supabase secret API key prefix', () => {
+  const env = validEnvironment()
+  env.PERSONAL_OS_ACCEPTANCE_ANON_KEY = 'sb_secret_test_key'
+  assert.throws(() => loadAcceptanceConfig(env, ['--execute']), /secret\/service key is not allowed/)
+})

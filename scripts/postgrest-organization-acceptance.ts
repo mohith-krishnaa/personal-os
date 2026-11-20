@@ -50,7 +50,7 @@ function normalizeOrigin(value: string) {
   try {
     return new URL(value).origin
   } catch {
-    throw new Error('NEXT_PUBLIC_SUPABASE_URL is not a valid URL.')
+    throw new Error('A configured Supabase URL is not valid.')
   }
 }
 
@@ -320,8 +320,15 @@ export async function runOrganizationAcceptance(config: AcceptanceConfig) {
     assert(!childAUpdate.error && childAUpdate.data?.title === runMarker + 'owner_a_child_updated', 'Owner A subtask UPDATE failed.')
     const taskBUpdate = await ownerB.from('tasks').update({ title: runMarker + 'owner_b_root_updated' }).eq('id', taskB.id).select('id,title').single()
     assert(!taskBUpdate.error && taskBUpdate.data?.title === runMarker + 'owner_b_root_updated', 'Owner B task UPDATE failed.')
+    const childBUpdate = await ownerB.from('tasks').update({ title: runMarker + 'owner_b_child_updated' }).eq('id', childB.id).select('id,title').single()
+    assert(!childBUpdate.error && childBUpdate.data?.title === runMarker + 'owner_b_child_updated', 'Owner B subtask UPDATE failed.')
+    await expectPresent(ownerB, 'tasks', childB.id, 'Owner B subtask after update')
+    await expectEmpty('Owner B subtask SELECT isolation', ownerB.from('tasks').select('id').eq('id', childA.id))
+    await expectEmpty('Owner A subtask SELECT isolation', ownerA.from('tasks').select('id').eq('id', childB.id))
     await expectNoRow('Owner B task UPDATE isolation', ownerB.from('tasks').update({ title: runMarker + 'foreign_update' }).eq('id', taskA.id).select('id').maybeSingle())
     await expectNoRow('Owner A task UPDATE isolation', ownerA.from('tasks').update({ title: runMarker + 'foreign_update' }).eq('id', taskB.id).select('id').maybeSingle())
+    await expectNoRow('Owner B subtask UPDATE isolation', ownerB.from('tasks').update({ title: runMarker + 'foreign_update' }).eq('id', childA.id).select('id').maybeSingle())
+    await expectNoRow('Owner A subtask UPDATE isolation', ownerA.from('tasks').update({ title: runMarker + 'foreign_update' }).eq('id', childB.id).select('id').maybeSingle())
     await expectNoRow('Owner B task DELETE isolation', ownerB.from('tasks').delete().eq('id', taskA.id).select('id').maybeSingle())
     await expectNoRow('Owner A task DELETE isolation', ownerA.from('tasks').delete().eq('id', taskB.id).select('id').maybeSingle())
     await expectNoRow('Owner B subtask DELETE isolation', ownerB.from('tasks').delete().eq('id', childA.id).select('id').maybeSingle())

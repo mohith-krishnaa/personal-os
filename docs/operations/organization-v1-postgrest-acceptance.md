@@ -12,7 +12,7 @@ Do not run this harness against production or against an unverified copy.
 4. Create two disposable, confirmed Auth users in the isolated project. Do not use production user accounts.
 5. Obtain only that isolated project's anon/publishable API key. A service-role or secret key is rejected by the script.
 
-The two restore confirmation environment variables are operator attestations, not cryptographic proof that a backup exists. The script cannot independently verify backup completeness or restore success. The owner remains responsible for those checks.
+The three isolated-target/restore confirmation environment variables are operator attestations, not cryptographic proof that a backup exists. The script cannot independently verify backup completeness or restore success. The owner remains responsible for those checks.
 
 ## Environment
 
