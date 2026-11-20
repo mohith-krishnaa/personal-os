@@ -18,11 +18,7 @@ BEGIN
   IF request_id_attnum IS NOT NULL AND NOT EXISTS (
     SELECT 1 FROM pg_attribute
     WHERE attrelid = tasks_oid AND attname = 'client_request_id'
-      AND atttypid = 'uuid'::regtype AND NOT attnotnull AND NOT attisdropped
-  ) AND NOT EXISTS (
-    SELECT 1 FROM pg_attribute
-    WHERE attrelid = tasks_oid AND attname = 'client_request_id'
-      AND atttypid = 'uuid'::regtype AND attnotnull AND NOT attisdropped
+      AND atttypid = 'uuid'::regtype AND NOT attisdropped
   ) THEN
     RAISE EXCEPTION 'public.tasks.client_request_id has an unexpected type or dropped state.';
   END IF;
@@ -98,7 +94,7 @@ BEGIN
 
   IF existing_definition IS NOT NULL
      AND existing_definition NOT LIKE '%client_request_hash IS NULL%'
-     AND existing_definition NOT LIKE '%client_request_hash ~%64%' THEN
+     OR existing_definition NOT LIKE '%client_request_hash ~%64%' THEN
     RAISE EXCEPTION 'Existing tasks_client_request_hash_check has an unexpected definition.';
   END IF;
 
@@ -134,7 +130,7 @@ BEGIN
   IF NEW.client_request_id IS DISTINCT FROM OLD.client_request_id
      OR NEW.client_request_hash IS DISTINCT FROM OLD.client_request_hash THEN
     RAISE EXCEPTION 'Task creation request identity is immutable.'
-      USING ERRCODE = '23514';
+      USING ERRCODE = '23514', CONSTRAINT = 'tasks_request_identity_immutable';
   END IF;
   RETURN NEW;
 END;
