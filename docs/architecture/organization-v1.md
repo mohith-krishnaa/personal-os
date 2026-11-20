@@ -2,7 +2,7 @@
 
 Status: implementation is under review in PR #11. This document records repository-level design decisions; it does not certify the live Supabase schema or deployment.
 
-Latest code/test verification (2026-11-20): commit `7cb91b4871038d866af439117ed0584af9d0e17f` passed [CI #335](https://github.com/mohith-krishnaa/personal-os/actions/runs/44636928070): all 19 PostgreSQL 17 migrations, Organization/RLS and project name/title compatibility assertions, task hierarchy concurrency, 75/75 application tests, TypeScript typecheck, and production build. npm audit found 0 vulnerabilities; npm reported the existing esbuild install-script allowlist warning. Live Supabase was not rechecked in this run; the last verified ledger remains at 8 migrations, and backup/isolated-restore plus authenticated two-user PostgREST verification remain mandatory before rollout.
+Latest code/test verification (2026-11-20): commit `7a4ec295972c0d64ff8f44a280563130ed375d40` passed [CI #338](https://github.com/mohith-krishnaa/personal-os/actions/runs/44644299182): all 19 PostgreSQL 17 migrations, Organization/RLS assertions, task hierarchy concurrency, 78/78 application tests, TypeScript typecheck, and production build. No lint script is configured. Live Supabase was not rechecked in this application-only run; the last documented ledger remains at 8 migrations, and complete backup/isolated-restore plus authenticated two-user PostgREST verification remain mandatory before rollout.
 
 ## Trust boundaries
 
@@ -29,6 +29,14 @@ Latest code/test verification (2026-11-20): commit `7cb91b4871038d866af439117ed0
 - Legacy clients may still write `title`. The compatibility trigger mirrors title-only writes to name and name-only writes to title.
 - If one statement supplies conflicting values for both columns, canonical `name` wins. This is intentional and is now covered for both INSERT and UPDATE by the Organization migration assertion suite.
 - The compatibility migration and legacy column remain unchanged; this checkpoint adds regression coverage only. Do not remove `title` until deployed legacy-client usage has been measured over an owner-approved compatibility window and a verified backup/restore gate is satisfied.
+
+## Legacy project status compatibility decision — 2026-11-20
+
+- The core schema allows `ACTIVE`, `COMPLETED`, and `ARCHIVED`; the compatibility migration deliberately does not narrow that vocabulary.
+- `ProjectStatus` models all three persisted values so existing completed rows remain accurately typed. `ProjectStatusUpdate` excludes `COMPLETED`: this application change does not add a new completion workflow or reinterpret legacy data.
+- The project manager shows ACTIVE projects in the active list and COMPLETED projects in a separate completed section. Completed projects may be archived explicitly; archived projects remain outside these two sections, matching the existing behavior.
+- The new-task project selector remains ACTIVE-only. Existing tasks linked to completed projects continue to display their project name because the dashboard's owner-scoped project lookup includes all statuses.
+- Regression tests cover status grouping, COMPLETED filtering/preservation, and rejection of a new COMPLETED status update. No database migration or RLS change was made.
 
 ## Legacy checklist compatibility contract — 2026-11-19
 
