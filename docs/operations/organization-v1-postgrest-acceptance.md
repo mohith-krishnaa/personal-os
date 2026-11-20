@@ -8,7 +8,7 @@ Do not run this harness against production or against an unverified copy.
 
 1. The owner must create a complete backup containing schema, data, and roles.
 2. The owner must restore that backup into a separate isolated Supabase project.
-3. The owner must verify the restore and complete the checklist reconciliation conflict review against the restored copy.
+3. The owner must verify the restore and complete the [checklist reconciliation conflict disposition](organization-v1-preflight.md#checklist-reconciliation-conflict-disposition) against the restored copy, retaining the private report and per-row approval evidence.
 4. Create two disposable, confirmed Auth users in the isolated project. Do not use production user accounts.
 5. Obtain only that isolated project's anon/publishable API key. A service-role or secret key is rejected by the script.
 
@@ -23,7 +23,7 @@ The owner must retain a private evidence package outside Git containing:
 - the managed-schema restore supplement for auth.users.on_auth_user_created and any reviewed custom auth/storage changes;
 - separate Auth data and Storage object bytes/checksums if the source inventory requires them; because supabase_vault is installed, record the owner's root-key preservation decision and keep any key outside the artifact package/manifest;
 - a non-secret manifest with source/target project refs, PostgreSQL and CLI versions, exact eight source migration versions, installed extension versions, per-table row counts, artifact byte sizes, SHA-256 hashes, and restore command exit statuses;
-- isolated-target verification showing the exact eight-version baseline, matching schema/data/roles/extensions, RLS and relationship contracts, the restored auth profile-bootstrap trigger, and a successful read-only checklist conflict report.
+- isolated-target verification showing the exact eight-version baseline, matching schema/data/roles/extensions, RLS and relationship contracts, the restored auth profile-bootstrap trigger, the complete read-only checklist conflict report, and the owner-reviewed disposition register.
 
 The last recorded full read-only snapshot (2026-11-20) has nine empty public application tables, zero auth.users, zero Storage buckets/objects, and zero Vault secrets, but it still has a custom auth.users profile-bootstrap trigger, an installed supabase_vault extension, and four installed non-plpgsql extensions. Recheck all counts and customizations immediately before export. The default Supabase CLI dump excludes auth/storage and extension-created schemas; a default schema dump alone is not complete.
 
@@ -105,3 +105,10 @@ Event-write failure rollback is verified by the PostgreSQL migration-replay inte
 ## Latest code/test verification — CI #450
 
 CI #450 passed on implementation/test commit `8b2cf9426cb899817c1e7bb92015b39bab3cac85`: 21/21 PostgREST safety/event assertion tests, 27 PostgreSQL 17 migrations including the task activity-event and delete/cascade rollback suites, task hierarchy concurrency, 151/151 application tests, TypeScript typecheck, production build, and npm audit with 0 vulnerabilities. The live two-owner harness was not executed; these are preflight, SQL integration, and application CI results only.
+
+
+## Latest checklist reconciliation report audit — CI #454 (2026-11-21)
+
+The read-only conflict report now returns side-by-side legacy/canonical title, completion, position, created_at, and updated_at values plus per-field mismatch flags. The migration fixture covers both a cross-owner/task ID collision and a payload-only collision with the same owner/task/ID; assertions prove that `ON CONFLICT (id) DO NOTHING` preserves the canonical row and the legacy source in both cases.
+
+CI #453 initially failed because the new payload-only fixture increased Owner A's visible canonical checklist count to two and legacy count to three. The authenticated RLS fixture was corrected; [CI #454](https://github.com/mohith-krishnaa/personal-os/actions/runs/44837508847) passed on `44cde434c6507f1c492b373b6d53b60f5214bb8f`: 21/21 PostgREST preflight tests, 27/27 PostgreSQL migrations, task hierarchy concurrency, 151/151 application tests, typecheck, production build, and npm audit with 0 vulnerabilities. The live two-owner PostgREST harness was not executed. No production operation was performed.

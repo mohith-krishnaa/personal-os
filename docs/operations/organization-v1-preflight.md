@@ -17,6 +17,39 @@ Query 20 executed successfully against production on 2026-11-21. It reported eve
 
 The complete owner-controlled schema/data/roles backup, successful isolated restoration, restored-copy checklist conflict review, and authenticated two-owner PostgREST acceptance remain mandatory. Do not run the PostgREST acceptance harness against production.
 
+## Checklist reconciliation conflict disposition — 2026-11-21
+
+`supabase/operations/checklist-reconciliation-conflicts.sql` is a read-only diagnostic. It contains SELECT only and never copies, updates, deletes, reassigns, or merges rows. Run it only on the verified isolated target after both checklist tables exist and the branch-only migrations have been applied there. Do not run it against production while the checklist tables and migrations are absent.
+
+The report's classification priority is:
+
+- **`missing_task`** — the legacy row references no task. A validated task foreign key should normally prevent this; treat it as referential-integrity or constraint drift. Preserve the source and stop for investigation.
+- **`task_owner_mismatch`** — the task exists but `tasks.user_id` differs from `task_checklist_items.user_id`. This is a cross-owner association. Do not copy the row or transfer ownership based on the report alone. Verify the source backup and authoritative task ownership; unresolved ownership blocks acceptance.
+- **`missing_canonical`** — the task exists and has the same owner as the legacy row, but no canonical row has that ID. This can be a write made after the one-time reconciliation or a row omitted from that copy. Compare the backup snapshot, migration time, legacy-client logs, and owner evidence. Timestamps are clues, not proof of when a row was written.
+- **`canonical_id_collision`** — a canonical row with the same ID exists, but one or more owner, task, or payload values differ. This category includes both cross-owner/task collisions and payload-only collisions. Use `owner_mismatch`, `task_mismatch`, `payload_mismatch`, the per-field mismatch flags, and the side-by-side legacy/canonical values for title, completion, position, `created_at`, and `updated_at`.
+
+### Required evidence and disposition register
+
+Keep the report output and disposition register private; they contain user IDs, task IDs, and checklist text. For each run, retain:
+
+1. Source and isolated-target project refs, PostgreSQL version, branch/commit SHA, exact migration ledger, UTC report time, and the backup-manifest SHA-256.
+2. The complete report output and its SHA-256; do not paste row data into GitHub issues or commit it to the repository.
+3. For each conflict ID, the report's legacy/canonical values and flags, the referenced task owner, the relevant backup snapshot, and any corroborating legacy-client or application logs.
+4. A per-row decision with rationale, evidence reference, owner/reviewer approval, date, target environment, and before/after row counts. Record unresolved rows explicitly; never omit them from the register.
+
+### Safe disposition rules
+
+- **`task_owner_mismatch`:** preserve both records. Do not change `user_id` to make the row pass. Only consider a corrected task association after the intended owner/task is independently proven and the owner approves the exact repair on the isolated copy.
+- **`canonical_id_collision`:** `ON CONFLICT (id) DO NOTHING` intentionally preserves the canonical row and leaves the legacy source intact. First decide whether the rows represent the same logical item or two distinct items. If they are distinct, a separately reviewed copy with a new canonical UUID may be appropriate; if they are the same, define an owner-approved field precedence before any merge. Never overwrite the canonical row or delete the legacy source automatically.
+- **`missing_canonical`:** confirm the task still exists, its owner matches the legacy row, and the canonical ID is genuinely absent. Establish whether the row was written after the one-time copy or omitted from it. Only after owner approval may a copy be proposed on the isolated target; retain the legacy source until client cutover and verification are complete.
+- **`missing_task`:** do not copy or invent a replacement task link. Verify the FK is present and validated, compare the backup, and resolve the integrity anomaly separately.
+
+Any approved correction must first be rehearsed on the isolated restored copy in an explicit transaction with before/after snapshots, expected affected-row counts, and `RETURNING` evidence. Re-run the report and verify that the row is either resolved or recorded as an owner-approved exception. No automated remediation is permitted. Production correction requires a separate explicit owner authorization after the complete backup/restore gate; this automation remains read-only.
+
+Acceptance requires zero unresolved conflicts or a documented owner-approved exception list with explicit rationale and risk acceptance. A non-empty report is not automatically a failure, but silently ignoring a row is.
+
+The disposable PostgreSQL fixture now covers four conflict rows: ID `30000000-0000-4000-8000-000000000002` (task-owner mismatch), ID `...0005` (cross-owner/task collision), ID `...0007` (same-owner/task payload-only collision), and ID `...0006` (missing canonical after reconciliation). The `missing_task` case remains defensive and is not seeded because the validated legacy task FK prevents an orphan in the normal fixture. CI #454 passed on implementation/test HEAD `44cde434c6507f1c492b373b6d53b60f5214bb8f`: 21/21 PostgREST preflight tests, 27/27 migration replay, four conflict rows with field-level payload evidence, 151/151 application tests, typecheck, production build, and npm audit with 0 vulnerabilities.
+
 ---
 
 # Latest preflight update — activity-event append-only migration 26 (2026-11-21)
@@ -412,8 +445,9 @@ Do not proceed on a successful psql exit alone. Record and verify all of the fol
 5. RLS remains enabled on all nine public application tables; compare policy names, roles, commands, USING/WITH CHECK expressions, grants, foreign keys, triggers, and functions with the read-only preflight output.
 6. auth.users.on_auth_user_created exists and calls the matching public.handle_new_user() definition. Confirm a disposable user created only on the isolated target receives the expected profile row.
 7. Any non-empty Storage export is restored and every object is readable with matching size/checksum. Any Vault data decrypts with the preserved root key.
-8. Save the read-only checklist reconciliation report and review every row against the restored backup. The report classifies missing_task, task_owner_mismatch, missing_canonical, and canonical_id_collision, and exposes owner/task/payload mismatch flags. Zero conflicts or an owner-reviewed exception list is required; do not silently discard conflicts.
-9. After the base restore is verified, confirm the isolated target has exactly the eight baseline migrations applied and the 14 branch-only migrations pending. Review supabase db push --dry-run; apply those 14 migrations only to the isolated target, never production. Then run the checklist conflict report (both checklist tables must exist) and the two-owner PostgREST acceptance harness.
+8. After the base restore is verified, confirm the isolated target has exactly the eight baseline migrations applied and the 19 branch-only migrations pending (27 repository migrations total). Review `supabase db push --dry-run`; apply those 19 migrations only to the isolated target, never production.
+9. After both checklist tables exist, run the SELECT-only conflict report, save its private output, and complete the per-row disposition register described above. Require zero unresolved conflicts or a documented owner-approved exception list before proceeding.
+10. Run the authenticated two-owner PostgREST acceptance harness only after the restore and checklist disposition gates pass.
 
 The connected automation environment has no repository checkout, Docker daemon, Supabase CLI, pg_dump, or psql, and no database password. It cannot create or restore these artifacts. No production migration, DDL/DML, RLS change, backup, restore, or merge was performed by this automation.
 

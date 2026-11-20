@@ -1,61 +1,50 @@
-# Latest verified checkpoint — trusted activity-event PostgREST acceptance prepared (2026-11-21)
+# Latest verified checkpoint — checklist reconciliation operator disposition audit (2026-11-21)
 
-**Implementation/test commit:** `8b2cf9426cb899817c1e7bb92015b39bab3cac85` — [CI #450 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44836136933).
+**Implementation/test HEAD:** `44cde434c6507f1c492b373b6d53b60f5214bb8f` — [CI #454 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44837508847).  
+**Starting HEAD:** `818442304c8419d093d55089352cb30571ed9f6b`.  
+**Audit/test attempt:** `cdb6d6a5dc61c4d8e0a3875564cab2888b36adb2` — CI #453 exposed an outdated Owner A visibility assertion; the fixture counts were corrected in the implementation/test HEAD above.
 
-## Repository recovery and state
+## Repository recovery
 
-- The preceding automation result was migration 27's trusted activity-event writer audit; its result run ID was older than the recorded current run, so it was not attributed to the current run.
-- Branch: `feature/organization-v1`; implementation/test HEAD: `8b2cf9426cb899817c1e7bb92015b39bab3cac85`.
-- PR #11 remains open, unmerged, and mergeable. PR #12 remains an open superseded draft.
-- Branch comparison at the implementation checkpoint: 519 commits ahead of `main`, 0 behind.
-- Starting HEAD was `a018a1bd5b15840a8425acaa439281e957f6e0a5`; no previous PostgREST event-acceptance implementation was present.
+- Personal-OS Builder is enabled. The latest stored automation result belonged to an older run than the recorded current run; it was not treated as the current run's result.
+- Branch: `feature/organization-v1`.
+- PR #11 remains open and unmerged. PR #12 remains an open superseded draft.
+- The actual branch head at recovery was `8184423`; CI #452 had passed on that exact documentation head.
+- No local repository checkout is attached, so local working-tree cleanliness cannot be certified. The remote diff and commit contents were inspected.
 
-## PostgREST trusted activity-event acceptance
+## Checklist reconciliation audit and changes
 
-Extended `scripts/postgrest-organization-acceptance.ts` to verify through two real authenticated PostgREST sessions:
+- `supabase/operations/checklist-reconciliation-conflicts.sql` remains SELECT-only. It now returns side-by-side legacy/canonical values for title, completion, position, created_at, and updated_at, plus per-field mismatch flags.
+- `canonical_id_collision` is explicitly an umbrella category: owner/task differences and payload-only differences are distinguished by the flags and values.
+- Added a payload-only collision fixture with the same owner, task, and ID but different title/completion/position. Migration assertions verify that the existing canonical row and legacy source both remain unchanged.
+- The report test now covers four conflicts: task-owner mismatch, cross-owner/task ID collision, payload-only ID collision, and a valid legacy-only write after one-time reconciliation. The two valid rows copied by the migration remain absent from the report.
+- The migration runner requires exactly four seeded conflict rows and checks the payload-only field mismatch shape. The Owner A RLS fixture now expects two canonical and three legacy rows after adding the new scenario.
+- No migration was added. Repository migration count remains 27; the last recorded live ledger is 8, leaving 19 branch-only migrations. Live state was not rechecked during this static audit.
 
-- Owner A's direct `activity_events` INSERT is rejected with SQLSTATE `42501`.
-- A normal task INSERT produces exactly one `TASK_CREATED` event with the expected owner, entity type, and task ID.
-- Each owner can read its own task event.
-- The other owner cannot read that event.
-- After fixture cleanup, the harness counts and reports task-linked event rows retained across both owners. It never attempts to delete append-only activity events.
+## CI #454 — implementation/test verification
 
-Added four pure regression tests for exact-one event cardinality, missing/duplicate events, owner identity, event type, and entity identity. The live harness remains manual and has not been executed.
-
-Event-write failure rollback is not simulated through the anon-key harness. It remains covered by PostgreSQL migration-replay integration tests in `task-activity-events.sql` and `task-delete-activity-events.sql`, which inject trigger failures and assert statement/cascade rollback.
-
-No migration was added. Repository migration count remains 27; the latest live ledger remains at 8, leaving 19 branch-only migrations.
-
-## CI #450 — implementation/test verification
-
-- PostgREST safety/event assertion preflight: **21/21 passed**.
-- PostgreSQL 17 migration replay: **27/27 passed**, including task activity-event rollback, task DELETE/cascade rollback, append-only access, and trusted-writer assertions.
+- PostgREST safety preflight: **21/21 passed**.
+- PostgreSQL 17 migration replay: **27/27 passed**; checklist reconciliation report and four conflict fixtures passed.
 - Task hierarchy concurrency: passed.
 - Application tests: **151/151 passed**.
 - TypeScript typecheck: passed.
 - Production build: passed.
 - npm audit: **0 vulnerabilities**.
 - No lint script is configured.
+- CI #453 failed because Owner A's expected canonical/legacy checklist visibility counts were not updated for the new payload-only fixture. The assertions were corrected to 2 canonical and 3 legacy rows; CI #454 passed.
 
-## Live production status — read-only
+## Production and acceptance boundary
 
-Fresh Supabase inspection: project `gujzvkyytxsnervovvrt` is `ACTIVE_HEALTHY`, PostgreSQL 17.11.0.003 in `ap-southeast-1`; the live migration ledger contains 8 versions. All 9 public application tables have RLS enabled and currently report zero rows. The branch's 19 pending migrations remain undeployed.
+No production Supabase query, DDL, DML, migration, RLS modification, backup, restore, or PR merge was performed in this task. The last recorded live baseline remains 8 migrations versus 27 in the branch, but it was not freshly queried here.
 
-No production DDL, DML, migration, RLS modification, backup, restore, or PR merge was performed. The live two-owner harness was not executed.
-
-## Remaining blockers
-
-1. Owner-controlled complete schema/data/roles backup.
-2. Successful restoration into a separate isolated Supabase project, including the custom Auth profile-bootstrap trigger and reviewed extension/Vault requirements.
-3. Checklist reconciliation conflict report reviewed against that restored copy.
-4. Authenticated two-owner PostgREST acceptance on the isolated target.
-5. Explicit owner approval before any production migration or schema change.
+Still required: owner-controlled complete schema/data/roles backup; successful isolated restoration including reviewed Auth trigger, extensions, roles, RLS and Vault requirements; checklist conflict disposition against that restored copy; authenticated two-owner PostgREST acceptance; and explicit approval before any production schema change.
 
 ## Next safe task
 
-While the owner-controlled restore remains unavailable, perform a static audit of the checklist reconciliation conflict report's operator disposition workflow (`task_owner_mismatch`, `canonical_id_collision`, and `missing_canonical`) and ensure the runbook defines evidence and safe resolution without automatic mutation. Do not retry production backup/export or run the PostgREST harness against production.
+While the owner-controlled restore remains unavailable, audit every remaining legacy `task_checklist_items` write path and client caller. Establish a safe deprecation/cutover plan and identify whether any supported client still writes the legacy table. Do not add automatic synchronization, disable legacy writes, change RLS, or mutate production as part of that audit. Keep Analytics queued.
 
 ---
+
 # Latest verified checkpoint — application-role append-only activity events (2026-11-21)
 
 **Code/test HEAD:** `03217aefdefb88fee593629f217d7efaf36d538d`  
