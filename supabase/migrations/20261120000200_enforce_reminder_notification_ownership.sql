@@ -213,8 +213,8 @@ BEGIN
   ) INTO new_exact;
 
   IF new_name_exists THEN
-    IF NOT new_exact THEN
-      RAISE EXCEPTION 'Constraint reminders_task_owner_fkey exists with an unexpected contract.';
+    IF NOT new_exact OR foreign_key_count <> 1 THEN
+      RAISE EXCEPTION 'Unexpected foreign-key contract for public.reminders.task_id; the composite owner FK is not the sole exact relationship.';
     END IF;
   ELSIF foreign_key_count = 0 THEN
     ALTER TABLE public.reminders
@@ -350,8 +350,8 @@ BEGIN
   ) INTO new_exact;
 
   IF new_name_exists THEN
-    IF NOT new_exact THEN
-      RAISE EXCEPTION 'Constraint notifications_reminder_owner_task_fkey exists with an unexpected contract.';
+    IF NOT new_exact OR foreign_key_count <> 1 THEN
+      RAISE EXCEPTION 'Unexpected foreign-key contract for public.notifications.reminder_id; the composite owner/task FK is not the sole exact relationship.';
     END IF;
   ELSIF foreign_key_count = 0 THEN
     ALTER TABLE public.notifications
