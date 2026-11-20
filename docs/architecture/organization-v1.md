@@ -1,3 +1,13 @@
+## Current task activity-event contract — 2026-11-21
+
+Task INSERT/UPDATE events are transactional under migration `20261121000100_durable_task_activity_events.sql`. Migration `20261121000300_task_delete_activity_events.sql` adds authenticated owner-context `TASK_DELETED` events for direct task deletes and every task descendant removed by `ON DELETE CASCADE`. The event snapshot preserves title, status, project ID, parent-task ID, and recurrence-parent ID. A failure inserting any event rolls back the complete direct delete or descendant cascade.
+
+The trigger remains SECURITY INVOKER with `search_path = pg_catalog, public`; it does not change RLS or FK actions. It records a delete only when `auth.uid() = OLD.user_id`. Service-role/admin cleanup and Auth-account cascades intentionally skip per-task delete events because both task and activity-event rows cascade from `auth.users`; this prevents account deletion from failing on an attempted event insert for a deleted owner. The activity-event owner policy remains `FOR ALL`, so the table is still mutable and is not yet an immutable audit log.
+
+[CI #438](https://github.com/mohith-krishnaa/personal-os/actions/runs/44810205162) passed on code/test HEAD `2ee721b051f52174fada5a803da6690ed5a9806e`: 25/25 PostgreSQL 17 migrations, direct/cascade DELETE rollback and owner-isolation assertions, Auth-account cleanup, migration reapplication, 147/147 application tests, typecheck, production build, and npm audit with 0 vulnerabilities. The repository has 25 migrations versus eight read-only-verified production ledger versions; no production schema or data was changed. See [Activity Event Consistency](activity-event-consistency.md) and [Organization V1 preflight](../operations/organization-v1-preflight.md).
+
+---
+
 ## Activity-event consistency audit
 
 Task create, update, status-change, and recurrence-generation paths currently perform their primary task write and then await an `activity_events` insert without checking the returned Supabase `error`. A returned PostgREST error can be silently ignored after the task mutation commits. A rejected request can surface an error after commit, and a retry can duplicate the event because task events have no idempotency key.

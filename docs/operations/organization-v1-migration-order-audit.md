@@ -122,3 +122,12 @@ Still required before any production schema rollout:
 The static audit and disposable CI replay do not replace these requirements.
 
 **Next action:** complete the owner-controlled backup/restore gate, then apply the 14 branch-only migrations only to the isolated target and run the checklist report and two-owner PostgREST harness. If that owner action remains unavailable, continue with a static audit of runtime task/project create and update callers against the active-project and ownership triggers; do not retry production operations.
+
+
+## Addendum — task DELETE activity events (migration 25, 2026-11-21)
+
+Migration `20261121000300_task_delete_activity_events.sql` follows the durable task activity trigger migration `20261121000100_durable_task_activity_events.sql` and the task create request identity migration `20261121000200_task_create_request_idempotency.sql`. It replaces the existing trigger function and recreates the same trigger name with INSERT, UPDATE, and DELETE events. It does not alter the request-identity constraint, RLS policies, or FK actions.
+
+The live eight-version production baseline was rechecked read-only before this change. Production already has validated `tasks_parent_task_id_fkey`, `tasks_user_id_fkey`, and `activity_events_user_id_fkey` with ON DELETE CASCADE; migration 25 relies on, but does not change, these contracts. The repository migration count is now 25 (17 branch-only relative to the live ledger). The disposable test proves a failure in any descendant DELETE event rolls back the full cascade and that Auth-account deletion still succeeds because non-owner/service-role cleanup skips per-task deletion events.
+
+[CI #438](https://github.com/mohith-krishnaa/personal-os/actions/runs/44810205162) passed the complete 25-migration replay, DELETE rollback/cascade/owner-isolation/Auth-cleanup tests, migration reapplication, 147/147 application tests, typecheck, production build, and npm audit 0 vulnerabilities. Production remains read-only; backup/restore and authenticated PostgREST acceptance gates remain outstanding.

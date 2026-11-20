@@ -1,3 +1,24 @@
+## Task DELETE event contract — migration 25 (2026-11-21)
+
+Read-only preflight query **18** reports the task activity trigger's DELETE event mapping, authenticated-owner context guard, SECURITY INVOKER status, fixed search path, function grants, and the three existing cascade FKs. On an isolated target after migration 25, expected results are:
+
+- `task_activity_trigger_enabled = true`
+- `task_delete_event_enabled = true`
+- `task_deleted_event_mapping_present = true`
+- `task_delete_owner_context_guard_present = true`
+- `task_activity_trigger_is_security_invoker = true`
+- `task_activity_trigger_search_path_safe = true`
+- authenticated and service_role EXECUTE = true; anon EXECUTE = false
+- `task_parent_delete_cascade_preserved = true`
+- `task_owner_delete_cascade_preserved = true`
+- `activity_owner_delete_cascade_preserved = true`
+
+Fresh read-only production execution of query 18 returned the expected pre-deployment state: the task activity trigger is absent, while all three cascade FK contracts are present. Migration 25 remains branch-only. The DELETE trigger emits events only when the authenticated JWT subject owns the deleted task; service-role/Auth-account cascades intentionally skip per-task events to preserve Auth cleanup.
+
+CI #438 passed 25/25 PostgreSQL 17 migration replay, direct/cascade deletion rollback, Owner A/B isolation, Auth-account cleanup, and migration reapplication. No production DDL/DML or migration was applied.
+
+---
+
 ## Task create request identity — migration 24 (2026-11-21)
 
 Read-only preflight query **17** reports the `tasks.client_request_id` UUID column/default/not-null state, exact per-owner unique key, payload-hash type/check, immutable trigger, SECURITY INVOKER/search-path settings, and EXECUTE grants. Expected results:

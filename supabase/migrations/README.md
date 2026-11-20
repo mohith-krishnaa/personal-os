@@ -1,4 +1,18 @@
-> **Verified checkpoint — 2026-11-21 (task/subtask create request idempotency).** Branch `feature/organization-v1`; the repository now contains **24 migrations**. Fresh read-only inspection of project `gujzvkyytxsnervovvrt` reconfirmed eight live migration-ledger versions, so **16 migrations are branch-only**. The new local-only migration is `20261121000200_task_create_request_idempotency.sql`.
+> **Verified checkpoint — 2026-11-21 (transactional TASK_DELETED events).** Branch `feature/organization-v1`; code/test HEAD `2ee721b051f52174fada5a803da6690ed5a9806e`; [CI #438](https://github.com/mohith-krishnaa/personal-os/actions/runs/44810205162) passed on that exact commit. The initial CI #436/#437 failures were task-test UUID collisions with the existing task-create and concurrent-create fixtures; all task-delete IDs now use the separately scanned `94000000…` namespace.
+>
+> Migration `20261121000300_task_delete_activity_events.sql` brings the repository to **25 migrations**, with **17 branch-only** relative to the freshly read-only-verified eight-version production ledger. The SECURITY INVOKER trigger records authenticated owner-context `TASK_DELETED` events for direct task deletes and every descendant removed by `ON DELETE CASCADE`. Event insertion failure rolls back the full delete statement. Service-role/Auth-account cleanup skips per-task deletion events to preserve the existing Auth FK cascades. RLS and FK definitions are unchanged.
+>
+> Disposable PostgreSQL tests cover direct deletion, injected event failure rollback, repeat-delete behavior, three-level descendant cascades, descendant failure rollback, Owner A/B isolation, Auth-account cleanup, and migration reapplication. Read-only preflight query 18 reports the trigger contract and cascade FKs; production query 18 currently shows the trigger absent and all cascade FKs present, as expected because migration 25 is not deployed.
+>
+> CI #438 passed: 17/17 PostgREST safety preflight tests, 25/25 PostgreSQL 17 migrations, task activity/delete/idempotency/concurrency/Organization/RLS/reminder assertions, 147/147 application tests, typecheck, production build, and npm audit 0 vulnerabilities. No lint script is configured.
+>
+> Production remains read-only. Complete owner-controlled schema/data/roles backup, successful isolated restore, checklist conflict review, and authenticated two-owner PostgREST acceptance remain required. `activity_events` is still mutable and not an immutable audit log; service-role/Auth cleanup is excluded from `TASK_DELETED`; deleted request keys have no durable tombstone. Analytics remains queued.
+>
+> **Next task:** audit all `activity_events` UPDATE/DELETE callers, readers, and retention requirements before designing append-only enforcement.
+>
+> ---
+>
+> **Verified checkpoint — 2026-11-21 (task/subtask create request idempotency).** Branch `feature/organization-v1`; the repository now contains **24 migrations**. Fresh read-only inspection of project `gujzvkyytxsnervovvrt` reconfirmed eight live migration-ledger versions, so **16 migrations are branch-only**. The new local-only migration is `20261121000200_task_create_request_idempotency.sql`. The next branch-only migration is `20261121000300_task_delete_activity_events.sql`, which adds authenticated owner-context `TASK_DELETED` events for direct deletes and task descendant cascades.
 >
 > The migration adds a per-owner unique `(user_id, client_request_id)` key, a SHA-256 create-payload fingerprint, a hash-format check, and an immutable request-identity trigger. First-party task editor, quick-add, and subtask forms reuse the same client UUID for an unchanged payload. The server resolves existing requests before mutable relationship preflight, uses conflict-ignore upsert for concurrent requests, and rejects same-key/different-payload reuse. The migration does not change RLS or introduce SECURITY DEFINER privileges.
 >

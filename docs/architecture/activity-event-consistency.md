@@ -2,7 +2,7 @@
 
 ## Implemented on `feature/organization-v1`
 
-Migration `20261121000100_durable_task_activity_events.sql` installs `public.record_task_activity_event()` as a `SECURITY INVOKER` trigger function with `search_path = pg_catalog, public`. An `AFTER INSERT OR UPDATE` trigger on `public.tasks` inserts the corresponding activity event in the same PostgreSQL statement transaction.
+Migration `20261121000100_durable_task_activity_events.sql` installs `public.record_task_activity_event()` as a `SECURITY INVOKER` trigger function with `search_path = pg_catalog, public`. Migration `20261121000300_task_delete_activity_events.sql` extends the trigger to `AFTER INSERT OR UPDATE OR DELETE`; all task events are inserted in the same PostgreSQL statement transaction.
 
 Event mapping:
 
@@ -11,10 +11,11 @@ Event mapping:
 - UPDATE with a status change to COMPLETED: `TASK_COMPLETED`.
 - UPDATE with another status change: `TASK_STATUS_CHANGED`.
 - Other meaningful UPDATE: `TASK_UPDATED`.
+- DELETE when `auth.uid() = OLD.user_id`: `TASK_DELETED`, with a snapshot of title, status, project ID, parent-task ID, and recurrence-parent ID.
 
-The trigger skips updates that change only non-domain bookkeeping fields (for example `updated_at`) and skips the one-time recurring-root self-link initialization. A failure inserting the event aborts and rolls back the task INSERT/UPDATE statement. This is statement-level atomicity, not a separate asynchronous outbox.
+The trigger skips updates that change only non-domain bookkeeping fields (for example `updated_at`) and skips the one-time recurring-root self-link initialization. A failure inserting the event aborts and rolls back the task INSERT/UPDATE/DELETE statement, including all task descendants deleted by `ON DELETE CASCADE`. This is statement-level atomicity, not a separate asynchronous outbox.
 
-The application no longer inserts task activity events separately in `src/lib/tasks.ts`. The trigger therefore also covers direct authenticated PostgREST task writes and subtask inserts, subject to existing table privileges and RLS. The trigger is not SECURITY DEFINER: authenticated activity-event INSERT remains governed by the existing `activity_events_owner` RLS policy. EXECUTE is revoked from PUBLIC/anon and granted to authenticated/service_role.
+The application no longer inserts task activity events separately in `src/lib/tasks.ts`. The trigger therefore also covers direct authenticated PostgREST task writes, subtask inserts, owner-context deletes, and descendant deletes, subject to existing table privileges and RLS. The trigger is not SECURITY DEFINER: authenticated activity-event INSERT remains governed by the existing `activity_events_owner` RLS policy. EXECUTE is revoked from PUBLIC/anon and granted to authenticated/service_role.
 
 `setTaskStatusForUser` now retries recurrence generation when a task is already COMPLETED. This repairs the case where the parent completion committed but a later recurrence-occurrence INSERT/event transaction failed. The existing `tasks_recurring_occurrence_unique` index makes a repeated occurrence attempt safe.
 
@@ -30,12 +31,12 @@ The request key is unique per owner, so two owners may independently use the sam
 
 - UPDATE retries are event-idempotent when the retry is a no-op; meaningful repeated changes are distinct committed mutations.
 - Recurrence occurrence uniqueness prevents a second row/event for the same series occurrence.
-- DELETE is not covered by the activity trigger. Task deletion/cascade does not currently produce a `TASK_DELETED` event.
+- Authenticated owner-context task DELETE and parent/descendant cascades now produce `TASK_DELETED` events. Service-role/admin deletes and Auth-account cascades intentionally skip per-task deletion events because `tasks.user_id` and `activity_events.user_id` both cascade from `auth.users`; inserting an event for an account being deleted could violate the existing FK and block account cleanup.
 - `activity_events` remains owner-scoped but mutable: its owner policy is `FOR ALL`, `entity_id` is polymorphic without an entity FK, and there is no append-only or event-idempotency constraint.
 - Direct API clients that need retry guarantees must supply a stable `client_request_id`; the database default preserves compatibility but creates a new key for each omitted-key insert.
 - No historical event backfill is attempted. Past missing events cannot be reconstructed reliably from the current schema.
 
-Analytics must not interpret activity counts as counts of user intent, nor infer that an absent event proves no task deletion occurred. Use current task rows as the source of truth until DELETE semantics and event retention/immutability requirements are designed and tested.
+Analytics must not interpret activity counts as counts of user intent, nor infer that an absent event proves no task deletion occurred before migration 25, for service-role/Auth-account cleanup, or where mutable event rows have been removed. Use current task rows as the source of truth until event retention/immutability requirements are designed and tested.
 
 ## Verification
 
@@ -45,6 +46,15 @@ The disposable PostgreSQL regression `supabase/tests/task-activity-events.sql` i
 
 ## Production rollout
 
-The migration is branch-only. Fresh read-only production inspection reconfirmed eight live migration-ledger versions (15 branch-only), nine RLS-enabled public application tables with zero rows, no task activity trigger, no `client_request_id` column, and the existing owner `FOR ALL` activity-event policy. Authenticated and service_role have activity-event INSERT privilege. No production write or schema change was performed.
+The task-event migrations remain branch-only. Fresh read-only production inspection reconfirmed eight live migration-ledger versions versus 25 repository migrations (17 branch-only), nine RLS-enabled public application tables, no task activity trigger, no `client_request_id` column, and the existing owner `FOR ALL` activity-event policy. Read-only preflight query 18 confirmed the production task-parent, task-owner, and activity-owner cascade FKs are present while the new task activity trigger is absent. Authenticated and service_role have activity-event INSERT privilege. No production write or schema change was performed.
 
 The complete owner-controlled schema/data/roles backup, successful isolated restore, restored-copy checklist reconciliation review, and authenticated two-owner PostgREST acceptance remain required before production migration.
+
+
+## DELETE-event verification — migration 25
+
+Migration `20261121000300_task_delete_activity_events.sql` extends the existing trigger without changing RLS or FK actions. The DELETE branch records only when the authenticated JWT subject matches `OLD.user_id`; service-role/Auth-account cleanup skips the event so the existing Auth FK cascades continue to work.
+
+The disposable regression `supabase/tests/task-delete-activity-events.sql` covers direct delete success and failure rollback, repeated delete behavior, three-level parent/descendant cascades, failure of a descendant event rolling back the entire cascade, Owner A/B delete and event visibility isolation, and Auth-account deletion cleanup. The migration runner now expects 25 migrations and reapplies migration 25 after the earlier activity-event migration to verify idempotence.
+
+[CI #438](https://github.com/mohith-krishnaa/personal-os/actions/runs/44810205162) passed on code/test HEAD `2ee721b051f52174fada5a803da6690ed5a9806e`: 17/17 PostgREST safety preflight tests, 25/25 PostgreSQL 17 migrations, task DELETE and existing activity/idempotency/concurrency assertions, 147/147 application tests, TypeScript typecheck, production build, and npm audit with 0 vulnerabilities. No lint script is configured. CI #436/#437 failures were fixture UUID collisions and were corrected before #438.
