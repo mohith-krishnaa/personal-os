@@ -37,6 +37,8 @@ if [[ "$applied_migrations" -ne "$expected_migrations" ]]; then
 fi
 
 psql -X -v ON_ERROR_STOP=1 -f supabase/tests/organization-migration-assertions.sql
+echo "Reapplying the active-project task-link migration to verify idempotence"
+psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261120000100_enforce_active_project_task_links.sql
 echo "Verifying project archive lifecycle and active-project task assignment"
 psql -X -v ON_ERROR_STOP=1 -f supabase/tests/project-archive-lifecycle.sql
 echo "Verifying Progress goal-metric compatibility"
