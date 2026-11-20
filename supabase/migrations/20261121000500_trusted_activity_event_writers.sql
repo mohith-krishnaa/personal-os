@@ -46,8 +46,9 @@ BEGIN
       AND tablename = 'activity_events'
       AND policyname = 'activity_events_select_owner'
       AND cmd = 'SELECT'
-      AND roles @> ARRAY['authenticated']::name[]
+      AND roles = ARRAY['authenticated']::name[]
       AND qual ILIKE '%auth.uid%'
+      AND qual ILIKE '%user_id%'
   ) THEN
     RAISE EXCEPTION 'The authenticated owner-scoped activity-event SELECT policy is required.';
   END IF;
@@ -60,7 +61,8 @@ BEGIN
       AND (
         cmd <> 'INSERT'
         OR NOT (roles @> ARRAY['authenticated']::name[])
-        OR with_check NOT ILIKE '%auth.uid%'
+        OR coalesce(with_check, '') NOT ILIKE '%auth.uid%'
+        OR coalesce(with_check, '') NOT ILIKE '%user_id%'
       )
   ) THEN
     RAISE EXCEPTION 'The existing activity-event INSERT policy has an unexpected definition.';
@@ -77,7 +79,7 @@ BEGIN
   WHERE p.oid = v_claim_function;
 
   IF NOT coalesce(v_claim_is_definer, false)
-     OR v_claim_owner <> 'postgres'
+     OR v_claim_owner IS DISTINCT FROM 'postgres'
      OR NOT coalesce(v_claim_config, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog, public']::text[]
      OR NOT has_function_privilege('service_role', v_claim_function, 'EXECUTE')
      OR has_function_privilege('authenticated', v_claim_function, 'EXECUTE')

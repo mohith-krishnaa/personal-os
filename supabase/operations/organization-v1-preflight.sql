@@ -355,7 +355,7 @@ select
   p.prosecdef = true as trigger_is_security_definer,
   pg_get_userbyid(p.proowner) = 'postgres' as trigger_owner_is_postgres,
   coalesce(p.proconfig, array[]::text[]) @> array['search_path=pg_catalog, public']::text[] as trigger_search_path_safe,
-  has_function_privilege('authenticated', p.oid, 'EXECUTE') as authenticated_can_execute_trigger,
+  NOT has_function_privilege('authenticated', p.oid, 'EXECUTE') as authenticated_cannot_execute_trigger,
   has_function_privilege('service_role', p.oid, 'EXECUTE') as service_role_can_execute_trigger,
   has_function_privilege('anon', p.oid, 'EXECUTE') as anon_can_execute_trigger,
   NOT has_table_privilege('authenticated', 'public.activity_events', 'INSERT') as authenticated_cannot_insert_activity_events,
