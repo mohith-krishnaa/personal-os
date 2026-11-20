@@ -17,7 +17,7 @@ type TaskInput = {
   recurrence_until?: string | null
 }
 
-export async function addTaskAction(input: TaskInput) {
+export async function addTaskAction(input: TaskInput & { client_request_id: string }) {
   const task = await createTask(input)
   revalidatePath('/dashboard')
   return task
