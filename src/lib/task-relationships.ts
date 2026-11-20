@@ -70,16 +70,27 @@ export async function assertTaskOrganizationLinks(
   }
 
   if (projectId !== null) {
-    const { data: project, error: projectError } = await supabase
-      .from('projects')
-      .select(options.requireActiveProject ? 'id,status' : 'id')
-      .eq('id', projectId)
-      .eq('user_id', userId)
-      .maybeSingle()
+    if (options.requireActiveProject) {
+      const { data: project, error: projectError } = await supabase
+        .from('projects')
+        .select('id,status')
+        .eq('id', projectId)
+        .eq('user_id', userId)
+        .maybeSingle()
 
-    if (projectError || !project) throw new Error('Project not found.')
-    if (options.requireActiveProject && !canCreateTaskInProject(project.status)) {
-      throw new Error('Tasks can only be linked to active projects.')
+      if (projectError || !project) throw new Error('Project not found.')
+      if (!canCreateTaskInProject(project.status)) {
+        throw new Error('Tasks can only be linked to active projects.')
+      }
+    } else {
+      const { data: project, error: projectError } = await supabase
+        .from('projects')
+        .select('id')
+        .eq('id', projectId)
+        .eq('user_id', userId)
+        .maybeSingle()
+
+      if (projectError || !project) throw new Error('Project not found.')
     }
   }
 }
