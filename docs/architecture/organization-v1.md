@@ -2,7 +2,7 @@
 
 Status: implementation is under review in PR #11. This document records repository-level design decisions; it does not certify the live Supabase schema or deployment.
 
-Latest code/test verification (2026-11-20): commit `c016f78410eac0ddcfd521be19890853bd5268b2` passed [CI #347](https://github.com/mohith-krishnaa/personal-os/actions/runs/44659601808): all 20 PostgreSQL 17 migrations replayed; Organization/RLS and sequential archive lifecycle assertions passed; both two-session project-status/task-assignment lock orders and the existing hierarchy-cycle race passed; 87/87 application tests, TypeScript typecheck, and production build passed. CI #346 exposed unsupported psql variable interpolation in a `-c` probe; the fixed-literal probe passed on #347. No lint script is configured. The new behavior is disposable-CI evidence only; the live project still has 8 migrations and no user-defined triggers on `projects` or `tasks`.
+Latest code/test verification (2026-11-20): commit `44021a9834790ecf3732f23566fbe47e596cd7a0` passed [CI #350](https://github.com/mohith-krishnaa/personal-os/actions/runs/44666341292): all 20 PostgreSQL 17 migrations replayed; Organization/RLS, archive lifecycle, and task hierarchy concurrency checks passed; 90/90 application tests, TypeScript typecheck, and production build passed; npm audit reported 0 vulnerabilities. [CI #351](https://github.com/mohith-krishnaa/personal-os/actions/runs/44666411625) passed on documentation checkpoint `cc5a57af1bf3e55042bbcc3b3eaca248b3f1eabb` with the same configured checks. No lint script is configured.
 
 ## Trust boundaries
 
@@ -23,6 +23,14 @@ Latest code/test verification (2026-11-20): commit `c016f78410eac0ddcfd521be1989
 - The application uses `public.checklist_items` as its canonical checklist table.
 - The legacy `public.task_checklist_items` table is retained and reconciled forward; it is not dropped as part of Organization V1.
 - The application-facing project field is `projects.name`. Where a legacy `projects.title` column exists, the compatibility migration backfills and dual-writes the two fields rather than dropping the legacy column.
+
+## Runtime task creation path audit — 2026-11-20
+
+- A branch-head audit scanned all 53 TypeScript/TSX modules under `src/`. Runtime `tasks` INSERTs are confined to `src/lib/tasks.ts` (ordinary creation and recurring occurrence generation) and `src/lib/subtasks.ts` (subtask creation). Reminder/checklist services only read tasks for owner validation; the reminder API inserts notifications and activity events, not tasks.
+- `createTask` resolves the authenticated user and calls the shared task-link preflight with `requireActiveProject: true`. Recurring occurrence generation checks the owner-scoped project status before inserting; the database trigger remains authoritative if project status changes after that read.
+- `createSubtask` now performs the same ACTIVE-project preflight. It selects `id,status` using both project ID and owner ID, rejects COMPLETED/ARCHIVED projects before INSERT, and retains the parent-owner and same-project checks. The trigger still handles races and direct PostgREST writes.
+- Three mocked-service regressions cover an allowed ACTIVE-project subtask with owner filters and rejection of COMPLETED/ARCHIVED projects before task insertion. CI #350 verified 90/90 application tests and the full 20-migration PostgreSQL 17 workflow.
+- This application preflight does not replace the production trigger or live PostgREST authorization tests. No production migration or database write was performed.
 
 ## Project archive/task-assignment concurrency decision — 2026-11-20
 
