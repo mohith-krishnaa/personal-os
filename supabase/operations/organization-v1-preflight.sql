@@ -324,3 +324,23 @@ left join pg_constraint con
  and con.conname = e.constraint_name
  and con.contype = 'u'
 order by e.table_name, e.constraint_name;
+
+
+-- 15. Atomic reminder delivery worker contract.
+-- The RPC must create the notification and activity event before committing
+-- delivered_at, while retaining SKIP LOCKED and service_role-only execution.
+select
+  p.oid::regprocedure::text as function_signature,
+  p.prosecdef as security_definer,
+  p.proconfig as function_settings,
+  position('INSERT INTO public.notifications' in pg_get_functiondef(p.oid)) > 0 as inserts_notification,
+  position('INSERT INTO public.activity_events' in pg_get_functiondef(p.oid)) > 0 as inserts_activity_event,
+  position('FOR UPDATE OF rm SKIP LOCKED' in pg_get_functiondef(p.oid)) > 0 as skips_locked_reminders,
+  has_function_privilege('service_role', p.oid, 'EXECUTE') as service_role_can_execute,
+  has_function_privilege('authenticated', p.oid, 'EXECUTE') as authenticated_can_execute,
+  has_function_privilege('anon', p.oid, 'EXECUTE') as anon_can_execute
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public'
+  and p.proname = 'claim_due_reminders'
+  and pg_get_function_identity_arguments(p.oid) = 'p_limit integer';

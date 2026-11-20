@@ -2114,15 +2114,66 @@ BEGIN
 END
 $owner_b$;
 
--- The reminder delivery worker uses service_role. BYPASSRLS must not bypass
--- referential ownership integrity; valid worker writes still succeed.
+-- Test-only fault injection proves the delivery RPC rolls back all three writes.
 RESET ROLE;
+
+CREATE OR REPLACE FUNCTION public.personal_os_test_fail_notification_insert()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = pg_catalog, public
+AS $function$
+BEGIN
+  IF current_setting('personal_os.test_fail_notification', true) = 'on'
+     AND NEW.reminder_id = '83000000-0000-4000-8000-000000000008'::uuid THEN
+    RAISE EXCEPTION 'injected notification insert failure' USING ERRCODE = 'P0001';
+  END IF;
+  RETURN NEW;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.personal_os_test_fail_activity_event_insert()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = pg_catalog, public
+AS $function$
+BEGIN
+  IF current_setting('personal_os.test_fail_activity', true) = 'on'
+     AND NEW.event_type = 'REMINDER_DELIVERED'
+     AND NEW.entity_id = '83000000-0000-4000-8000-000000000009'::uuid THEN
+    RAISE EXCEPTION 'injected activity event insert failure' USING ERRCODE = 'P0001';
+  END IF;
+  RETURN NEW;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.personal_os_test_fail_notification_insert() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.personal_os_test_fail_activity_event_insert() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.personal_os_test_fail_notification_insert() TO service_role;
+GRANT EXECUTE ON FUNCTION public.personal_os_test_fail_activity_event_insert() TO service_role;
+
+DROP TRIGGER IF EXISTS personal_os_test_fail_notification_insert ON public.notifications;
+CREATE TRIGGER personal_os_test_fail_notification_insert
+BEFORE INSERT ON public.notifications
+FOR EACH ROW EXECUTE FUNCTION public.personal_os_test_fail_notification_insert();
+
+DROP TRIGGER IF EXISTS personal_os_test_fail_activity_event_insert ON public.activity_events;
+CREATE TRIGGER personal_os_test_fail_activity_event_insert
+BEFORE INSERT ON public.activity_events
+FOR EACH ROW EXECUTE FUNCTION public.personal_os_test_fail_activity_event_insert();
+
 SET request.jwt.claim.sub = '';
 SET ROLE service_role;
 
 DO $service_role$
 DECLARE
   error_constraint text;
+  error_message text;
+  claimed_count integer;
+  notification_count integer;
+  event_count integer;
+  delivered_at_value timestamptz;
 BEGIN
   IF current_user <> 'service_role' OR NOT EXISTS (
     SELECT 1 FROM pg_roles WHERE rolname = current_user AND rolbypassrls
@@ -2208,10 +2259,118 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'service_role ownership rejection left invalid rows or changed a valid notification.';
   END IF;
+  IF NOT has_function_privilege('service_role', 'public.claim_due_reminders(integer)', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.claim_due_reminders(integer)', 'EXECUTE')
+     OR has_function_privilege('anon', 'public.claim_due_reminders(integer)', 'EXECUTE')
+     OR NOT EXISTS (
+       SELECT 1 FROM pg_proc p
+       WHERE p.oid = 'public.claim_due_reminders(integer)'::regprocedure
+         AND p.prosecdef
+         AND coalesce(p.proconfig, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog, public']::text[]
+     ) THEN
+    RAISE EXCEPTION 'claim_due_reminders must be SECURITY DEFINER with a safe search_path and service_role-only EXECUTE.';
+  END IF;
+
+  INSERT INTO public.reminders (id, user_id, task_id, remind_at)
+  VALUES ('83000000-0000-4000-8000-000000000008',
+          '11111111-1111-4111-8111-111111111111',
+          '10000000-0000-4000-8000-000000000001',
+          now() - interval '3 minutes');
+
+  error_message := NULL;
+  PERFORM set_config('personal_os.test_fail_notification', 'on', true);
+  BEGIN
+    SELECT count(*) INTO claimed_count FROM public.claim_due_reminders(100);
+  EXCEPTION WHEN SQLSTATE 'P0001' THEN
+    GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
+  END;
+  PERFORM set_config('personal_os.test_fail_notification', 'off', true);
+
+  IF error_message IS DISTINCT FROM 'injected notification insert failure'
+     OR EXISTS (SELECT 1 FROM public.reminders WHERE id = '83000000-0000-4000-8000-000000000008' AND delivered_at IS NOT NULL)
+     OR EXISTS (SELECT 1 FROM public.notifications WHERE reminder_id = '83000000-0000-4000-8000-000000000008')
+     OR EXISTS (SELECT 1 FROM public.activity_events WHERE entity_id = '83000000-0000-4000-8000-000000000008' AND event_type = 'REMINDER_DELIVERED') THEN
+    RAISE EXCEPTION 'Notification failure did not roll back the reminder, notification, and activity event atomically.';
+  END IF;
+
+  SELECT count(*) INTO claimed_count FROM public.claim_due_reminders(100);
+  IF claimed_count <> 1 THEN RAISE EXCEPTION 'Retry after notification failure should claim one reminder; got %.', claimed_count; END IF;
+  SELECT rm.delivered_at INTO delivered_at_value FROM public.reminders rm WHERE rm.id = '83000000-0000-4000-8000-000000000008';
+  SELECT count(*) INTO notification_count FROM public.notifications WHERE reminder_id = '83000000-0000-4000-8000-000000000008';
+  SELECT count(*) INTO event_count FROM public.activity_events WHERE entity_id = '83000000-0000-4000-8000-000000000008' AND event_type = 'REMINDER_DELIVERED';
+  IF delivered_at_value IS NULL OR notification_count <> 1 OR event_count <> 1 THEN
+    RAISE EXCEPTION 'Retry after notification failure did not produce one delivery marker, notification, and event.';
+  END IF;
+  SELECT count(*) INTO claimed_count FROM public.claim_due_reminders(100);
+  IF claimed_count <> 0 THEN RAISE EXCEPTION 'Duplicate call reclaimed an already delivered reminder.'; END IF;
+
+  INSERT INTO public.reminders (id, user_id, task_id, remind_at)
+  VALUES ('83000000-0000-4000-8000-000000000009',
+          '11111111-1111-4111-8111-111111111111',
+          '10000000-0000-4000-8000-000000000001',
+          now() - interval '2 minutes');
+
+  error_message := NULL;
+  PERFORM set_config('personal_os.test_fail_activity', 'on', true);
+  BEGIN
+    SELECT count(*) INTO claimed_count FROM public.claim_due_reminders(100);
+  EXCEPTION WHEN SQLSTATE 'P0001' THEN
+    GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
+  END;
+  PERFORM set_config('personal_os.test_fail_activity', 'off', true);
+
+  IF error_message IS DISTINCT FROM 'injected activity event insert failure'
+     OR EXISTS (SELECT 1 FROM public.reminders WHERE id = '83000000-0000-4000-8000-000000000009' AND delivered_at IS NOT NULL)
+     OR EXISTS (SELECT 1 FROM public.notifications WHERE reminder_id = '83000000-0000-4000-8000-000000000009')
+     OR EXISTS (SELECT 1 FROM public.activity_events WHERE entity_id = '83000000-0000-4000-8000-000000000009' AND event_type = 'REMINDER_DELIVERED') THEN
+    RAISE EXCEPTION 'Activity-event failure did not roll back the reminder, notification, and event atomically.';
+  END IF;
+
+  SELECT count(*) INTO claimed_count FROM public.claim_due_reminders(100);
+  IF claimed_count <> 1 THEN RAISE EXCEPTION 'Retry after activity failure should claim one reminder; got %.', claimed_count; END IF;
+  SELECT rm.delivered_at INTO delivered_at_value FROM public.reminders rm WHERE rm.id = '83000000-0000-4000-8000-000000000009';
+  SELECT count(*) INTO notification_count FROM public.notifications WHERE reminder_id = '83000000-0000-4000-8000-000000000009';
+  SELECT count(*) INTO event_count FROM public.activity_events WHERE entity_id = '83000000-0000-4000-8000-000000000009' AND event_type = 'REMINDER_DELIVERED';
+  IF delivered_at_value IS NULL OR notification_count <> 1 OR event_count <> 1 THEN
+    RAISE EXCEPTION 'Retry after activity failure did not produce one delivery marker, notification, and event.';
+  END IF;
+
+  INSERT INTO public.reminders (id, user_id, task_id, remind_at)
+  VALUES ('83000000-0000-4000-8000-000000000010',
+          '11111111-1111-4111-8111-111111111111',
+          '10000000-0000-4000-8000-000000000001',
+          now() - interval '1 minute');
+  INSERT INTO public.notifications (id, user_id, reminder_id, task_id, title, body, read_at)
+  VALUES ('82000000-0000-4000-8000-000000000005',
+          '11111111-1111-4111-8111-111111111111',
+          '83000000-0000-4000-8000-000000000010',
+          '10000000-0000-4000-8000-000000000001',
+          'Existing reminder notification',
+          'Preserve the existing notification',
+          now());
+
+  SELECT count(*) INTO claimed_count FROM public.claim_due_reminders(100);
+  SELECT count(*) INTO notification_count FROM public.notifications WHERE reminder_id = '83000000-0000-4000-8000-000000000010';
+  SELECT count(*) INTO event_count FROM public.activity_events WHERE entity_id = '83000000-0000-4000-8000-000000000010' AND event_type = 'REMINDER_DELIVERED';
+  IF claimed_count <> 1 OR notification_count <> 1 OR event_count <> 1
+     OR NOT EXISTS (
+       SELECT 1 FROM public.notifications
+       WHERE reminder_id = '83000000-0000-4000-8000-000000000010'
+         AND title = 'Existing reminder notification'
+         AND read_at IS NOT NULL
+     ) THEN
+    RAISE EXCEPTION 'Delivery did not reuse the existing notification or preserve its read state.';
+  END IF;
+  SELECT count(*) INTO claimed_count FROM public.claim_due_reminders(100);
+  IF claimed_count <> 0 THEN RAISE EXCEPTION 'Repeated delivery created duplicate notification or activity event.'; END IF;
 END
 $service_role$;
 
 RESET ROLE;
+DROP TRIGGER IF EXISTS personal_os_test_fail_notification_insert ON public.notifications;
+DROP TRIGGER IF EXISTS personal_os_test_fail_activity_event_insert ON public.activity_events;
+DROP FUNCTION IF EXISTS public.personal_os_test_fail_notification_insert();
+DROP FUNCTION IF EXISTS public.personal_os_test_fail_activity_event_insert();
 SET request.jwt.claim.sub = '';
 SET ROLE anon;
 

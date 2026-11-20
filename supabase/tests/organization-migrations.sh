@@ -10,7 +10,7 @@ export PGDATABASE="${PGDATABASE:-personal_os_migration_test}"
 psql -X -v ON_ERROR_STOP=1 -c 'select 1' >/dev/null
 psql -X -v ON_ERROR_STOP=1 -f supabase/tests/organization-migration-bootstrap.sql
 
-expected_migrations=21
+expected_migrations=22
 actual_migrations="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | wc -l | tr -d ' ')"
 
 if [[ "$actual_migrations" -ne "$expected_migrations" ]]; then
@@ -37,6 +37,8 @@ if [[ "$applied_migrations" -ne "$expected_migrations" ]]; then
 fi
 
 psql -X -v ON_ERROR_STOP=1 -f supabase/tests/organization-migration-assertions.sql
+echo "Reapplying atomic reminder delivery migration to verify idempotence"
+psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261120000300_atomic_reminder_delivery.sql
 echo "Reapplying the reminder/notification ownership migration to verify idempotence"
 psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261120000200_enforce_reminder_notification_ownership.sql
 
@@ -243,3 +245,7 @@ if [[ "$reported_conflicts" -ne 3 ]]; then
   echo "Expected exactly three seeded checklist reconciliation conflicts, found $reported_conflicts."
   exit 1
 fi
+
+
+echo "Verifying atomic reminder delivery concurrency"
+bash supabase/tests/reminder-delivery-concurrency.sh
