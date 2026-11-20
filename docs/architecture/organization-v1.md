@@ -1,3 +1,17 @@
+## Task update service contract
+
+The exported `updateTask` entry point remains the authenticated server boundary: it creates the server Supabase client, calls `auth.getUser()`, rejects missing/error sessions, and delegates to `updateTaskForUser(supabase, userId, id, input)`. The extracted helper rejects an empty owner ID before any database access.
+
+When either relationship field is supplied, the helper first reads the current task using both `id` and `user_id`, resolves omitted fields to their current values, and validates the resulting project/parent links. A newly assigned project must be ACTIVE; unchanged historical links remain allowed. Explicit `null` clears only the field supplied.
+
+The final UPDATE is constrained by task ID and owner ID. Its payload is built from an explicit allowlist; runtime extras such as `user_id`, `status`, `created_at`, or `recurrence_parent_id` are ignored. A successful update is followed by the existing `TASK_UPDATED` activity insert.
+
+Regression coverage lives in `src/lib/tasks.test.ts`. [CI #403](https://github.com/mohith-krishnaa/personal-os/actions/runs/44782848704) passed 132/132 application tests, 17/17 PostgREST safety preflight tests, full 22-migration PostgreSQL 17 replay with Organization/RLS and concurrency checks, typecheck, production build, and 0 npm vulnerabilities. No migration or production change was made.
+
+The current tests do not yet define whether activity-event insertion is best-effort or transactionally required. That failure contract is the next audit; do not change it speculatively.
+
+---
+
 ## Runtime task/project relationship contract and lookup errors
 
 The application preflight is defense-in-depth; the database triggers and RLS remain authoritative for direct PostgREST calls and races.
