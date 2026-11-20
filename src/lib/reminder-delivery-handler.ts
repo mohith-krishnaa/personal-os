@@ -22,7 +22,7 @@ export function getReminderWorkerSecret(
 export function createReminderDeliveryHandlers(dependencies: ReminderDeliveryDependencies) {
   async function deliver(request: Request): Promise<Response> {
     const expected = dependencies.getExpectedSecret()
-    const supplied = request.headers.get('authorization')?.replace(/^Bearer\\s+/i, '')
+    const supplied = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '')
     if (!expected || supplied !== expected) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 })
     }
