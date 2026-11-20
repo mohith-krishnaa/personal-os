@@ -1,3 +1,23 @@
+> **Verified checkpoint — 2026-11-20 (atomic reminder delivery).** Repository: `mohith-krishnaa/personal-os`; branch: `feature/organization-v1`; code/test commit: `2953e1eb29955d2464b2e565e80b41ad16a85510`; [CI #378](https://github.com/mohith-krishnaa/personal-os/actions/runs/44727301882) passed. PR #11 remains open and unmerged.
+>
+> A fresh read-only Supabase inspection found project `gujzvkyytxsnervovvrt` ACTIVE_HEALTHY on PostgreSQL 17.11.0.003, with 8 live migration-ledger entries and 9 public tables with RLS enabled. The live `claim_due_reminders(integer)` is still the older SECURITY DEFINER function: it locks due reminders with `FOR UPDATE SKIP LOCKED`, marks them delivered, and inserts the activity event, but it does not create the notification. Its execution is granted to `service_role` only. No production write was attempted.
+>
+> The branch worker previously performed notification upsert, delivered-marker update, and activity-event insert as separate PostgREST requests. If the final event insert failed after the delivered marker committed, the next run excluded that reminder and could not repair the missing event. The existing SQL claim function was not called by the route and did not create notifications.
+>
+> Added local-only migration `20261120000300_atomic_reminder_delivery.sql`, which replaces the claim function without changing its signature. Each claimed reminder now creates or safely reuses its matching notification, inserts `REMINDER_DELIVERED`, and only then sets `delivered_at` inside the same RPC transaction. An existing notification is reused only when its owner and task match; its read state is preserved. Any notification/event/update failure aborts the RPC statement and rolls back all writes, leaving the reminder retryable. The function remains SECURITY DEFINER with `search_path = pg_catalog, public`; EXECUTE is revoked from PUBLIC/anon/authenticated and granted only to service_role.
+>
+> `src/app/api/reminders/deliver/route.ts` retains its existing bearer-secret check and now calls only `claim_due_reminders(p_limit => 100)`; it no longer makes separate notification, reminder, and activity-event writes. The repository's `vercel.json` schedules this endpoint every five minutes; deployed secret configuration was not inspected.
+>
+> Added disposable-PostgreSQL fault-injection assertions for notification-insert and activity-event-insert failures, proving all writes roll back and retries succeed. Tests also verify an existing notification is reused without clearing `read_at`, repeated delivery produces no duplicate event/notification, and the RPC remains service_role-only. A separate two-session test proves Worker B completes with zero claims while Worker A holds the row lock, then exactly one notification, event, and delivered marker exist after Worker A commits. The migration is reapplied in CI to verify idempotence. Read-only preflight query 15 reports the function/security/locking contract.
+>
+> [CI #378](https://github.com/mohith-krishnaa/personal-os/actions/runs/44727301882) passed on the exact code/test commit: PostgreSQL 17 replayed **22/22 migrations**; the new migration reapplication, injected notification/event failure rollback and retry cases, existing-notification reuse, duplicate-call idempotency, two-session `SKIP LOCKED` concurrency, Organization/RLS, archive lifecycle, and hierarchy/project concurrency checks passed; **90/90 application tests passed**; TypeScript typecheck and production build passed. npm install audited 43 packages and reported **0 vulnerabilities**; the existing `esbuild@0.28.2` install-script allowlist warning remains. No lint script is configured.
+>
+> Repository migration count is **22**: 8 versions match the live ledger and 14 are branch-only (11 Organization/related, 1 Progress compatibility, 2 RLS performance). The new migration and route change are not deployed. No production DDL/DML, migration, RLS change, backup, restore, or PR merge occurred. Production rollout still requires a complete owner-controlled schema/data/roles backup, successful isolated restore, restored-copy checklist conflict review, and authenticated two-user PostgREST CRUD/isolation.
+>
+> **Next task:** add route-level tests for the reminder endpoint's bearer-secret rejection, successful RPC result mapping, and RPC error handling; verify the cron route/secret contract without reading or exposing secret values. Keep Analytics queued until Organization acceptance is genuinely complete.
+>
+> ---
+>
 > **Verified checkpoint — 2026-11-20 (reminder/notification owner-link integrity).** Repository: `mohith-krishnaa/personal-os`; branch: `feature/organization-v1`; code/test commit: `8fbf83e18fa15dc60a9a8bc8ab58563738d00df0`; PR #11 remains open and unmerged.
 >
 > Fresh read-only Supabase inspection confirms project `gujzvkyytxsnervovvrt` is ACTIVE_HEALTHY on PostgreSQL 17.11.0.003, with 8 live migration-ledger entries and 9 public tables with RLS enabled. Live `reminders_owner_insert/update` and `notifications_owner_update` policies check `auth.uid() = user_id` only. Live `reminders.task_id`, `notifications.reminder_id`, and `notifications.task_id` are single-column foreign keys. These contracts admit cross-owner reminder/task and notification/reminder/task associations through direct authenticated SQL/PostgREST if a caller supplies its own `user_id` with another owner's existing UUID. No production write was attempted.
@@ -526,3 +546,17 @@ This guard is branch-only and is not authorization to apply production DDL. Prod
 - The full migration runner already executes the lifecycle fixture after replay; no migration-count or workflow change was needed. The branch remains at 20 migrations. CI #354 passed on code/test commit `91075f588cd42f88b7014bb7e8d9eab8a32e3ab6`.
 - Fresh read-only production inspection still shows 8 live migrations, legacy `projects.title/status`, task project/parent columns, RLS enabled on projects/tasks, and no user-defined triggers on those live tables. The active-project trigger is branch-only. No production DDL, migration, RLS change, backup, restore, or merge occurred.
 - Next: verify the same inactive-project subtask behavior through the authenticated role in the two-owner migration fixture, while retaining existing owner/parent relationship denial assertions. Production rollout remains gated by a complete owner-controlled schema/data/roles backup and isolated restore, checklist conflict review, and authenticated two-user PostgREST CRUD/isolation.
+
+
+## Atomic reminder delivery
+
+Migration `20261120000300_atomic_reminder_delivery.sql` keeps the existing `claim_due_reminders(integer)` signature and makes the worker's three durable effects one transaction:
+
+1. Claim due, enabled, undelivered reminders with `FOR UPDATE SKIP LOCKED`.
+2. Insert the notification, or reuse the unique `reminder_id` row only when its `user_id` and `task_id` match. Reuse does not clear `read_at`.
+3. Insert the `REMINDER_DELIVERED` activity event.
+4. Set `delivered_at` and `updated_at`, then return the claimed reminder.
+
+The API route calls the function once through the service-role client after validating the configured bearer secret. It no longer splits notification, reminder, and event writes across separate HTTP requests. Any database error aborts the RPC transaction, so a notification or event failure does not leave a committed delivered marker and the reminder remains eligible for retry.
+
+The function remains SECURITY DEFINER with `search_path = pg_catalog, public`; EXECUTE is revoked from PUBLIC, anon, and authenticated and granted only to service_role. The migration checks the exact unique notification index before replacing the function. CI injects failures at notification and event insertion, verifies retry, preserves an existing notification's read state, checks repeated-call idempotency, and runs a two-session SKIP LOCKED race.
