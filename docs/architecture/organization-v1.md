@@ -3,18 +3,15 @@
 Status: implementation is under review in PR #11. This document records repository-level design decisions; it does not certify the live Supabase schema or deployment.
 
 **Verified checkpoint — 2026-11-20 (authenticated task project reassignment).** Repository: `mohith-krishnaa/personal-os`; branch: `feature/organization-v1`; code/test commit: `0da6239761d1f2fc1adf9b34d2a418517f9ae458`; PR #11 remains open and unmerged.
->
+
 Extended `supabase/tests/organization-migration-assertions.sql` so task project assignment and reassignment run under the actual disposable-database `authenticated` role with Owner A's JWT subject and RLS enabled. The fixture creates a second ACTIVE project owned by Owner A and exercises: an unassigned task assigned to an ACTIVE project; reassignment from one owned ACTIVE project to another; rejection of reassignment into a COMPLETED project; rejection of reassignment into an ARCHIVED project; and rejection of reassignment to Owner B's project. Rejected updates must leave the original `project_id` unchanged. The existing authenticated same-link update after archive remains covered, as do cross-owner parent INSERT denials.
->
+
 [CI #360](https://github.com/mohith-krishnaa/personal-os/actions/runs/44687024395) passed on the exact code/test commit. The workflow replayed all **20/20 migrations** in disposable PostgreSQL 17; Organization/RLS and authenticated/anonymous isolation assertions passed; project archive lifecycle and two-session task hierarchy/project-status concurrency checks passed; **90/90 application tests passed**; TypeScript typecheck passed; and the production build passed. The configured workflow does not run `npm audit`; no lint script is configured. No migration or runtime application code changed, and the repository remains at 20 migration files.
->
+
 Production Supabase was not accessed or modified during this test-only run. The last documented read-only checkpoint remains 8 live migration-ledger entries with the Organization trigger not deployed; that is not a fresh inspection for this run. No production DDL/DML, migration, RLS change, backup, restore, or PR merge occurred. No local checkout is attached, so local `git status` cannot be certified.
->
+
 **Next task:** add authenticated-role UPDATE coverage for `parent_task_id` changes: same-owner/same-project parent reassignment should succeed where valid; cross-owner and cross-project parent reassignment must fail without changing the prior relationship; existing historical tasks in completed/archived projects must remain maintainable without weakening the task-link guard. Keep Analytics queued until Organization acceptance is genuinely complete.
 ---
->
-
-
 ## Authenticated-role task-link trigger verification — 2026-11-20
 
 The disposable migration assertion now runs under `SET ROLE authenticated` with Owner A and Owner B JWT subjects. It proves the role does not bypass RLS; Owner A can insert a subtask into an ACTIVE project; COMPLETED and ARCHIVED project inserts fail with the dedicated check violation; unchanged historical links remain valid after archive; and foreign-owner parent attempts fail in both directions. This is a disposable PostgreSQL role/RLS test, not a live PostgREST test. [CI #357](https://github.com/mohith-krishnaa/personal-os/actions/runs/44680309313) passed the full 20-migration PostgreSQL 17 replay, Organization/RLS and authenticated/anonymous isolation assertions, archive lifecycle and concurrency checks, 90/90 application tests, typecheck, and production build. No migration was added; the branch remains at 20 migrations. The live Supabase project remains at 8 migrations with no Organization task triggers; production rollout remains blocked on the owner-controlled backup/restore and authenticated PostgREST acceptance gates.
