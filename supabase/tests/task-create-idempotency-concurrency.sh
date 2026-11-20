@@ -8,7 +8,14 @@ export PGPASSWORD="${PGPASSWORD:-postgres}"
 export PGDATABASE="${PGDATABASE:-personal_os_migration_test}"
 
 tmpdir="$(mktemp -d)"
-trap 'rm -rf "$tmpdir"' EXIT
+cleanup() {
+  psql -X -v ON_ERROR_STOP=1 >/dev/null 2>&1 <<SQL || true
+DELETE FROM public.activity_events WHERE entity_type = 'TASK' AND entity_id = '$winner_id';
+DELETE FROM public.tasks WHERE id = '$winner_id' OR id = '$loser_id';
+SQL
+  rm -rf "$tmpdir"
+}
+trap cleanup EXIT
 
 owner_id='11111111-1111-4111-8111-111111111111'
 request_id='93000000-0000-4000-8000-000000000099'
@@ -31,7 +38,18 @@ COMMIT;
 SQL
 winner_pid=$!
 
-sleep 0.25
+for attempt in $(seq 1 100); do
+  if grep -Fq "$winner_id" "$tmpdir/winner.out"; then
+    break
+  fi
+  sleep 0.05
+done
+if ! grep -Fq "$winner_id" "$tmpdir/winner.out"; then
+  echo "The first worker did not acquire the request key before the retry started."
+  wait "$winner_pid" || true
+  cat "$tmpdir/winner.out"
+  exit 1
+fi
 
 PGAPPNAME=personal-os-task-create-retry psql -X -qAt -v ON_ERROR_STOP=1 >"$tmpdir/retry.out" <<SQL
 BEGIN;
@@ -69,8 +87,6 @@ BEGIN
   END IF;
 END;
 $verify$;
-DELETE FROM public.activity_events WHERE entity_type = 'TASK' AND entity_id = '$winner_id';
-DELETE FROM public.tasks WHERE id = '$winner_id';
 SQL
 
 echo "Concurrent task create idempotency passed."
