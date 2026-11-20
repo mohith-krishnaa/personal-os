@@ -11,7 +11,7 @@ export async function listSubtasksAction(parentTaskId: string) {
   return listSubtasks(supabase, user.id, parentTaskId)
 }
 
-export async function addSubtaskAction(parentTaskId: string, input: { title: string; project_id?: string | null }) {
+export async function addSubtaskAction(parentTaskId: string, input: { title: string; project_id?: string | null; client_request_id: string }) {
   const supabase = await createClient()
   const { data: { user }, error } = await supabase.auth.getUser()
   if (error || !user) throw new Error('Authentication required')
