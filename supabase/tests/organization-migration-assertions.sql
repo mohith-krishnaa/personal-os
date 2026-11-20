@@ -483,6 +483,36 @@ VALUES (
   'Malformed canonical cross-owner task link'
 );
 
+-- Dedicated task-delete cascade fixture. Owner A owns a three-level hierarchy,
+-- an unrelated task, and a recurring occurrence that references the root only
+-- through recurrence_parent_id (not parent_task_id). Owner B has a child so an
+-- Owner A delete attempt against Owner B's root can be checked for no cascade.
+INSERT INTO public.tasks (
+  id, user_id, project_id, parent_task_id, title,
+  recurrence_parent_id, recurrence_rule, due_at
+)
+VALUES
+  ('70000000-0000-4000-8000-000000000001', '11111111-1111-4111-8111-111111111111', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', NULL, 'Cascade root', NULL, NULL, NULL),
+  ('70000000-0000-4000-8000-000000000002', '11111111-1111-4111-8111-111111111111', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '70000000-0000-4000-8000-000000000001', 'Cascade child', NULL, NULL, NULL),
+  ('70000000-0000-4000-8000-000000000003', '11111111-1111-4111-8111-111111111111', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '70000000-0000-4000-8000-000000000002', 'Cascade grandchild', NULL, NULL, NULL),
+  ('70000000-0000-4000-8000-000000000004', '11111111-1111-4111-8111-111111111111', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', NULL, 'Unrelated task survives parent deletion', NULL, NULL, NULL),
+  ('70000000-0000-4000-8000-000000000005', '11111111-1111-4111-8111-111111111111', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', NULL, 'Recurring occurrence survives source deletion', '70000000-0000-4000-8000-000000000001', '{"frequency":"DAILY","interval":1}'::jsonb, '2099-01-01T09:00:00Z'),
+  ('70000000-0000-4000-8000-000000000006', '22222222-2222-4222-8222-222222222222', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', '20000000-0000-4000-8000-000000000001', 'Owner B protected child', NULL, NULL, NULL);
+
+INSERT INTO public.reminders (id, user_id, task_id, remind_at)
+VALUES
+  ('71000000-0000-4000-8000-000000000001', '11111111-1111-4111-8111-111111111111', '70000000-0000-4000-8000-000000000001', '2099-01-01T09:00:00Z'),
+  ('71000000-0000-4000-8000-000000000002', '11111111-1111-4111-8111-111111111111', '70000000-0000-4000-8000-000000000002', '2099-01-01T10:00:00Z'),
+  ('71000000-0000-4000-8000-000000000003', '11111111-1111-4111-8111-111111111111', '70000000-0000-4000-8000-000000000004', '2099-01-01T11:00:00Z');
+
+-- Notifications have no client INSERT policy; seed them before switching to
+-- authenticated so the task-delete test can verify their FK cascade.
+INSERT INTO public.notifications (id, user_id, reminder_id, task_id, title, body)
+VALUES
+  ('72000000-0000-4000-8000-000000000001', '11111111-1111-4111-8111-111111111111', '71000000-0000-4000-8000-000000000001', '70000000-0000-4000-8000-000000000001', 'Cascade root reminder', 'Seeded notification'),
+  ('72000000-0000-4000-8000-000000000002', '11111111-1111-4111-8111-111111111111', '71000000-0000-4000-8000-000000000002', '70000000-0000-4000-8000-000000000002', 'Cascade child reminder', 'Seeded notification'),
+  ('72000000-0000-4000-8000-000000000003', '11111111-1111-4111-8111-111111111111', '71000000-0000-4000-8000-000000000003', '70000000-0000-4000-8000-000000000004', 'Unrelated task reminder', 'Must survive parent deletion');
+
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
 GRANT USAGE ON SCHEMA auth TO authenticated, service_role;
@@ -523,7 +553,7 @@ BEGIN
   SELECT count(*) INTO visible_checklists FROM public.checklist_items;
   SELECT count(*) INTO visible_legacy_checklists FROM public.task_checklist_items;
 
-  IF visible_projects <> 1 OR visible_tasks <> 1 OR visible_checklists <> 1 THEN
+  IF visible_projects <> 1 OR visible_tasks <> 6 OR visible_checklists <> 1 THEN
     RAISE EXCEPTION 'Owner A visibility is incorrect: projects %, tasks %, checklists %.',
       visible_projects, visible_tasks, visible_checklists;
   END IF;
@@ -1184,6 +1214,129 @@ BEGIN
   IF affected_rows <> 0 THEN
     RAISE EXCEPTION 'Owner A deleted Owner B legacy checklist item.';
   END IF;
+
+  -- Create matching canonical and legacy checklist rows as the authenticated
+  -- owner. Identical payloads keep the reconciliation conflict report stable.
+  INSERT INTO public.checklist_items (
+    id, user_id, task_id, title, is_completed, position, created_at, updated_at
+  )
+  VALUES
+    ('73000000-0000-4000-8000-000000000001', auth.uid(), '70000000-0000-4000-8000-000000000001', 'Cascade root checklist', false, 0, '2026-11-20T00:00:00Z', '2026-11-20T00:00:00Z'),
+    ('73000000-0000-4000-8000-000000000002', auth.uid(), '70000000-0000-4000-8000-000000000002', 'Cascade child checklist', false, 1, '2026-11-20T00:00:00Z', '2026-11-20T00:00:00Z'),
+    ('73000000-0000-4000-8000-000000000003', auth.uid(), '70000000-0000-4000-8000-000000000003', 'Cascade grandchild checklist', false, 2, '2026-11-20T00:00:00Z', '2026-11-20T00:00:00Z'),
+    ('73000000-0000-4000-8000-000000000004', auth.uid(), '70000000-0000-4000-8000-000000000004', 'Unrelated task checklist', false, 3, '2026-11-20T00:00:00Z', '2026-11-20T00:00:00Z');
+
+  INSERT INTO public.task_checklist_items (
+    id, user_id, task_id, title, is_completed, position, created_at, updated_at
+  )
+  VALUES
+    ('73000000-0000-4000-8000-000000000001', auth.uid(), '70000000-0000-4000-8000-000000000001', 'Cascade root checklist', false, 0, '2026-11-20T00:00:00Z', '2026-11-20T00:00:00Z'),
+    ('73000000-0000-4000-8000-000000000002', auth.uid(), '70000000-0000-4000-8000-000000000002', 'Cascade child checklist', false, 1, '2026-11-20T00:00:00Z', '2026-11-20T00:00:00Z'),
+    ('73000000-0000-4000-8000-000000000003', auth.uid(), '70000000-0000-4000-8000-000000000003', 'Cascade grandchild checklist', false, 2, '2026-11-20T00:00:00Z', '2026-11-20T00:00:00Z'),
+    ('73000000-0000-4000-8000-000000000004', auth.uid(), '70000000-0000-4000-8000-000000000004', 'Unrelated task checklist', false, 3, '2026-11-20T00:00:00Z', '2026-11-20T00:00:00Z');
+
+  -- Deleting the owned parent must cascade only through parent_task_id children.
+  DELETE FROM public.tasks
+  WHERE id = '70000000-0000-4000-8000-000000000001';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 1 THEN
+    RAISE EXCEPTION 'Authenticated owner could not delete exactly its selected parent task.';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM public.tasks
+    WHERE id IN (
+      '70000000-0000-4000-8000-000000000001',
+      '70000000-0000-4000-8000-000000000002',
+      '70000000-0000-4000-8000-000000000003'
+    )
+  ) THEN
+    RAISE EXCEPTION 'Deleting an owned parent did not remove its full descendant chain.';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM public.checklist_items
+    WHERE task_id IN (
+      '70000000-0000-4000-8000-000000000001',
+      '70000000-0000-4000-8000-000000000002',
+      '70000000-0000-4000-8000-000000000003'
+    )
+  ) OR EXISTS (
+    SELECT 1 FROM public.task_checklist_items
+    WHERE task_id IN (
+      '70000000-0000-4000-8000-000000000001',
+      '70000000-0000-4000-8000-000000000002',
+      '70000000-0000-4000-8000-000000000003'
+    )
+  ) THEN
+    RAISE EXCEPTION 'Task deletion left canonical or legacy checklist associations behind.';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM public.reminders
+    WHERE task_id IN (
+      '70000000-0000-4000-8000-000000000001',
+      '70000000-0000-4000-8000-000000000002',
+      '70000000-0000-4000-8000-000000000003'
+    )
+  ) OR EXISTS (
+    SELECT 1 FROM public.notifications
+    WHERE task_id IN (
+      '70000000-0000-4000-8000-000000000001',
+      '70000000-0000-4000-8000-000000000002',
+      '70000000-0000-4000-8000-000000000003'
+    ) OR reminder_id IN (
+      '71000000-0000-4000-8000-000000000001',
+      '71000000-0000-4000-8000-000000000002'
+    )
+  ) THEN
+    RAISE EXCEPTION 'Task deletion left reminder or notification records behind.';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.tasks
+    WHERE id = '70000000-0000-4000-8000-000000000005'
+      AND project_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+      AND parent_task_id IS NULL
+      AND recurrence_parent_id IS NULL
+      AND recurrence_rule = '{"frequency":"DAILY","interval":1}'::jsonb
+      AND due_at = '2099-01-01T09:00:00Z'::timestamptz
+  ) THEN
+    RAISE EXCEPTION 'Deleting a recurrence source must preserve the occurrence and clear only recurrence_parent_id.';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.tasks
+    WHERE id = '70000000-0000-4000-8000-000000000004'
+      AND project_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM public.projects
+    WHERE id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+      AND user_id = auth.uid()
+  ) THEN
+    RAISE EXCEPTION 'Deleting a task changed an unrelated task or its project relationship.';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.checklist_items
+    WHERE id = '73000000-0000-4000-8000-000000000004'
+      AND task_id = '70000000-0000-4000-8000-000000000004'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM public.task_checklist_items
+    WHERE id = '73000000-0000-4000-8000-000000000004'
+      AND task_id = '70000000-0000-4000-8000-000000000004'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM public.reminders
+    WHERE id = '71000000-0000-4000-8000-000000000003'
+      AND task_id = '70000000-0000-4000-8000-000000000004'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM public.notifications
+    WHERE id = '72000000-0000-4000-8000-000000000003'
+      AND task_id = '70000000-0000-4000-8000-000000000004'
+      AND reminder_id = '71000000-0000-4000-8000-000000000003'
+  ) THEN
+    RAISE EXCEPTION 'Deleting the parent removed unrelated checklist, reminder, or notification records.';
+  END IF;
 END
 $owner_a$;
 
@@ -1219,7 +1372,7 @@ BEGIN
   SELECT count(*) INTO visible_checklists FROM public.checklist_items;
   SELECT count(*) INTO visible_legacy_checklists FROM public.task_checklist_items;
 
-  IF visible_projects <> 1 OR visible_tasks <> 1 OR visible_checklists <> 2 THEN
+  IF visible_projects <> 1 OR visible_tasks <> 2 OR visible_checklists <> 2 THEN
     RAISE EXCEPTION 'Owner B visibility is incorrect: projects %, tasks %, canonical checklists %.',
       visible_projects, visible_tasks, visible_checklists;
   END IF;
@@ -1227,6 +1380,20 @@ BEGIN
   IF visible_legacy_checklists <> 1 THEN
     RAISE EXCEPTION 'Owner B must see only its one legacy checklist row; found %.',
       visible_legacy_checklists;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.tasks
+    WHERE id = '20000000-0000-4000-8000-000000000001'
+      AND project_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+      AND parent_task_id IS NULL
+  ) OR NOT EXISTS (
+    SELECT 1 FROM public.tasks
+    WHERE id = '70000000-0000-4000-8000-000000000006'
+      AND project_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+      AND parent_task_id = '20000000-0000-4000-8000-000000000001'
+  ) THEN
+    RAISE EXCEPTION 'Owner A cross-owner DELETE affected Owner B task hierarchy.';
   END IF;
 
   IF EXISTS (
