@@ -65,3 +65,8 @@ The harness does not create Auth users, delete Auth users, or inspect production
 Cleanup is attempted after success or a caught request failure and is limited to the exact project, task, and checklist IDs returned by this run's inserts. If a request fails, cleanup is still attempted for both owners. A cleanup failure is reported and must be reconciled manually in the isolated project using the run's uniquely prefixed records.
 
 Never point the harness at production to "see whether the guard works." Production is blocked in code, and no production write is authorized by this runbook.
+
+
+## CI verification order
+
+The CI workflow runs `npm run test:acceptance:preflight` before PostgreSQL client installation and migration replay. The same safety-gate tests are also included in `npm run test`. Neither command contacts Supabase; the live two-owner PostgREST acceptance command remains a manual owner-controlled step after a verified isolated restore.
