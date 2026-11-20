@@ -1,3 +1,15 @@
+> **Checkpoint — 2026-11-20 (runtime task-creation path audit; CI pending).** Starting branch head: `89158e41aed105ccece4cdf4fd8ec24599a1a1e9`; implementation commit: `44021a9834790ecf3732f23566fbe47e596cd7a0`. PR #11 remains open and unmerged.
+>
+> Audited every TypeScript/TSX module under `src/` at the branch head. Runtime `tasks` INSERTs exist only in `src/lib/tasks.ts` (ordinary task creation and recurring occurrence generation) and `src/lib/subtasks.ts` (subtask creation). Ordinary task creation performs authenticated owner-scoped ACTIVE-project preflight. Recurrence generation checks project status before inserting and relies on the active-project database trigger to reject a concurrent archive/completion. Subtask creation previously checked parent/project ownership but did not reject a COMPLETED or ARCHIVED parent project before reaching INSERT. The database trigger protects the branch after migration, but production has not received that migration, so the application path lacked the same preflight.
+>
+> Fixed `createSubtask` to select `projects.id,status` with both project ID and authenticated owner filters, reuse `canCreateTaskInProject`, and reject non-ACTIVE projects before INSERT. The database trigger remains authoritative for status races and direct PostgREST writes. Added three regression tests: an ACTIVE-project subtask succeeds with owner filters preserved; COMPLETED and ARCHIVED projects each reject before task insertion. Exact code diff: `src/lib/subtasks.ts` and `src/lib/subtasks.test.ts` only. No migration, RLS policy, package script, or production database changed; the migration chain remains at 20 files.
+>
+> CI has not yet reported a run for the code commit. This environment has no attached local checkout, so local narrow tests and `git status` cannot be verified. The next documentation checkpoint must record actual CI evidence, not assume success.
+>
+> **Next task after verification:** finish the remaining Organization runtime write-path audit and retain the owner-controlled complete schema/data/roles backup, successful isolated restore, restored-copy checklist conflict review, and authenticated two-user PostgREST CRUD/isolation as production rollout gates. Do not start Analytics or modify production.
+>
+> ---
+
 > **Verified checkpoint — 2026-11-20 (two-session project archive/task-assignment serialization).** Repository: `mohith-krishnaa/personal-os`; branch: `feature/organization-v1`; code/test HEAD: `c016f78410eac0ddcfd521be19890853bd5268b2` (388 commits ahead of `main`, 0 behind at this code checkpoint). PR #11 remains open, unmerged, and mergeable.
 >
 > The previous archive-lifecycle checkpoint left one explicit gap: the `FOR SHARE` lock in `require_active_project_for_new_task_links` had only sequential coverage. Extended the disposable task-hierarchy fixture with a project status column and included the branch-only active-project migration, then added two-session READ COMMITTED races to `organization-task-hierarchy-concurrency.sh`. The test observes the actual blocker with `pg_blocking_pids`, verifies final rows, and checks that both sessions terminate.
