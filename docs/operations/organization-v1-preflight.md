@@ -422,3 +422,8 @@ CI #309 passed on exact code/test head `020877abbbf63719716a9d0c615160a097744716
 Read-only live inspection confirms the three existing project/task FKs already match the expected targets and delete actions and are validated. The migration is not applied to production. The live ledger remains at 8 versions; all 9 public tables have RLS enabled and report zero rows. Production still lacks `projects.name`, both checklist tables, Organization validation triggers, and `goals.unit/target`.
 
 Do not apply the branch migration until the owner-controlled complete schema/data/roles backup has been successfully restored in an isolated environment and the authenticated two-user PostgREST acceptance tests are complete. No production DDL or PR merge is authorized by this run.
+
+
+## Authenticated PostgREST acceptance
+
+The SQL preflight above is read-only and does not prove real JWT/PostgREST behavior. After the owner-controlled complete schema/data/roles backup is restored and verified in an isolated environment, follow [the isolated two-owner PostgREST acceptance runbook](organization-v1-postgrest-acceptance.md). The harness refuses the known production project ref, uses only an anon/publishable key, and never applies migrations. Do not execute it until the restore and checklist-conflict review are complete.

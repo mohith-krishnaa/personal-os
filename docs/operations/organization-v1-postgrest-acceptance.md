@@ -58,7 +58,7 @@ Using two separate authenticated sessions and only the public anon/publishable k
 - Deleting a parent task cascades only through its own child hierarchy and attached checklist rows; the other owner's task remains.
 - The script deletes only the IDs it created, using the same authenticated owner sessions.
 
-The harness does not create Auth users, delete Auth users, inspect production, or run automatically in CI. Its unit tests cover the environment/URL/key safety gate without contacting Supabase. A successful unit-test run is not evidence that the live PostgREST acceptance suite has been executed.
+The harness does not create Auth users, delete Auth users, or inspect production. The live PostgREST acceptance run does not run automatically in CI; its unit tests cover the environment/URL/key safety gate without contacting Supabase. A successful unit-test run is not evidence that the live PostgREST acceptance suite has been executed.
 
 ## Cleanup and failure handling
 
