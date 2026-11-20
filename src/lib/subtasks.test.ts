@@ -7,6 +7,74 @@ function unreachableDatabase() {
   return { from: () => { throw new Error('database should not be reached') } } as any
 }
 
+function createSubtaskDatabase(projectStatus: string) {
+  const parentFilters: Array<[string, string]> = []
+  const projectFilters: Array<[string, string]> = []
+  const inserts: Array<Record<string, unknown>> = []
+  let taskReads = 0
+
+  const supabase = {
+    from(table: string) {
+      if (table === 'tasks') {
+        taskReads += 1
+        if (taskReads === 1) {
+          return {
+            select(columns: string) {
+              assert.equal(columns, 'id,user_id,project_id')
+              return this
+            },
+            eq(column: string, value: string) {
+              parentFilters.push([column, value])
+              return this
+            },
+            single: async () => ({
+              data: { id: 'parent-1', user_id: 'owner-1', project_id: 'project-1' },
+              error: null,
+            }),
+          }
+        }
+
+        return {
+          insert(values: Record<string, unknown>) {
+            inserts.push(values)
+            return {
+              select() {
+                return {
+                  single: async () => ({
+                    data: { id: 'subtask-1', ...values },
+                    error: null,
+                  }),
+                }
+              },
+            }
+          },
+        }
+      }
+
+      if (table === 'projects') {
+        return {
+          select(columns: string) {
+            assert.equal(columns, 'id,status')
+            return this
+          },
+          eq(column: string, value: string) {
+            projectFilters.push([column, value])
+            return this
+          },
+          single: async () => ({
+            data: { id: 'project-1', status: projectStatus },
+            error: null,
+          }),
+        }
+      }
+
+      throw new Error(`Unexpected table: ${table}`)
+    },
+  } as any
+
+  return { supabase, parentFilters, projectFilters, inserts }
+}
+
 test('rejects blank subtask titles before database access', async () => {
   await assert.rejects(
     () => createSubtask(unreachableDatabase(), 'user', 'parent', { title: '   ' }),
@@ -36,6 +104,39 @@ test('rejects non-positive estimated minutes before database access', async () =
     )
   }
 })
+
+test('creates a subtask only after owner-scoped ACTIVE-project preflight', async () => {
+  const { supabase, parentFilters, projectFilters, inserts } = createSubtaskDatabase('ACTIVE')
+
+  const result = await createSubtask(supabase, 'owner-1', 'parent-1', { title: 'Child task' })
+
+  assert.equal(result.id, 'subtask-1')
+  assert.deepEqual(parentFilters, [['id', 'parent-1'], ['user_id', 'owner-1']])
+  assert.deepEqual(projectFilters, [['id', 'project-1'], ['user_id', 'owner-1']])
+  assert.deepEqual(inserts, [{
+    user_id: 'owner-1',
+    parent_task_id: 'parent-1',
+    project_id: 'project-1',
+    title: 'Child task',
+    priority: 'MEDIUM',
+    due_at: null,
+    estimated_minutes: null,
+  }])
+})
+
+for (const status of ['COMPLETED', 'ARCHIVED']) {
+  test(`rejects new subtasks under ${status} projects before task insertion`, async () => {
+    const { supabase, projectFilters, inserts } = createSubtaskDatabase(status)
+
+    await assert.rejects(
+      () => createSubtask(supabase, 'owner-1', 'parent-1', { title: 'Child task' }),
+      /Tasks can only be linked to active projects/,
+    )
+
+    assert.deepEqual(projectFilters, [['id', 'project-1'], ['user_id', 'owner-1']])
+    assert.equal(inserts.length, 0)
+  })
+}
 
 test('rejects a project that differs from the parent project before insert', async () => {
   const supabase = {

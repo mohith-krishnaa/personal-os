@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Task } from '@/types/task'
+import { canCreateTaskInProject } from './task-relationships'
 
 export type SubtaskInput = {
   title: string
@@ -22,10 +23,11 @@ async function assertParentOwnership(supabase: SupabaseClient, userId: string, p
   return parent as Pick<Task, 'id' | 'user_id' | 'project_id'>
 }
 
-async function assertProjectOwnership(supabase: SupabaseClient, userId: string, projectId: string | null | undefined) {
+async function assertActiveProjectOwnership(supabase: SupabaseClient, userId: string, projectId: string | null | undefined) {
   if (!projectId) return
-  const { data, error } = await supabase.from('projects').select('id').eq('id', projectId).eq('user_id', userId).single()
+  const { data, error } = await supabase.from('projects').select('id,status').eq('id', projectId).eq('user_id', userId).single()
   if (error || !data) throw new Error('Project not found.')
+  if (!canCreateTaskInProject(data.status)) throw new Error('Tasks can only be linked to active projects.')
 }
 
 export async function createSubtask(supabase: SupabaseClient, userId: string, parentTaskId: string, input: SubtaskInput) {
@@ -38,7 +40,7 @@ export async function createSubtask(supabase: SupabaseClient, userId: string, pa
   if (projectId !== parent.project_id) {
     throw new Error('Subtask must use the same project as its parent.')
   }
-  await assertProjectOwnership(supabase, userId, projectId)
+  await assertActiveProjectOwnership(supabase, userId, projectId)
 
   const { data, error } = await supabase.from('tasks').insert({
     user_id: userId,
