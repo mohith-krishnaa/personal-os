@@ -6,6 +6,14 @@ Application rollout: BLOCKED — no recoverable backup has been produced.
 
 This runbook records the live read-only inspection and the safe path to complete Organization V1. It does not authorize production DDL or a PR merge.
 
+## Latest authenticated-role verification — 2026-11-20
+
+Code/test HEAD `eb194521e6d1bb12147058530c84ce7315395a44` passed [CI #357](https://github.com/mohith-krishnaa/personal-os/actions/runs/44680309313). The full 20-migration PostgreSQL 17 replay and Organization/RLS assertions passed. The authenticated Owner A/B fixture asserts a non-superuser, non-BYPASSRLS `authenticated` role, then verifies ACTIVE subtask insertion, COMPLETED/ARCHIVED rejection with no residual rows, unchanged historical-link updates after archive, and cross-owner parent/project denial. The existing project archive lifecycle and both two-session concurrency cases passed; 90/90 application tests, typecheck, and production build passed; npm audit found 0 vulnerabilities. No migration was added; repository count remains 20.
+
+Fresh read-only live inspection: project `gujzvkyytxsnervovvrt` is ACTIVE_HEALTHY on PostgreSQL 17.11.0.003, with 8 ledger versions and 9 public tables all RLS-enabled. Live `projects.title/status` and `tasks.project_id/parent_task_id` remain present; `projects.name` and user-defined project/task triggers remain absent. The authenticated-role fixture is disposable PostgreSQL, not live PostgREST. No production schema or data was changed.
+
+Owner action still required: create a complete owner-controlled schema/data/roles backup and prove isolated restore; review checklist conflicts against the restored copy; then run authenticated two-user PostgREST CRUD/isolation tests. Do not apply migrations or alter production RLS before those gates and explicit approval.
+
 ## Latest verified checkpoint — 2026-11-20
 
 Code/test HEAD `c016f78410eac0ddcfd521be19890853bd5268b2` passed [CI #347](https://github.com/mohith-krishnaa/personal-os/actions/runs/44659601808): full PostgreSQL 17 replay of 20 migrations, Organization/RLS assertions, sequential project archive lifecycle assertions, two-session project-status/task-assignment races in both lock orders, the existing task-hierarchy cycle race, 87/87 application tests, TypeScript typecheck, and production build. No lint script is configured.
