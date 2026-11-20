@@ -1,3 +1,13 @@
+# Current migration inventory — 2026-11-21
+
+The branch contains **26 migrations**. The last fresh read-only production ledger contains **8 applied versions**, leaving **18 branch-only migrations**. Migration 26 is `20261121000400_activity_events_append_only.sql`; it follows task activity-event INSERT/UPDATE/DELETE capture and narrows activity_events to application-role SELECT/INSERT.
+
+The disposable migration runner expects 26 files, executes the append-only regression, and reapplies migration 26 to verify idempotence. [CI #442](https://github.com/mohith-krishnaa/personal-os/actions/runs/44820579479) passed the complete configured workflow: 26/26 migrations, 17/17 PostgREST preflight tests, 147/147 application tests, typecheck, production build, and npm audit (0 vulnerabilities).
+
+Production has not received migration 26. The owner-controlled complete backup and isolated restore, checklist conflict review, and authenticated two-owner PostgREST acceptance remain required. Do not apply production migrations without explicit approval after the backup/restore gate.
+
+---
+
 > **Verified checkpoint — 2026-11-21 (transactional TASK_DELETED events).** Branch `feature/organization-v1`; code/test HEAD `2ee721b051f52174fada5a803da6690ed5a9806e`; [CI #438](https://github.com/mohith-krishnaa/personal-os/actions/runs/44810205162) passed on that exact commit. The initial CI #436/#437 failures were task-test UUID collisions with the existing task-create and concurrent-create fixtures; all task-delete IDs now use the separately scanned `94000000…` namespace.
 >
 > Migration `20261121000300_task_delete_activity_events.sql` brings the repository to **25 migrations**, with **17 branch-only** relative to the freshly read-only-verified eight-version production ledger. The SECURITY INVOKER trigger records authenticated owner-context `TASK_DELETED` events for direct task deletes and every descendant removed by `ON DELETE CASCADE`. Event insertion failure rolls back the full delete statement. Service-role/Auth-account cleanup skips per-task deletion events to preserve the existing Auth FK cascades. RLS and FK definitions are unchanged.

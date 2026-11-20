@@ -1,3 +1,44 @@
+# Latest verified checkpoint — application-role append-only activity events (2026-11-21)
+
+**Code/test HEAD:** `03217aefdefb88fee593629f217d7efaf36d538d`  
+**Verification:** [CI #442](https://github.com/mohith-krishnaa/personal-os/actions/runs/44820579479) passed.
+
+The preceding code commit `1c428b50b681905ab983f10b4663a8dcc16827a0` failed CI #441 because `organization-migration-assertions.sql` applied a broad fixture grant after migration 26 and re-granted activity-event UPDATE/DELETE. The fixture now reapplies the intended activity-event privilege contract after its generic grants. CI #442 passed on the corrected code/test HEAD.
+
+## Verified changes
+
+- Added migration `20261121000400_activity_events_append_only.sql` (migration 26).
+- Replaced the broad `activity_events_owner FOR ALL` policy with separate authenticated owner-scoped SELECT and INSERT policies.
+- Revoked all activity-event table privileges from PUBLIC and anon; authenticated and service_role now receive SELECT/INSERT only. Neither application role has UPDATE, DELETE, or TRUNCATE.
+- The `postgres` table owner retains controlled maintenance privileges. The existing `auth.users ON DELETE CASCADE` remains, so account deletion can still remove that account's events. This is application-role append-only protection, **not** a tamper-proof or immutable audit log.
+- Added `supabase/tests/activity-event-append-only.sql` covering policy shape, owner isolation, cross-owner INSERT rejection, authenticated/service_role UPDATE/DELETE/TRUNCATE denial, anon privilege denial, owner maintenance, and Auth-account cascade.
+- Updated the migration runner to expect 26 migrations, run the new regression, and reapply migration 26 to verify idempotence. Added read-only preflight query 19.
+
+## Access and retention audit
+
+Inspected the current branch's application TypeScript modules under `src/`, root `lib/supabase` helpers, and the PostgREST acceptance scripts. No application module directly reads `activity_events` or issues UPDATE/DELETE against it. The two direct DELETE callers are test cleanup in `reminder-delivery-concurrency.sh` and `task-create-idempotency-concurrency.sh`; both default to `PGUSER=postgres` and retain owner-level cleanup access. No scheduled retention job, retention interval, archive table, or user-facing event reader is defined. No retention policy was invented in this change.
+
+## CI #442 evidence
+
+- PostgREST acceptance preflight: 17/17 passed.
+- PostgreSQL 17 migration replay: 26/26 passed; migration 26 reapplication passed.
+- Organization/RLS assertions, task hierarchy and concurrency checks, reminder delivery concurrency, task activity and deletion rollback/cascade tests, create-idempotency tests, and append-only event access tests passed.
+- Application tests: 147/147 passed.
+- TypeScript typecheck: passed.
+- Production build: passed.
+- npm audit: 0 vulnerabilities.
+- No lint script is configured.
+
+## Production remains unchanged
+
+Fresh read-only inspection on 2026-11-21 reconfirmed eight production migration-ledger versions versus 26 repository migrations (18 branch-only). Production `activity_events` still has RLS enabled, owner `postgres`, the old `FOR ALL` policy, and SELECT/INSERT/UPDATE/DELETE/TRUNCATE grants to anon, authenticated, and service_role. This is the expected pre-migration state. Migration 26 has **not** been applied to production; no production DDL/DML, RLS change, backup, restore, or PR merge occurred.
+
+Outstanding Organization acceptance gates remain: complete owner-controlled schema/data/roles backup, successful isolated restoration, restored-copy checklist conflict review, and authenticated two-owner PostgREST CRUD/isolation. Keep Analytics queued.
+
+**Next repository task:** audit the activity-event event-type/entity-ID and retry/idempotency contract before Analytics design. Do not add a retention schedule or event reader without a defined product requirement. If owner backup/restore remains unavailable, do not retry the blocked production step.
+
+---
+
 > **Verified checkpoint — 2026-11-21 (transactional TASK_DELETED events).** Repository `mohith-krishnaa/personal-os`; branch `feature/organization-v1`; starting HEAD `047207c7af55422d283766459342f3e29aa0dd5d`; code/test HEAD `2ee721b051f52174fada5a803da6690ed5a9806e`; [CI #438](https://github.com/mohith-krishnaa/personal-os/actions/runs/44810205162) passed on that exact code/test HEAD. CI #436 failed after the DELETE regression itself passed because its task UUIDs collided with the existing task-create idempotency fixture (`92000000…001`). CI #437 exposed a second collision with the concurrent request winner (`93000000…001`). The delete test IDs were moved to the independently checked `94000000…` namespace after scanning all SQL test fixtures; CI #438 passed. No application behavior changed in these fixture corrections.
 >
 > Added branch-only migration `20261121000300_task_delete_activity_events.sql`; repository inventory is **25 migrations**. Fresh read-only Supabase inspection reconfirmed project `gujzvkyytxsnervovvrt` is ACTIVE_HEALTHY on PostgreSQL 17.11.0.003 in `ap-southeast-1`, with **8** live migration-ledger versions and therefore **17 branch-only migrations**. The live `tasks_parent_task_id_fkey`, `tasks_user_id_fkey`, and `activity_events_user_id_fkey` retain validated `ON DELETE CASCADE`; `tasks_owner` and `activity_events_owner` remain authenticated owner-only `FOR ALL` policies. No production trigger or schema change was made.

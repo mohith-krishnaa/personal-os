@@ -1,3 +1,11 @@
+# Latest preflight update — activity-event append-only migration 26 (2026-11-21)
+
+The branch contains 26 migrations; the last read-only production ledger contains 8, leaving 18 branch-only. Query 19 was executed read-only against production and confirmed the expected pre-migration activity_events state: RLS enabled, owner postgres, old FOR ALL policy, and broad table privileges for anon, authenticated, and service_role. No production change was made.
+
+The disposable replay passed migration 26 and its reapplication. CI #442 passed 26/26 migrations, 17/17 PostgREST preflight tests, 147/147 application tests, typecheck, production build, and npm audit (0 vulnerabilities).
+
+---
+
 ## Task DELETE event contract — migration 25 (2026-11-21)
 
 Read-only preflight query **18** reports the task activity trigger's DELETE event mapping, authenticated-owner context guard, SECURITY INVOKER status, fixed search path, function grants, and the three existing cascade FKs. On an isolated target after migration 25, expected results are:
@@ -36,19 +44,28 @@ Read-only preflight query **17** reports the `tasks.client_request_id` UUID colu
 
 The new branch-only migration is `20261121000200_task_create_request_idempotency.sql`. The migration runner now expects **24 migrations** and runs sequential plus two-session concurrent retry assertions. The latest application tests include client request-state reuse, task/subtask same-request resolution, payload mismatch rejection, and conflict fallback. The migration remains branch-only; the live ledger remains at eight versions and the live `tasks` table still has no request-identity columns. Do not apply it to production before the owner-controlled complete backup and successful isolated restore.
 
-## Task activity event contract — migration 23 (2026-11-21)
+## Activity-event access contract — migrations 23, 25, and 26
 
-Read-only preflight query **16** reports the task activity trigger, SECURITY INVOKER setting, fixed search path, EXECUTE grants, authenticated activity-event INSERT privilege, and owner RLS policy. Expect one row with:
+Read-only query **16** now verifies the transactional task trigger, SECURITY INVOKER/search-path contract, trigger EXECUTE grants, owner-scoped activity-event SELECT/INSERT policies, and absence of ALL/UPDATE/DELETE policies. On an isolated target after migration 26, expect:
+- task activity trigger enabled; SECURITY INVOKER; fixed search path;
+- authenticated and service_role EXECUTE = true; anon EXECUTE = false;
+- `activity_events_select_owner_policy_present = true`;
+- `activity_events_insert_owner_policy_present = true`;
+- `activity_events_mutation_policies_absent = true`;
+- authenticated INSERT = true; authenticated UPDATE/DELETE/TRUNCATE = false.
 
-- `task_activity_trigger_enabled = true`
-- `trigger_is_security_invoker = true`
-- `trigger_search_path_safe = true`
-- authenticated and service_role EXECUTE = true
-- anon EXECUTE = false
-- authenticated activity_events INSERT privilege = true
-- `activity_event_owner_policy_present = true`
+Read-only query **19** reports the complete table privilege matrix:
+- authenticated and service_role: SELECT/INSERT = true; UPDATE/DELETE/TRUNCATE = false;
+- anon: SELECT/INSERT/UPDATE/DELETE/TRUNCATE = false;
+- postgres table owner: DELETE/TRUNCATE = true for owner-controlled maintenance;
+- RLS enabled; separate owner-scoped SELECT/INSERT policies; no ALL/UPDATE/DELETE policy.
 
-[CI #408](https://github.com/mohith-krishnaa/personal-os/actions/runs/44802872792) passed on code HEAD; [CI #409](https://github.com/mohith-krishnaa/personal-os/actions/runs/44803558307) passed on final documentation HEAD `7ff05d1c407c5f6e65b409806db55fc7a28fcf4a`. CI #411 also passed on documentation checkpoint `014bd50e4a4d4835927daa762cf1cc53c615b545`. The verified workflows passed the 23-migration PostgreSQL 17 replay, task-event fault-injection/retry tests, migration reapplication, 133/133 application tests, typecheck, and production build. The migration remains branch-only. Task create request idempotency and DELETE event semantics are not implemented; see [Activity Event Consistency](../architecture/activity-event-consistency.md).
+The Auth-account `ON DELETE CASCADE` remains. This is append-only for application roles, not tamper-proof against the table owner; no retention schedule is defined.
+
+CI #442 passed on code/test HEAD `03217aefdefb88fee593629f217d7efaf36d538d`: 26/26 PostgreSQL 17 migrations, append-only privilege/RLS tests, 17/17 PostgREST safety tests, 147/147 application tests, typecheck, production build, and npm audit with 0 vulnerabilities.
+
+Fresh read-only production query 19 returned the expected pre-migration state: RLS enabled, owner postgres, new SELECT/INSERT policies absent, the old FOR ALL mutation policy present, and broad privileges still granted to anon/authenticated/service_role. Migration 26 is not deployed. Do not apply it until the complete owner-controlled backup has been restored and verified in an isolated project and rollout is explicitly authorized.
+
 
 > **Verified checkpoint — 2026-11-20 (Organization migration dependency and FK-contract audit).** Repository: `mohith-krishnaa/personal-os`; branch: `feature/organization-v1`; code/test HEAD `b91e63bddb1decace36be78b3849dce02133fb9b`; [CI #396](https://github.com/mohith-krishnaa/personal-os/actions/runs/44762846651) passed on that exact HEAD. PR #11 remains open and unmerged; PR #12 remains an open superseded draft.
 

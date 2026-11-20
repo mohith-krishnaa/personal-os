@@ -131,3 +131,16 @@ Migration `20261121000300_task_delete_activity_events.sql` follows the durable t
 The live eight-version production baseline was rechecked read-only before this change. Production already has validated `tasks_parent_task_id_fkey`, `tasks_user_id_fkey`, and `activity_events_user_id_fkey` with ON DELETE CASCADE; migration 25 relies on, but does not change, these contracts. The repository migration count is now 25 (17 branch-only relative to the live ledger). The disposable test proves a failure in any descendant DELETE event rolls back the full cascade and that Auth-account deletion still succeeds because non-owner/service-role cleanup skips per-task deletion events.
 
 [CI #438](https://github.com/mohith-krishnaa/personal-os/actions/runs/44810205162) passed the complete 25-migration replay, DELETE rollback/cascade/owner-isolation/Auth-cleanup tests, migration reapplication, 147/147 application tests, typecheck, production build, and npm audit 0 vulnerabilities. Production remains read-only; backup/restore and authenticated PostgREST acceptance gates remain outstanding.
+
+
+## Migration 26 — application-role append-only activity events (2026-11-21)
+
+`20261121000400_activity_events_append_only.sql` follows the task activity-event INSERT/UPDATE/DELETE trigger and requires the existing `public.activity_events` table with RLS enabled. It fails closed if an unexpected activity-event policy exists. It removes the known broad owner `FOR ALL` policy and creates separate authenticated owner-scoped SELECT and INSERT policies.
+
+The migration revokes all table privileges from PUBLIC and anon, resets authenticated and service_role to SELECT/INSERT only, and leaves the `postgres` table owner with controlled maintenance privileges. It does not alter event rows, task triggers, event foreign keys, or the `auth.users ON DELETE CASCADE` cleanup path. The table is append-only for application roles, not tamper-proof against the owner; no retention schedule is introduced.
+
+The migration runner now expects **26** files, runs `supabase/tests/activity-event-append-only.sql`, and reapplies migration 26 to verify idempotence. The shared migration assertion fixture's broad table grant is followed by an explicit activity_events privilege reset so it cannot undo the migration contract.
+
+CI #441 initially failed because that shared fixture re-granted UPDATE/DELETE after migration 26. The fixture correction is commit `03217aefdefb88fee593629f217d7efaf36d538d`; [CI #442](https://github.com/mohith-krishnaa/personal-os/actions/runs/44820579479) passed: 26/26 migration replay, append-only policy/privilege tests, 17/17 PostgREST preflight tests, 147/147 application tests, typecheck, production build, and npm audit with 0 vulnerabilities.
+
+Production remains read-only and still has eight applied versions. Migration 26 is not deployed; owner-controlled backup/restore, checklist conflict review, and authenticated two-owner PostgREST acceptance remain rollout gates.
