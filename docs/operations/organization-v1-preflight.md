@@ -1,3 +1,17 @@
+## Task activity event contract — migration 23 (2026-11-21)
+
+Read-only preflight query **16** reports the task activity trigger, SECURITY INVOKER setting, fixed search path, EXECUTE grants, authenticated activity-event INSERT privilege, and owner RLS policy. Expect one row with:
+
+- `task_activity_trigger_enabled = true`
+- `trigger_is_security_invoker = true`
+- `trigger_search_path_safe = true`
+- authenticated and service_role EXECUTE = true
+- anon EXECUTE = false
+- authenticated activity_events INSERT privilege = true
+- `activity_event_owner_policy_present = true`
+
+[CI #408](https://github.com/mohith-krishnaa/personal-os/actions/runs/44802872792) passed the 23-migration PostgreSQL 17 replay, task-event fault-injection/retry tests, migration reapplication, 133/133 application tests, typecheck, and production build. The migration remains branch-only. Task create request idempotency and DELETE event semantics are not implemented; see [Activity Event Consistency](../architecture/activity-event-consistency.md).
+
 > **Verified checkpoint — 2026-11-20 (Organization migration dependency and FK-contract audit).** Repository: `mohith-krishnaa/personal-os`; branch: `feature/organization-v1`; code/test HEAD `b91e63bddb1decace36be78b3849dce02133fb9b`; [CI #396](https://github.com/mohith-krishnaa/personal-os/actions/runs/44762846651) passed on that exact HEAD. PR #11 remains open and unmerged; PR #12 remains an open superseded draft.
 
 > Fresh read-only Supabase inspection: project `gujzvkyytxsnervovvrt` is ACTIVE_HEALTHY on PostgreSQL 17.11.0.003 in `ap-southeast-1`. The live migration ledger has exactly eight versions: 20260829182309, 20260830085036, 20260830103327, 20260830114218, 20260830120132, 20260830123420, 20260830141616, and 20260905162251. The branch contains 22 numbered SQL migrations, so 14 remain branch-only. All nine live public tables have RLS enabled and currently report zero rows.

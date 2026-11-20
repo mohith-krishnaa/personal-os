@@ -45,7 +45,7 @@ Behavior modeling, workload prediction, intelligent scheduling, and continuous i
 ## Architecture Principles
 
 - PostgreSQL as the source of truth
-- Activity events stored for historical analysis; task mutation events are currently best-effort and are not a guaranteed complete audit stream
+- Task INSERT/UPDATE activity events are written in the same PostgreSQL statement transaction via a SECURITY INVOKER trigger; DELETE events and client create-request idempotency are not yet covered, and activity_events is not an immutable audit log
 - Deterministic business logic for scheduling and constraints
 - AI operates through validated tools rather than direct database access
 - User approval for consequential external or bulk actions
@@ -53,7 +53,7 @@ Behavior modeling, workload prediction, intelligent scheduling, and continuous i
 
 ## Verified status
 
-The current verified baseline on `main` includes core productivity, **Recurring Tasks V1**, **Reminders V1**, and **Progress & Streaks V1**. **Organization V1** is implemented on `feature/organization-v1` in open PR #11, but it is not merged. Read-only live inspection confirms eight applied core migrations; the branch contains **22 migrations total**, with **14 branch-only migrations** pending. The branch includes Organization ownership/RLS, checklist reconciliation, reminder/notification owner-link constraints, and atomic reminder delivery, but these changes are not deployed. The isolated two-owner PostgREST harness is prepared but has not been executed. Production rollout remains blocked by the owner-controlled complete backup/isolated-restore gate, checklist conflict review, authenticated API acceptance, and explicit migration approval. See `PROJECT_STATE.md`, `PROJECT_HANDOFF.md`, and `docs/operations/organization-v1-preflight.md` for the current checkpoint.
+The current verified baseline on `main` includes core productivity, **Recurring Tasks V1**, **Reminders V1**, and **Progress & Streaks V1**. **Organization V1** is implemented on `feature/organization-v1` in open PR #11, but it is not merged. The last verified live inspection showed eight applied core migrations; the branch now contains **23 migrations total**, with **15 branch-only migrations** relative to that baseline if unchanged. The branch includes Organization ownership/RLS, checklist reconciliation, reminder/notification owner-link constraints, atomic reminder delivery, and transactional task INSERT/UPDATE activity events, but these changes are not deployed. Task create-request idempotency and DELETE event semantics remain incomplete. The isolated two-owner PostgREST harness is prepared but has not been executed. Production rollout remains blocked by the owner-controlled complete backup/isolated-restore gate, checklist conflict review, authenticated API acceptance, and explicit migration approval. Analytics remains queued. See `PROJECT_STATE.md`, `PROJECT_HANDOFF.md`, and `docs/operations/organization-v1-preflight.md` for the current checkpoint.
 
 The V1 recurrence implementation includes daily, weekly, and monthly rules, next-occurrence generation, validation, activity events, and idempotency protection. Reminders include owner-scoped data access, upcoming-reminder queries, an in-app channel contract, authenticated delivery, durable notifications, and dashboard UI.
 

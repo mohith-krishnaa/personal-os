@@ -1,21 +1,14 @@
-> **Verified checkpoint — 2026-11-20 (Organization migration dependency and FK-contract audit).** Repository: `mohith-krishnaa/personal-os`; branch: `feature/organization-v1`; code/test HEAD `b91e63bddb1decace36be78b3849dce02133fb9b`; [CI #396](https://github.com/mohith-krishnaa/personal-os/actions/runs/44762846651) passed on that exact HEAD. PR #11 remains open and unmerged; PR #12 remains an open superseded draft.
-
-> Fresh read-only Supabase inspection: project `gujzvkyytxsnervovvrt` is ACTIVE_HEALTHY on PostgreSQL 17.11.0.003 in `ap-southeast-1`. The live migration ledger has exactly eight versions: 20260829182309, 20260830085036, 20260830103327, 20260830114218, 20260830120132, 20260830123420, 20260830141616, and 20260905162251. The branch contains 22 numbered SQL migrations, so 14 remain branch-only. All nine live public tables have RLS enabled and currently report zero rows.
-
-> The live legacy schema matches the expected eight-version baseline: `projects.title/status` exist while `projects.name` is absent; `goals.unit/target` are absent; both checklist tables are absent; task/project/goal/reminder/notification FKs exist with the expected targets and delete actions; `notifications_reminder_unique` is a valid unique index on `notifications(reminder_id)`. The six baseline FKs inspected are validated, MATCH SIMPLE, NOT DEFERRABLE, and use ON UPDATE NO ACTION. The custom `auth.users.on_auth_user_created` trigger exists. `rls_auto_enable()` is SECURITY DEFINER with `search_path=pg_catalog`, and effective EXECUTE is denied to PUBLIC/anon/authenticated and granted to service_role. Installed extensions: pg_stat_statements 1.11, pgcrypto 1.3, supabase_vault 0.3.1, uuid-ossp 1.1.
-
-> The 14 branch-only migrations were reviewed in timestamp order against those exact ledger versions and live catalog contracts. No missing prerequisite or dependency-order inversion was found. The migration replay script counts 22 files, replays them lexicographically, seeds legacy checklist fixtures after the legacy table is created and before reconciliation, and runs the read-only conflict report after replay.
-
-> The audit found a fail-closed gap: the project/task FK guard and the reminder/notification migration verified ON DELETE and target columns but did not require the baseline ON UPDATE NO ACTION action when recognizing the old single-column FK. A noncanonical ON UPDATE CASCADE constraint could therefore be accepted as the expected legacy contract and then replaced with a different default action. The live baseline itself is canonical; this was a migration-guard weakness, not a detected live-schema mismatch.
-
-> Corrected `20261119000300_ensure_project_task_foreign_keys.sql` and `20261120000200_enforce_reminder_notification_ownership.sql` to require ON UPDATE NO ACTION when matching the legacy contracts. Updated preflight query 11 to report and match the expected update action. Added rollback-only negative tests that install NOT VALID ON UPDATE CASCADE variants for project/task, reminder/task, and notification/reminder FKs and require the guards to fail closed. Migration count remains 22; no new migration was added.
-
-> [CI #396](https://github.com/mohith-krishnaa/personal-os/actions/runs/44762846651) passed on code/test HEAD `b91e63bddb1decace36be78b3849dce02133fb9b`: acceptance preflight 17/17; PostgreSQL 17 migration replay 22/22; Organization/RLS, archive lifecycle, hierarchy/concurrency, and the new noncanonical ON UPDATE rejection cases passed; application tests 119/119; typecheck and production build passed; npm install audited 43 packages and reported 0 vulnerabilities. The workflow has no lint step. Expected SQL errors from the negative tests were matched by the runner and the step passed.
-
-> No production DDL/DML, migration, RLS change, backup, restore, or PR merge occurred. The complete owner-controlled schema/data/roles backup, successful isolated restore, restored-copy checklist conflict review, and live two-owner PostgREST acceptance remain outstanding. The static audit and CI replay do not replace those owner gates.
-
-> **Next action:** owner-controlled complete backup and isolated restore, then apply the 14 branch-only migrations only to that isolated target, review the checklist conflict report, and execute the authenticated two-owner PostgREST harness. If the owner action is still unavailable, do not retry production operations; continue with a static audit of runtime task/project create/update callers against the active-project and ownership triggers. Keep Analytics queued.
-
+> **Verified checkpoint — 2026-11-21 (transactional task activity events).** Branch `feature/organization-v1`; code HEAD `e288c55768bca52e906d51fd6b9580f3ba0cff33`; [CI #408](https://github.com/mohith-krishnaa/personal-os/actions/runs/44802872792) passed on that exact HEAD. PR #11 remains open/unmerged.
+>
+> Repository inventory: **23 migrations**. The last verified live ledger had eight versions, so 15 are branch-only if that ledger is unchanged; production was not queried during this run. The new local-only migration is `20261121000100_durable_task_activity_events.sql`.
+>
+> The migration installs a SECURITY INVOKER AFTER INSERT/UPDATE trigger on tasks. Task creation, meaningful updates, status changes, and recurrence occurrence inserts write their activity events in the same statement transaction. Failure rolls back the task statement. The trigger retains existing activity_events RLS and grants no SECURITY DEFINER bypass. Read-only preflight query 16 reports its security/privilege contract.
+>
+> Disposable PostgreSQL tests inject failures for TASK_CREATED, TASK_UPDATED, TASK_COMPLETED, and TASK_RECURRENCE_GENERATED; verify rollback/retry, no-op update behavior, recurrence uniqueness/source metadata, and Owner A/B event isolation. CI #408 passed 23/23 migration replay, task-event tests, migration reapplication, Organization/RLS and concurrency assertions, 133/133 application tests, typecheck, production build, and npm audit with 0 vulnerabilities.
+>
+> Task-create request idempotency and DELETE events remain incomplete; activity_events is mutable and polymorphic, not an immutable audit log. No historical backfill was added. No production migration, DDL/DML, RLS change, backup, restore, or PR merge occurred. Complete owner-controlled backup, isolated restore, checklist conflict review, and authenticated two-owner PostgREST acceptance remain rollout gates.
+>
+> **Next task:** stable client-generated request IDs for task/subtask creation, with per-owner uniqueness and retry/concurrency tests. Keep Analytics queued.
 ---
 
 > **Verified checkpoint — 2026-11-20 (owner backup/restore and checklist reconciliation audit).** Repository: mohith-krishnaa/personal-os; branch: feature/organization-v1; inspected starting HEAD: 0632d89c17c67a66fea01d880f5de2b45748e8c3. CI #392 passed on that exact starting HEAD. PR #11 is open, unmerged, and its head matches the branch; PR #12 remains an open superseded draft. This run changes documentation only; the new documentation commit must receive its own CI result.
@@ -83,7 +76,9 @@ The filenames below use the exact live version and name. Do not change their tim
 - 20260830141616_progress_goals_v1.sql
 - 20260905162251_restrict_rls_auto_enable_execute.sql
 
-The eleven Organization V1/related migrations, one Progress goal-metrics compatibility migration, and two RLS performance migrations are local-only (14 local-only migrations total) and are not present in the live ledger. The branch contains 22 numbered SQL migrations: 8 matching the live ledger plus those 14 pending migrations. They must not be applied until a verified backup exists and the migration sequence has been tested against the live legacy schema.
+The twelve Organization V1/related migrations, one Progress goal-metrics compatibility migration, and two RLS performance migrations are local-only (15 local-only migrations total) and are not present in the last verified live ledger. The branch contains 23 numbered SQL migrations: 8 matching the last verified ledger plus those 15 pending migrations. They must not be applied until a complete owner-controlled backup is restored and the migration sequence has been tested against that isolated legacy-schema copy.
+
+- 20261121000100_durable_task_activity_events.sql — installs transactional task INSERT/UPDATE activity events with a SECURITY INVOKER trigger; includes fault-injection/retry assertions and read-only preflight query 16.
 
 The duplicate 20260830181600_reminder_notifications.sql file was not present in the live ledger and was removed. Its additional policy/index definitions must not be reintroduced without a reviewed migration.
 

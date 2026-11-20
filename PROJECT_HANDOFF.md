@@ -1,16 +1,20 @@
-## Latest resume checkpoint — task activity-event consistency audit (2026-11-20)
+## Latest resume checkpoint — transactional task activity events (2026-11-21)
 
-- Starting PR head: `736882c5b42945356106efdcf7d2cb4f6b7cadc0`; starting-head CI #404 passed: https://github.com/mohith-krishnaa/personal-os/actions/runs/44783219198
-- Audit documentation commit `cc6493df0bbb080eb2c18fa53f0d5ae4c9254b9c` passed [CI #405](https://github.com/mohith-krishnaa/personal-os/actions/runs/44790955563): 17/17 PostgREST preflight tests, 22/22 PostgreSQL 17 migrations with Organization/RLS and concurrency assertions, 132/132 application tests, typecheck, production build, and 0 npm vulnerabilities.
-- Branch: `feature/organization-v1`; PR #11 is open, unmerged, non-draft, and mergeable. PR #12 is still an open superseded draft. Branch compare after the audit commit: 457 ahead of main, 0 behind.
-- Inspected task create/update/status/recurrence event writes, the `activity_events` schema and RLS policy, reminder delivery's atomic RPC, task service tests, README principles, and roadmap.
-- Confirmed task mutation event inserts await Supabase but ignore returned `error` values. The primary task write has already committed, so a returned insert error can silently lose the event. A rejected request can surface an error after the task write committed; a retry can duplicate an event because no idempotency key exists.
-- `activity_events` is not an immutable audit log: `entity_id` has no entity FK, owner RLS is `FOR ALL`, and no event idempotency constraint exists. Reminder delivery is separately atomic: notification, delivery event, and delivered marker are written in one RPC transaction.
-- No runtime change was made. Changing only `updateTaskForUser` would leave create/status/recurrence inconsistent; throwing after the task write would create ambiguous retries. Interim rule: task activity events are best-effort/non-atomic and not a complete or exactly-once analytics source.
-- ADR: `docs/architecture/activity-event-consistency.md`. No migration, code, test, RLS, or production data changed. The documentation-only audit commit passed CI #405; no runtime behavior changed.
-- A fresh local clone failed because github.com could not be resolved. Local working-tree status is therefore unverified; remote branch/PR metadata and diff were inspected.
+- Starting HEAD: `431f311281bb432f2d722d671c9ad515ad27d275`.
+- Implementation commit: `daf399d7f09feea92f30e8b0e3429916f1d55400`.
+- TypeScript test-mock correction/final code HEAD: `e288c55768bca52e906d51fd6b9580f3ba0cff33`.
+- [CI #408](https://github.com/mohith-krishnaa/personal-os/actions/runs/44802872792) passed on the exact final code HEAD: 17/17 PostgREST safety preflight tests; 23/23 PostgreSQL 17 migrations; task activity failure/rollback/retry and migration reapplication assertions; Organization/RLS, archive, hierarchy and concurrency assertions; 133/133 application tests; typecheck; production build; npm audit 0 vulnerabilities. CI #407 failed typecheck only because the test mock accessed a union member not present on every plan; the mock was corrected before #408.
+- Migration `20261121000100_durable_task_activity_events.sql` installs a SECURITY INVOKER AFTER INSERT/UPDATE trigger on `public.tasks`. It writes task create/update/status/recurrence events in the same statement transaction. The app-side task event inserts were removed. Reminder delivery remains on its existing atomic RPC.
+- The trigger skips no-op updates and the recurring-root self-link initialization. `setTaskStatusForUser` retries recurrence generation when a task is already COMPLETED; the existing recurrence unique index prevents duplicate occurrences.
+- SQL fault-injection tests prove failed TASK_CREATED/TASK_UPDATED/TASK_COMPLETED/TASK_RECURRENCE_GENERATED inserts roll back their task statement; retry succeeds; Owner A cannot read Owner B events. Read-only preflight query 16 reports the trigger contract.
+- **Not solved:** stable client request idempotency for task/subtask creation; DELETE events; append-only/tamper-resistant activity log; historical backfill. `activity_events` remains owner-scoped but mutable and polymorphic. Do not treat event counts as user-intent counts or event absence as proof no delete occurred.
+- Repository migration count: 23. Last verified live ledger: 8 versions; this run did not query production, so 15 branch-only is conditional on that baseline remaining unchanged.
+- PR #11 is open/unmerged and its head matches `e288c557`; PR #12 remains a superseded open draft. No PR was merged or closed.
+- No production DDL/DML, migration, RLS modification, backup, restore, or live PostgREST test was performed. Owner-controlled complete backup, isolated restore, checklist conflict review, and authenticated two-owner PostgREST acceptance remain mandatory.
+- Remote diff from the starting HEAD contains six files. No local checkout is attached; local working-tree cleanliness is unverified.
 
-**Next task:** design one durable, idempotent database transaction boundary for task create, update, status changes, and recurrence generation. Add injected failure and retry/idempotency tests. Do not make Analytics depend on task event completeness until that work is verified.
+**Next task:** implement stable client-generated request IDs for task and subtask creation, with a per-owner unique database key and tests for same-request retries and concurrent duplicate submissions. Do not start Analytics yet.
+
 ---
 
 ## Latest resume checkpoint — task update service tests (2026-11-20)
