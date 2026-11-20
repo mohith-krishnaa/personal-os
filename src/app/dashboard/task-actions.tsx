@@ -1,21 +1,31 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { Task } from '@/types/task'
 import { addTaskAction, toggleTaskAction } from './actions'
+import { getClientRequestState, type PendingClientRequest } from '@/lib/client-request-id'
 
 export default function TaskActions({ mode, task }: { mode: 'add' | 'toggle'; task?: Task }) {
+  const requestRef = useRef<PendingClientRequest>(null)
   const [title, setTitle] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   async function addTask() {
     const value = title.trim()
-    if (!value) return
+    if (!value || loading) return
+    const payload = { title: value }
+    const request = getClientRequestState(
+      requestRef.current,
+      payload,
+      () => globalThis.crypto.randomUUID(),
+    )
+    requestRef.current = request
     setLoading(true)
     setError('')
     try {
-      await addTaskAction({ title: value })
+      await addTaskAction({ ...payload, client_request_id: request.id })
+      requestRef.current = null
       setTitle('')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not add task.')
