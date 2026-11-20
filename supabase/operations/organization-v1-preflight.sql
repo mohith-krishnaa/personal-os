@@ -429,3 +429,60 @@ SELECT
   CASE WHEN p.oid IS NULL THEN false ELSE has_function_privilege('anon', p.oid, 'EXECUTE') END AS anon_can_execute_request_trigger
 FROM task_columns c
 LEFT JOIN trigger_function p ON true;
+
+-- 18. Transactional task DELETE event contract.
+-- TASK_DELETED is emitted only when the authenticated JWT subject owns the deleted row.
+-- Service-role/Auth-account cascades intentionally skip the event so auth.users cleanup
+-- can cascade both tasks and activity_events without inserting a row for a deleted user.
+WITH task_activity_trigger AS (
+  SELECT
+    t.oid AS trigger_oid,
+    pg_get_triggerdef(t.oid) AS trigger_definition,
+    p.oid AS function_oid,
+    p.prosecdef,
+    p.proconfig,
+    p.prosrc
+  FROM pg_trigger t
+  JOIN pg_proc p ON p.oid = t.tgfoid
+  WHERE t.tgrelid = 'public.tasks'::regclass
+    AND t.tgname = 'tasks_record_activity_event'
+    AND NOT t.tgisinternal
+    AND t.tgenabled = 'O'
+)
+SELECT
+  EXISTS (SELECT 1 FROM task_activity_trigger) AS task_activity_trigger_enabled,
+  coalesce((SELECT trigger_definition ILIKE '%DELETE%' FROM task_activity_trigger), false) AS task_delete_event_enabled,
+  coalesce((SELECT prosrc LIKE '%TASK_DELETED%' FROM task_activity_trigger), false) AS task_deleted_event_mapping_present,
+  coalesce((SELECT prosrc LIKE '%auth.uid() IS DISTINCT FROM OLD.user_id%' FROM task_activity_trigger), false) AS task_delete_owner_context_guard_present,
+  coalesce((SELECT prosecdef = false FROM task_activity_trigger), false) AS task_activity_trigger_is_security_invoker,
+  coalesce((SELECT proconfig @> ARRAY['search_path=pg_catalog, public']::text[] FROM task_activity_trigger), false) AS task_activity_trigger_search_path_safe,
+  CASE WHEN (SELECT function_oid FROM task_activity_trigger) IS NULL THEN false
+       ELSE has_function_privilege('authenticated', (SELECT function_oid FROM task_activity_trigger), 'EXECUTE') END AS authenticated_can_execute_task_activity_trigger,
+  CASE WHEN (SELECT function_oid FROM task_activity_trigger) IS NULL THEN false
+       ELSE has_function_privilege('service_role', (SELECT function_oid FROM task_activity_trigger), 'EXECUTE') END AS service_role_can_execute_task_activity_trigger,
+  CASE WHEN (SELECT function_oid FROM task_activity_trigger) IS NULL THEN false
+       ELSE has_function_privilege('anon', (SELECT function_oid FROM task_activity_trigger), 'EXECUTE') END AS anon_can_execute_task_activity_trigger,
+  EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.tasks'::regclass
+      AND conname = 'tasks_parent_task_id_fkey'
+      AND contype = 'f'
+      AND convalidated
+      AND confdeltype = 'c'
+  ) AS task_parent_delete_cascade_preserved,
+  EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.tasks'::regclass
+      AND conname = 'tasks_user_id_fkey'
+      AND contype = 'f'
+      AND convalidated
+      AND confdeltype = 'c'
+  ) AS task_owner_delete_cascade_preserved,
+  EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.activity_events'::regclass
+      AND conname = 'activity_events_user_id_fkey'
+      AND contype = 'f'
+      AND convalidated
+      AND confdeltype = 'c'
+  ) AS activity_owner_delete_cascade_preserved;
