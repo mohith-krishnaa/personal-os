@@ -469,6 +469,37 @@ BEGIN
   IF copied_count <> 0 THEN
     RAISE EXCEPTION 'Checklist reconciliation transferred a conflicting canonical ID to the legacy owner.';
   END IF;
+
+  -- A payload-only collision must preserve the canonical row and legacy source.
+  SELECT count(*) INTO copied_count
+  FROM public.checklist_items
+  WHERE id = '30000000-0000-4000-8000-000000000007'
+    AND user_id = '11111111-1111-4111-8111-111111111111'
+    AND task_id = '10000000-0000-4000-8000-000000000001'
+    AND title = 'Canonical payload wins'
+    AND is_completed IS FALSE
+    AND position = 6
+    AND created_at = '2026-01-01 00:00:00+00'::timestamptz
+    AND updated_at = '2026-01-02 00:00:00+00'::timestamptz;
+
+  IF copied_count <> 1 THEN
+    RAISE EXCEPTION 'Checklist reconciliation overwrote or removed the canonical row on a payload-only ID collision.';
+  END IF;
+
+  SELECT count(*) INTO copied_count
+  FROM public.task_checklist_items
+  WHERE id = '30000000-0000-4000-8000-000000000007'
+    AND user_id = '11111111-1111-4111-8111-111111111111'
+    AND task_id = '10000000-0000-4000-8000-000000000001'
+    AND title = 'Legacy payload differs'
+    AND is_completed IS TRUE
+    AND position = 7
+    AND created_at = '2026-01-01 00:00:00+00'::timestamptz
+    AND updated_at = '2026-01-02 00:00:00+00'::timestamptz;
+
+  IF copied_count <> 1 THEN
+    RAISE EXCEPTION 'Checklist reconciliation removed or changed the legacy source on a payload-only ID collision.';
+  END IF;
 END
 $assert_schema$;
 

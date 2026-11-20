@@ -325,7 +325,15 @@ if ! grep -Fq '30000000-0000-4000-8000-000000000002|task_owner_mismatch|' <<<"$c
 fi
 
 if ! grep -Fq '30000000-0000-4000-8000-000000000005|canonical_id_collision|' <<<"$conflict_report"; then
-  echo "Checklist conflict report did not identify the non-identical canonical ID collision."
+  echo "Checklist conflict report did not identify the cross-owner/task canonical ID collision."
+  exit 1
+fi
+
+payload_collision_line="$(grep -F '30000000-0000-4000-8000-000000000007|canonical_id_collision|' <<<"$conflict_report" || true)"
+if [[ -z "$payload_collision_line" ]] ||
+   ! grep -Fq '|f|f|f|f|f|t|Legacy payload differs|Canonical payload wins|t|f|7|6|' <<<"$payload_collision_line" ||
+   ! grep -Fq '|t|t|t|f|f' <<<"$payload_collision_line"; then
+  echo "Checklist conflict report did not expose the payload-only collision's exact values and field mismatch flags."
   exit 1
 fi
 
@@ -335,8 +343,8 @@ if ! grep -Fq '30000000-0000-4000-8000-000000000006|missing_canonical|' <<<"$con
 fi
 
 reported_conflicts="$(printf '%s\n' "$conflict_report" | sed '/^[[:space:]]*$/d' | wc -l | tr -d ' ')"
-if [[ "$reported_conflicts" -ne 3 ]]; then
-  echo "Expected exactly three seeded checklist reconciliation conflicts, found $reported_conflicts."
+if [[ "$reported_conflicts" -ne 4 ]]; then
+  echo "Expected exactly four seeded checklist reconciliation conflicts, found $reported_conflicts."
   exit 1
 fi
 
