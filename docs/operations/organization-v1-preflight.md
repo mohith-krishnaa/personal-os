@@ -6,6 +6,18 @@ Application rollout: BLOCKED — no recoverable backup has been produced.
 
 This runbook records the live read-only inspection and the safe path to complete Organization V1. It does not authorize production DDL or a PR merge.
 
+## Latest authenticated parent-task reassignment verification — 2026-11-20
+
+Code/test commit `0a4bd7e623cee437580d425d0fb71e5758febb47` passed [CI #364](https://github.com/mohith-krishnaa/personal-os/actions/runs/44694065363). The workflow replayed all 20 migrations in disposable PostgreSQL 17; authenticated Owner A/B and anonymous RLS assertions, project archive lifecycle, task hierarchy and two-session concurrency checks passed; 90/90 application tests, typecheck, and production build passed; npm install found 0 vulnerabilities. No migration was added; repository count remains 20.
+
+The authenticated fixture verifies valid same-owner/same-project parent reassignment, rejects cross-project and cross-owner parent reassignment while preserving the previous parent, permits reparenting an existing task within an archived project's historical links, and verifies Owner B's reciprocal rejected update leaves its NULL parent unchanged. This is a disposable PostgreSQL role/RLS test, not a live PostgREST test.
+
+Fresh read-only live inspection: project `gujzvkyytxsnervovvrt` is ACTIVE_HEALTHY on PostgreSQL 17.11.0.003; the live ledger has 8 entries; all 9 public application tables have RLS enabled. Live `projects.title/status` and `tasks.project_id/parent_task_id` remain present, while `projects.name` and user-defined triggers on projects/tasks remain absent. No production DDL/DML, migration, RLS change, backup, restore, or merge occurred.
+
+Owner action remains required: create a complete owner-controlled schema/data/roles backup and prove isolated restore; review checklist conflicts against that restored copy; then run authenticated two-user PostgREST CRUD/isolation tests. Do not apply migrations or alter production RLS before those gates and explicit approval.
+
+**Next repository task:** add authenticated-role UPDATE coverage for hierarchy-cycle rejection and preservation of the previous parent link.
+
 ## Latest authenticated-role verification — 2026-11-20
 
 Code/test HEAD `eb194521e6d1bb12147058530c84ce7315395a44` passed [CI #357](https://github.com/mohith-krishnaa/personal-os/actions/runs/44680309313). The full 20-migration PostgreSQL 17 replay and Organization/RLS assertions passed. The authenticated Owner A/B fixture asserts a non-superuser, non-BYPASSRLS `authenticated` role, then verifies ACTIVE subtask insertion, COMPLETED/ARCHIVED rejection with no residual rows, unchanged historical-link updates after archive, and cross-owner parent/project denial. The existing project archive lifecycle and both two-session concurrency cases passed; 90/90 application tests, typecheck, and production build passed; npm audit found 0 vulnerabilities. No migration was added; repository count remains 20.

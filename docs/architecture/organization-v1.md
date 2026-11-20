@@ -2,6 +2,14 @@
 
 Status: implementation is under review in PR #11. This document records repository-level design decisions; it does not certify the live Supabase schema or deployment.
 
+**Verified checkpoint — 2026-11-20 (authenticated parent-task reassignment).** Code/test commit `0a4bd7e623cee437580d425d0fb71e5758febb47` passed [CI #364](https://github.com/mohith-krishnaa/personal-os/actions/runs/44694065363): 20/20 PostgreSQL 17 migrations replayed, authenticated Owner A/B and anonymous RLS assertions passed, project archive lifecycle and hierarchy/concurrency checks passed, 90/90 application tests passed, typecheck and production build passed, and npm install reported 0 vulnerabilities. No migration or runtime code changed.
+
+The authenticated fixture now verifies same-owner/same-project parent reassignment succeeds; cross-project and cross-owner parent reassignment fail without changing the prior parent; an existing task in an archived project remains reparentable within its historical project; and Owner B's reciprocal cross-owner update leaves its NULL parent unchanged. This is disposable PostgreSQL role/RLS verification, not a live PostgREST test.
+
+Fresh read-only production inspection: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, 8 live migration-ledger entries, 9 public tables with RLS enabled, legacy `projects.title/status`, `tasks.project_id/parent_task_id`, no `projects.name`, and no user-defined triggers on projects/tasks. No production schema or data was changed. Owner-controlled complete backup/isolated restore, restored-copy checklist conflict review, and authenticated two-user PostgREST CRUD/isolation remain rollout gates.
+
+**Next task:** authenticated-role hierarchy-cycle rejection on UPDATE, including preservation of the previous parent link.
+
 **Verified checkpoint — 2026-11-20 (authenticated task project reassignment).** Repository: `mohith-krishnaa/personal-os`; branch: `feature/organization-v1`; code/test commit: `0da6239761d1f2fc1adf9b34d2a418517f9ae458`; PR #11 remains open and unmerged.
 
 Extended `supabase/tests/organization-migration-assertions.sql` so task project assignment and reassignment run under the actual disposable-database `authenticated` role with Owner A's JWT subject and RLS enabled. The fixture creates a second ACTIVE project owned by Owner A and exercises: an unassigned task assigned to an ACTIVE project; reassignment from one owned ACTIVE project to another; rejection of reassignment into a COMPLETED project; rejection of reassignment into an ARCHIVED project; and rejection of reassignment to Owner B's project. Rejected updates must leave the original `project_id` unchanged. The existing authenticated same-link update after archive remains covered, as do cross-owner parent INSERT denials.
