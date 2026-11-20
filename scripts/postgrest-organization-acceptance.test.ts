@@ -107,3 +107,15 @@ test('rejects local endpoints on unexpected ports', () => {
   env.PERSONAL_OS_ACCEPTANCE_PROJECT_REF = 'local'
   assert.throws(() => loadAcceptanceConfig(env, ['--execute']), /54321/)
 })
+
+test('rejects a conflicting generic SUPABASE_URL', () => {
+  const env = validEnvironment()
+  env.SUPABASE_URL = 'https://gujzvkyytxsnervovvrt.supabase.co'
+  assert.throws(() => loadAcceptanceConfig(env, ['--execute']), /different project/)
+})
+
+test('rejects target URLs with a REST path or query parameters', () => {
+  const env = validEnvironment()
+  env.PERSONAL_OS_ACCEPTANCE_SUPABASE_URL = 'https://abcdefghijklmnopqrst.supabase.co/rest/v1'
+  assert.throws(() => loadAcceptanceConfig(env, ['--execute']), /only the Supabase project origin/)
+})

@@ -33,7 +33,7 @@ Set these variables in the shell running the harness. Do not put credentials in 
 
 For a local Supabase stack, use only http://localhost:54321 or http://127.0.0.1:54321 with project ref local. Hosted targets must use https://<20-character-project-ref>.supabase.co. Custom domains are intentionally rejected.
 
-The known production project ref gujzvkyytxsnervovvrt is permanently blocked in the harness. A conflicting NEXT_PUBLIC_SUPABASE_URL also causes refusal.
+The known production project ref gujzvkyytxsnervovvrt is permanently blocked in the harness. A conflicting NEXT_PUBLIC_SUPABASE_URL or SUPABASE_URL also causes refusal.
 
 ## Run
 

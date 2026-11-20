@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { pathToFileURL } from 'node:url'
 import { createClient } from '@supabase/supabase-js'
 
 type Environment = Record<string, string | undefined>
@@ -108,9 +109,14 @@ export function loadAcceptanceConfig(env: Environment, args: string[]): Acceptan
     }
   }
 
-  const appUrl = env.NEXT_PUBLIC_SUPABASE_URL?.trim()
-  if (appUrl && normalizeOrigin(appUrl) !== target.origin) {
-    throw new Error('NEXT_PUBLIC_SUPABASE_URL points to a different project than the explicit acceptance target.')
+  for (const [name, value] of [
+    ['NEXT_PUBLIC_SUPABASE_URL', env.NEXT_PUBLIC_SUPABASE_URL],
+    ['SUPABASE_URL', env.SUPABASE_URL],
+  ] as const) {
+    const appUrl = value?.trim()
+    if (appUrl && normalizeOrigin(appUrl) !== target.origin) {
+      throw new Error(name + ' points to a different project than the explicit acceptance target.')
+    }
   }
 
   assertPublicKey(anonKey)
@@ -137,7 +143,7 @@ export function loadAcceptanceConfig(env: Environment, args: string[]): Acceptan
   }
 }
 
-type Client = ReturnType<typeof createClient>
+type Client = ReturnType<typeof createClient<any>>
 type Row = { id: string; user_id: string }
 type CreatedRows = {
   projects: string[]
@@ -194,9 +200,10 @@ async function expectMissing(client: Client, table: string, id: string, label: s
 }
 
 async function deleteCreated(client: Client, table: string, ids: string[]) {
-  if (!ids.length) return
-  const { error } = await client.from(table).delete().in('id', ids)
-  if (error) throw new Error(table + ' cleanup failed (' + error.code + ').')
+  for (const id of [...ids].reverse()) {
+    const { error } = await client.from(table).delete().eq('id', id)
+    if (error) throw new Error(table + ' cleanup failed (' + error.code + ').')
+  }
 }
 
 async function cleanup(client: Client, rows: CreatedRows) {
@@ -440,7 +447,7 @@ async function main() {
   console.log('Two owners; project/task/subtask/canonical+legacy checklist CRUD; cross-owner SELECT/INSERT/UPDATE/DELETE; cleanup completed.')
 }
 
-if (process.argv[1] && import.meta.url === new URL('file://' + process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((error: unknown) => {
     console.error(error instanceof Error ? error.message : 'Organization PostgREST acceptance failed.')
     process.exitCode = 1
