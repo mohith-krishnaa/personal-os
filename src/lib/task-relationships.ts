@@ -34,8 +34,23 @@ export function isInactiveProjectAssignmentError(error: unknown) {
  */
 export function throwIfUnexpectedLookupError(error: unknown) {
   if (!error) return
-  if (typeof error === 'object' && 'code' in error && error.code === 'PGRST116') return
-  throw error
+  if (typeof error === 'object' && error !== null && 'code' in error) {
+    const candidate = error as { code?: unknown; message?: unknown }
+    if (candidate.code === 'PGRST116') return
+    if (candidate.code === '42501') {
+      const authorizationError = new Error('You are not authorized to access the requested task or project.')
+      Object.assign(authorizationError, { code: candidate.code })
+      throw authorizationError
+    }
+    if (error instanceof Error) throw error
+    if (typeof candidate.message === 'string') {
+      const lookupError = new Error(candidate.message)
+      if (typeof candidate.code === 'string') Object.assign(lookupError, { code: candidate.code })
+      throw lookupError
+    }
+  }
+  if (error instanceof Error) throw error
+  throw new Error('Could not verify task or project access.')
 }
 
 export function resolveTaskOrganizationLinks(

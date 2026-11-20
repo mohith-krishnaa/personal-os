@@ -151,7 +151,7 @@ test('task link preflight preserves parent database authorization errors', async
 
   await assert.rejects(
     () => assertTaskOrganizationLinks(supabase, 'owner-1', { parentTaskId: 'parent-1' }),
-    error => error === databaseError,
+    error => error instanceof Error && error.message === 'You are not authorized to access the requested task or project.' && (error as Error & { code?: string }).code === '42501',
   )
 })
 
@@ -190,7 +190,7 @@ test('task link preflight preserves project database authorization errors', asyn
 
   await assert.rejects(
     () => assertTaskOrganizationLinks(supabase, 'owner-1', { projectId: 'project-1' }),
-    error => error === databaseError,
+    error => error instanceof Error && error.message === 'You are not authorized to access the requested task or project.' && (error as Error & { code?: string }).code === '42501',
   )
 })
 

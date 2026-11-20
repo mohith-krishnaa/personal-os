@@ -151,7 +151,7 @@ test('createSubtask preserves parent database authorization errors', async () =>
 
   await assert.rejects(
     () => createSubtask(supabase, 'owner-1', 'parent-1', { title: 'Child task' }),
-    error => error === databaseError,
+    error => error instanceof Error && error.message === 'You are not authorized to access the requested task or project.' && (error as Error & { code?: string }).code === '42501',
   )
 })
 
@@ -164,7 +164,7 @@ test('createSubtask preserves project database authorization errors', async () =
 
   await assert.rejects(
     () => createSubtask(supabase, 'owner-1', 'parent-1', { title: 'Child task' }),
-    error => error === databaseError,
+    error => error instanceof Error && error.message === 'You are not authorized to access the requested task or project.' && (error as Error & { code?: string }).code === '42501',
   )
 })
 
@@ -290,7 +290,7 @@ test('listSubtasks preserves parent database authorization errors', async () => 
 
   await assert.rejects(
     () => listSubtasks(supabase, 'owner-1', 'parent-1'),
-    error => error === databaseError,
+    error => error instanceof Error && error.message === 'You are not authorized to access the requested task or project.' && (error as Error & { code?: string }).code === '42501',
   )
   assert.deepEqual(calls, ['tasks'])
 })
