@@ -85,3 +85,7 @@ Never point the harness at production to "see whether the guard works." Producti
 ## CI verification order
 
 The CI workflow runs `npm run test:acceptance:preflight` before PostgreSQL client installation and migration replay. The same safety-gate tests are also included in `npm run test`. Neither command contacts Supabase; the live two-owner PostgREST acceptance command remains a manual owner-controlled step after a verified isolated restore.
+
+## Task create request idempotency
+
+When exercising authenticated task or subtask creation, provide a stable UUID in `client_request_id` and a 64-character lowercase SHA-256 payload fingerprint in `client_request_hash`. Repeat the same owner/request key with the same payload and verify only one task and one `TASK_CREATED` event exist. Reuse the same key with a different payload through the application service and verify it is rejected without changing the original row. The same UUID must remain usable by a second owner because uniqueness is scoped by `user_id`. Verify attempts to update either request-identity column are rejected. This acceptance remains unexecuted until the complete backup and isolated-restore gates are satisfied.
