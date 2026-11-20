@@ -403,6 +403,10 @@ SELECT
       AND con.conname = 'tasks_user_client_request_unique'
       AND con.contype = 'u'
       AND con.convalidated
+      AND con.conkey = ARRAY[
+        (SELECT attnum FROM pg_attribute WHERE attrelid = 'public.tasks'::regclass AND attname = 'user_id' AND NOT attisdropped),
+        (SELECT attnum FROM pg_attribute WHERE attrelid = 'public.tasks'::regclass AND attname = 'client_request_id' AND NOT attisdropped)
+      ]::smallint[]
   ) AS task_request_unique_per_owner,
   EXISTS (
     SELECT 1 FROM pg_constraint con
