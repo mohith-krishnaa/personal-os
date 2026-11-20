@@ -1,12 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { addSubtaskAction, listSubtasksAction } from './subtask-actions'
 import { toggleTaskAction } from './actions'
 import type { Task } from '@/types/task'
 import { afterSubtaskCreated, afterSubtaskListLoadFailed } from '@/lib/subtask-state'
+import { getClientRequestState, type PendingClientRequest } from '@/lib/client-request-id'
 
 export default function SubtaskManager({ task }: { task: Task }) {
+  const requestRef = useRef<PendingClientRequest>(null)
   const [title, setTitle] = useState('')
   const [items, setItems] = useState<Task[]>([])
   const [open, setOpen] = useState(false)
@@ -43,15 +45,27 @@ export default function SubtaskManager({ task }: { task: Task }) {
 
   async function add() {
     const value = title.trim()
-    if (!value || loading) return
+    if (!value || loading || saving) return
+    const payload = { parent_task_id: task.id, title: value, project_id: task.project_id }
+    const request = getClientRequestState(
+      requestRef.current,
+      payload,
+      () => globalThis.crypto.randomUUID(),
+    )
+    requestRef.current = request
     setSaving(true)
     setError('')
     try {
-      const subtask = await addSubtaskAction(task.id, { title: value, project_id: task.project_id })
+      const subtask = await addSubtaskAction(task.id, {
+        title: value,
+        project_id: task.project_id,
+        client_request_id: request.id,
+      })
       const next = afterSubtaskCreated(items, subtask, loaded)
       setItems(next.items)
       setLoaded(!next.shouldReload)
       setTitle('')
+      requestRef.current = null
       if (next.shouldReload) await loadSubtasks()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create subtask.')
@@ -59,7 +73,6 @@ export default function SubtaskManager({ task }: { task: Task }) {
       setSaving(false)
     }
   }
-
   async function toggle(subtask: Task) {
     setUpdatingId(subtask.id)
     setError('')
