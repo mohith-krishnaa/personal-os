@@ -1,3 +1,73 @@
+# Latest verified checkpoint — trusted activity-event writer boundary and schema audit (2026-11-21)
+
+**Implementation/test commit:** `d05d5a47efd51dca6088ea211f897573b789374d` — [CI #444 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44827879515).  
+**Fail-closed preflight follow-up:** `fbb3be06e3c21156ce8e4f3d72c408d657af7d45` (included in this documentation checkpoint; final CI for this follow-up is pending).
+
+## Recovery and repository state
+
+Starting branch `feature/organization-v1`, HEAD `0ea51cec79ba54ecb38b1d00d32abcc024640bc1`, PR #11 open and unmerged. The preceding completed task was migration 26's application-role append-only event access. The actual repository confirmed that task; no previous implementation was repeated.
+
+## Event writer audit and security correction
+
+The activity-event writer audit found that authenticated users could INSERT arbitrary owner-scoped `event_type`, `entity_type`, `entity_id`, and `metadata` values directly. Owner-scoped RLS prevented cross-owner writes but did not prevent a user from fabricating their own `TASK_COMPLETED` or other history. That would make future analytics untrustworthy.
+
+Added migration `20261121000500_trusted_activity_event_writers.sql` (migration 27):
+
+- Replaces the task activity trigger function with a postgres-owned, fixed-search-path SECURITY DEFINER trigger writer.
+- The trigger explicitly rejects authenticated INSERT/UPDATE owner mismatches; DELETE events remain limited to the authenticated owner context.
+- Removes the authenticated activity-event INSERT policy and revokes direct INSERT from authenticated users. Authenticated users retain owner-scoped SELECT only.
+- Retains service_role SELECT/INSERT as a trusted server-side role; reminder delivery continues through its existing postgres-owned SECURITY DEFINER RPC.
+- Revokes direct authenticated EXECUTE on the trigger function; the trigger continues to fire through the task DML path.
+- Preserves event insertion in the same task statement transaction, including rollback on event-write failure and descendant DELETE cascades.
+- Keeps Auth-account/service-role DELETE behavior unchanged.
+
+The migration fails closed on unexpected activity-event policies and verifies the reminder RPC remains a postgres-owned SECURITY DEFINER writer with a fixed search path. The follow-up commit `fbb3be06e3c21156ce8e4f3d72c408d657af7d45` tightens nullable policy/owner checks with `IS DISTINCT FROM` and `coalesce`.
+
+## Event schema and idempotency audit
+
+Current trusted event writers and entity contract:
+
+| Event type | Entity | Metadata contract |
+|---|---|---|
+| `TASK_CREATED` | `TASK`, task UUID | `source=database`, recurring boolean |
+| `TASK_RECURRENCE_GENERATED` | `TASK`, occurrence UUID | source task UUID |
+| `TASK_UPDATED` | `TASK`, task UUID | `source=database`; no field-level diff |
+| `TASK_COMPLETED` | `TASK`, task UUID | new status only |
+| `TASK_STATUS_CHANGED` | `TASK`, task UUID | new status only; previous status is not recorded |
+| `TASK_DELETED` | `TASK`, deleted task UUID | title/status/project/parent/recurrence-parent snapshot |
+| `REMINDER_DELIVERED` | `REMINDER`, reminder UUID | task UUID and delivery channel |
+
+`entity_id` intentionally has no FK: task deletion events must retain the deleted task's identifier. `entity_type` and `entity_id` are nullable and have no pair CHECK; current trusted writers always populate both. `event_type` is free-form text without a CHECK/catalog, and `metadata` is JSONB without an object-shape CHECK. No generic event idempotency key exists.
+
+Retry protection is domain-specific: per-owner task create request UUID + payload hash; unique recurring occurrence; reminder row-lock/delivered marker + unique notification; no-op task updates do not emit a second event; repeated DELETE affects no row and emits no new event. Service-role/Auth-account cleanup intentionally skips per-task DELETE events. No event reader, backfill, or retention schedule is defined. Event counts are not equivalent to user intent, time spent, or productivity.
+
+## CI #444 evidence
+
+CI #444 passed on implementation/test commit `d05d5a47efd51dca6088ea211f897573b789374d`:
+
+- PostgREST safety preflight: 17/17 passed.
+- PostgreSQL 17 migration replay: 27/27 passed.
+- Migration 27 reapplication: passed.
+- Authenticated direct event INSERT denial and trigger-created TASK_CREATED event: passed.
+- Task INSERT/UPDATE/DELETE transaction and cascade rollback tests: passed.
+- Application tests: 147/147 passed.
+- TypeScript typecheck: passed.
+- Production build: passed.
+- npm audit: 0 vulnerabilities.
+- No lint script is configured.
+
+The final fail-closed follow-up `fbb3be06e3c21156ce8e4f3d72c408d657af7d45` still requires its own CI result; do not treat CI #444 as covering that later commit.
+
+## Production remains unchanged
+
+Fresh read-only production inspection on 2026-11-21: 8 live migration versions versus 27 repository migrations (19 branch-only); all 9 public application tables have RLS enabled and report zero rows. The live activity_events table still has the legacy `FOR ALL` policy and broad grants. Read-only query 20 confirmed: event_type text NOT NULL, entity_type/entity_id nullable, metadata JSONB NOT NULL, no event-type CHECK, no entity-pair CHECK, no entity_id FK, no generic event idempotency key, reminder event writer present, task trigger and task-create request key absent, recurrence and reminder uniqueness present. Migration 27 has not been applied to production.
+
+No production DDL/DML, migration, RLS change, backup, restore, or PR merge occurred. The complete owner-controlled schema/data/roles backup, successful isolated restoration, restored-copy checklist conflict review, and authenticated two-owner PostgREST acceptance remain required.
+
+**Next task:** extend the isolated PostgREST acceptance harness to prove that authenticated direct activity-event INSERT is rejected while an authenticated task INSERT still creates its trusted TASK_CREATED event. Keep the harness gated to a verified isolated restore. Analytics remains queued.
+
+---
+
 # Latest verified checkpoint — application-role append-only activity events (2026-11-21)
 
 **Code/test HEAD:** `03217aefdefb88fee593629f217d7efaf36d538d`  

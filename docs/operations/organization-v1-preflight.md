@@ -1,3 +1,22 @@
+# Latest preflight update — trusted activity-event writers (migration 27, 2026-11-21)
+
+The branch contains **27 migrations**; the last read-only production ledger contains **8**, leaving **19 branch-only**. Migration 27 is `20261121000500_trusted_activity_event_writers.sql`. CI #444 passed the implementation/test commit `d05d5a47efd51dca6088ea211f897573b789374d`: 27/27 PostgreSQL migrations, migration 27 reapplication, 17/17 PostgREST safety tests, 147/147 application tests, typecheck, production build and npm audit (0 vulnerabilities). The fail-closed follow-up `fbb3be06e3c21156ce8e4f3d72c408d657af7d45` tightens migration policy-shape checks and requires final CI on the latest branch HEAD.
+
+## Read-only query contracts
+
+- Query 16: task activity trigger enabled, postgres-owned SECURITY DEFINER, fixed search path; authenticated direct trigger EXECUTE and direct activity-event INSERT are false; service_role trigger EXECUTE remains true; owner SELECT policy present; authenticated INSERT policy absent.
+- Query 18: the same SECURITY DEFINER owner/search-path contract plus TASK_DELETED mapping and existing cascade FKs.
+- Query 19: authenticated activity_events SELECT true and INSERT/UPDATE/DELETE/TRUNCATE false; service_role SELECT/INSERT true and UPDATE/DELETE/TRUNCATE false; anon has no privileges; the authenticated INSERT policy is absent; postgres retains owner maintenance privileges.
+- Query 20: reports event_type/entity metadata nullability, CHECK/FK absence, current task/reminder event mappings, task-create request uniqueness, recurring-occurrence uniqueness, reminder-notification uniqueness, and absence of a generic event idempotency key.
+
+## Fresh production read-only result
+
+Query 20 executed successfully against production on 2026-11-21. It reported event_type TEXT NOT NULL; entity_type TEXT nullable; entity_id UUID nullable; metadata JSONB NOT NULL; no event-type CHECK, entity-pair CHECK, entity_id FK, or generic event idempotency key; task activity trigger absent; reminder event mapping present; task-create request uniqueness absent; recurring-occurrence and reminder-notification uniqueness present. The live ledger remains at 8; the 27-migration branch is not deployed. Existing production activity_events still has its legacy FOR ALL policy and broad grants. No production DDL/DML, migration, RLS change, backup, restore, or PR merge occurred.
+
+The complete owner-controlled schema/data/roles backup, successful isolated restoration, restored-copy checklist conflict review, and authenticated two-owner PostgREST acceptance remain mandatory. Do not run the PostgREST acceptance harness against production.
+
+---
+
 # Latest preflight update — activity-event append-only migration 26 (2026-11-21)
 
 The branch contains 26 migrations; the last read-only production ledger contains 8, leaving 18 branch-only. Query 19 was executed read-only against production and confirmed the expected pre-migration activity_events state: RLS enabled, owner postgres, old FOR ALL policy, and broad table privileges for anon, authenticated, and service_role. No production change was made.

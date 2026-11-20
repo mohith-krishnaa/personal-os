@@ -1,3 +1,42 @@
+# Current event contract — migration 27 (2026-11-21)
+
+This section supersedes earlier SECURITY INVOKER and authenticated SELECT/INSERT descriptions below. Historical checkpoint sections remain as records of the contract at those commits.
+
+## Trusted writer boundary
+
+Migration `20261121000500_trusted_activity_event_writers.sql` makes `public.record_task_activity_event()` a postgres-owned SECURITY DEFINER trigger function with fixed `search_path = pg_catalog, public`. It is attached to task INSERT/UPDATE/DELETE and cannot be directly executed by authenticated clients. The trigger checks that a non-null `auth.uid()` matches `NEW.user_id` for INSERT/UPDATE; DELETE emits only when `auth.uid() = OLD.user_id`. Event insertion remains part of the task statement transaction, so event-write failure rolls back the mutation or cascade.
+
+Authenticated users now have owner-scoped SELECT only on `activity_events`; the INSERT policy is removed and direct authenticated INSERT privilege is revoked. The task trigger writes as its postgres owner. `service_role` retains SELECT/INSERT as a trusted backend role, and `claim_due_reminders(integer)` remains a postgres-owned SECURITY DEFINER RPC executable only by service_role. This blocks ordinary clients from fabricating their own event history without changing the trusted server contract.
+
+## Current event/entity metadata contract
+
+| Event type | Entity type and identifier | Metadata |
+|---|---|---|
+| `TASK_CREATED` | `TASK` / task UUID | `source=database`, `recurring` boolean |
+| `TASK_RECURRENCE_GENERATED` | `TASK` / occurrence UUID | `source_task_id` UUID |
+| `TASK_UPDATED` | `TASK` / task UUID | `source=database`; no field-level diff |
+| `TASK_COMPLETED` | `TASK` / task UUID | new `status` only |
+| `TASK_STATUS_CHANGED` | `TASK` / task UUID | new `status` only; previous status omitted |
+| `TASK_DELETED` | `TASK` / deleted task UUID | title, status, project, parent and recurrence-parent snapshot |
+| `REMINDER_DELIVERED` | `REMINDER` / reminder UUID | task UUID and delivery channel |
+
+The task trigger is the only task-event writer. The reminder delivery RPC is the reminder-event writer. No application TypeScript module directly inserts or reads `activity_events`.
+
+## Schema limits and analytics implications
+
+- `event_type` is TEXT NOT NULL without a CHECK constraint or event catalog.
+- `entity_type` and UUID `entity_id` are nullable; there is no pair CHECK. Current trusted writers always set both.
+- `entity_id` intentionally has no FK. A `TASK_DELETED` event must retain the deleted task UUID; task deletion and Auth-account cleanup have different retention semantics.
+- `metadata` is JSONB NOT NULL but is not constrained to an object shape.
+- There is no generic event idempotency key. Retry safety is provided by domain-specific task-create request IDs/hashes, recurring-occurrence uniqueness, reminder row locking/delivery markers and notification uniqueness. Task no-op updates do not emit duplicate events; repeated deletes do not affect a row.
+- `TASK_UPDATED` and status events do not contain before/after field diffs. Analytics cannot reconstruct every field change or infer time spent.
+- Service-role/Auth-account cleanup intentionally skips per-task DELETE events. No historical backfill, event reader or retention schedule exists.
+- Event counts are database-observed transitions, not direct measurements of intent, effort, or productivity.
+
+Read-only preflight query 20 reports these schema and idempotency properties. On the legacy production baseline it correctly reports the task trigger and task-create key absent while the reminder writer, recurrence uniqueness and reminder-notification uniqueness are present.
+
+---
+
 # Activity Event Consistency
 
 ## Implemented on `feature/organization-v1`
