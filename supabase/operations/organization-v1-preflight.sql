@@ -362,9 +362,29 @@ select
     select 1 from pg_policies policy
     where policy.schemaname = 'public'
       and policy.tablename = 'activity_events'
-      and policy.policyname = 'activity_events_owner'
-      and policy.cmd = 'ALL'
-  ) as activity_event_owner_policy_present
+      and policy.policyname = 'activity_events_select_owner'
+      and policy.cmd = 'SELECT'
+      and policy.roles @> array['authenticated']::name[]
+      and policy.qual ilike '%auth.uid%'
+  ) as activity_events_select_owner_policy_present,
+  exists (
+    select 1 from pg_policies policy
+    where policy.schemaname = 'public'
+      and policy.tablename = 'activity_events'
+      and policy.policyname = 'activity_events_insert_owner'
+      and policy.cmd = 'INSERT'
+      and policy.roles @> array['authenticated']::name[]
+      and policy.with_check ilike '%auth.uid%'
+  ) as activity_events_insert_owner_policy_present,
+  not exists (
+    select 1 from pg_policies policy
+    where policy.schemaname = 'public'
+      and policy.tablename = 'activity_events'
+      and policy.cmd in ('ALL', 'UPDATE', 'DELETE')
+  ) as activity_events_mutation_policies_absent,
+  not has_table_privilege('authenticated', 'public.activity_events', 'UPDATE') as authenticated_cannot_update_activity_events,
+  not has_table_privilege('authenticated', 'public.activity_events', 'DELETE') as authenticated_cannot_delete_activity_events,
+  not has_table_privilege('authenticated', 'public.activity_events', 'TRUNCATE') as authenticated_cannot_truncate_activity_events
 from pg_trigger t
 join pg_proc p on p.oid = t.tgfoid
 where t.tgrelid = 'public.tasks'::regclass
@@ -486,3 +506,60 @@ SELECT
       AND convalidated
       AND confdeltype = 'c'
   ) AS activity_owner_delete_cascade_preserved;
+
+
+-- 19. Append-only activity-event access contract.
+-- Application roles may SELECT/INSERT only. The postgres table owner retains
+-- controlled maintenance/retention privileges; auth.users FK cleanup still cascades.
+WITH event_table AS (
+  SELECT
+    c.relrowsecurity,
+    pg_get_userbyid(c.relowner) AS table_owner
+  FROM pg_class c
+  WHERE c.oid = to_regclass('public.activity_events')
+)
+SELECT
+  coalesce(event_table.relrowsecurity, false) AS activity_events_rls_enabled,
+  event_table.table_owner AS activity_events_table_owner,
+  EXISTS (
+    SELECT 1 FROM pg_policies policy
+    WHERE policy.schemaname = 'public'
+      AND policy.tablename = 'activity_events'
+      AND policy.policyname = 'activity_events_select_owner'
+      AND policy.cmd = 'SELECT'
+      AND policy.roles @> ARRAY['authenticated']::name[]
+      AND policy.qual ILIKE '%auth.uid%'
+  ) AS activity_events_select_owner_policy_present,
+  EXISTS (
+    SELECT 1 FROM pg_policies policy
+    WHERE policy.schemaname = 'public'
+      AND policy.tablename = 'activity_events'
+      AND policy.policyname = 'activity_events_insert_owner'
+      AND policy.cmd = 'INSERT'
+      AND policy.roles @> ARRAY['authenticated']::name[]
+      AND policy.with_check ILIKE '%auth.uid%'
+  ) AS activity_events_insert_owner_policy_present,
+  NOT EXISTS (
+    SELECT 1 FROM pg_policies policy
+    WHERE policy.schemaname = 'public'
+      AND policy.tablename = 'activity_events'
+      AND policy.cmd IN ('ALL', 'UPDATE', 'DELETE')
+  ) AS activity_events_mutation_policies_absent,
+  has_table_privilege('authenticated', 'public.activity_events', 'SELECT') AS authenticated_can_select,
+  has_table_privilege('authenticated', 'public.activity_events', 'INSERT') AS authenticated_can_insert,
+  has_table_privilege('authenticated', 'public.activity_events', 'UPDATE') AS authenticated_can_update,
+  has_table_privilege('authenticated', 'public.activity_events', 'DELETE') AS authenticated_can_delete,
+  has_table_privilege('authenticated', 'public.activity_events', 'TRUNCATE') AS authenticated_can_truncate,
+  has_table_privilege('anon', 'public.activity_events', 'SELECT') AS anon_can_select,
+  has_table_privilege('anon', 'public.activity_events', 'INSERT') AS anon_can_insert,
+  has_table_privilege('anon', 'public.activity_events', 'UPDATE') AS anon_can_update,
+  has_table_privilege('anon', 'public.activity_events', 'DELETE') AS anon_can_delete,
+  has_table_privilege('anon', 'public.activity_events', 'TRUNCATE') AS anon_can_truncate,
+  has_table_privilege('service_role', 'public.activity_events', 'SELECT') AS service_role_can_select,
+  has_table_privilege('service_role', 'public.activity_events', 'INSERT') AS service_role_can_insert,
+  has_table_privilege('service_role', 'public.activity_events', 'UPDATE') AS service_role_can_update,
+  has_table_privilege('service_role', 'public.activity_events', 'DELETE') AS service_role_can_delete,
+  has_table_privilege('service_role', 'public.activity_events', 'TRUNCATE') AS service_role_can_truncate,
+  has_table_privilege('postgres', 'public.activity_events', 'DELETE') AS postgres_owner_can_delete_for_maintenance,
+  has_table_privilege('postgres', 'public.activity_events', 'TRUNCATE') AS postgres_owner_can_truncate_for_maintenance
+FROM event_table;
