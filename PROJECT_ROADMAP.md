@@ -2,7 +2,7 @@
 
 **Implementation/test commit:** `d05d5a47efd51dca6088ea211f897573b789374d` — [CI #444 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44827879515).  
 **Fail-closed preflight follow-up:** `fbb3be06e3c21156ce8e4f3d72c408d657af7d45` — [CI #445 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44828178553).  
-**Documentation content commit:** `b600b9b18a77d431926c71871f11b05ba31a77ef`; this state refresh is the next documentation-only checkpoint.
+**Documentation content commit:** `b600b9b18a77d431926c71871f11b05ba31a77ef`; state refresh commit: `d977769deb9c3f5cdb5e3efd1b812a2fce570e12`.
 
 ## Recovery and repository state
 
@@ -61,7 +61,7 @@ CI #444 passed on implementation/test commit `d05d5a47efd51dca6088ea211f897573b7
 - npm audit: 0 vulnerabilities.
 - No lint script is configured.
 
-The final fail-closed follow-up `fbb3be06e3c21156ce8e4f3d72c408d657af7d45` still requires its own CI result; do not treat CI #444 as covering that later commit.
+CI #445 independently passed on the fail-closed follow-up; CI #444 does not cover it, while #445 does.
 
 ## Production remains unchanged
 
