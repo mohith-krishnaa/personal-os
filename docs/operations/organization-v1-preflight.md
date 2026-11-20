@@ -38,7 +38,7 @@ Application rollout: BLOCKED — no recoverable backup has been produced.
 
 This runbook records the live read-only inspection and the safe path to complete Organization V1. It does not authorize production DDL or a PR merge.
 
-## Latest reminder/notification ownership integrity — 2026-11-20
+## Previous reminder/notification ownership integrity — 2026-11-20
 
 Code/test commit `8fbf83e18fa15dc60a9a8bc8ab58563738d00df0` passed [CI #375](https://github.com/mohith-krishnaa/personal-os/actions/runs/44719688076): 21/21 PostgreSQL 17 migrations replayed; authenticated Owner A/B reminder INSERT/UPDATE and notification UPDATE assertions passed; service-role valid/invalid write assertions passed; migration reapplication and unexpected-FK fail-closed tests passed; archive lifecycle and task hierarchy/project concurrency checks passed; 90/90 application tests, typecheck, and production build passed. npm install reported 0 vulnerabilities; no lint script is configured.
 

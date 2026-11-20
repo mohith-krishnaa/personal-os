@@ -20,7 +20,7 @@
 >
 # Supabase migration history
 
-## Latest verified branch checkpoint — 2026-11-20
+## Previous verified branch checkpoint — 2026-11-20
 
 - Reminder/notification ownership migration `20261120000200_enforce_reminder_notification_ownership.sql` and authenticated regression commit `8fbf83e18fa15dc60a9a8bc8ab58563738d00df0` passed [CI #375](https://github.com/mohith-krishnaa/personal-os/actions/runs/44719688076). PostgreSQL 17 replayed 21/21 migrations; Owner A/B reminder INSERT/UPDATE, notification UPDATE, BYPASSRLS service-role, migration reapplication, unexpected-FK negative tests, Organization/RLS, archive lifecycle, and hierarchy/project concurrency checks passed; 90/90 application tests, typecheck, and production build passed. npm install reported 0 vulnerabilities. No lint script is configured.
 
