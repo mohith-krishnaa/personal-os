@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { nextOccurrence, validateRecurrence } from '@/lib/recurrence'
 import type { RecurrenceRule, Task, TaskPriority, TaskStatus } from '@/types/task'
 import { listTasksForUser } from './task-queries'
-import { assertTaskOrganizationLinks, resolveTaskOrganizationLinks } from './task-relationships'
+import { assertTaskOrganizationLinks, canCreateTaskInProject, isInactiveProjectAssignmentError, isNewProjectAssignment, resolveTaskOrganizationLinks } from './task-relationships'
 
 export async function getCurrentUser() {
   const supabase = await createClient()
@@ -39,7 +39,7 @@ export async function createTask(input: { title: string; priority?: TaskPriority
   await assertTaskOrganizationLinks(supabase, user.id, {
     projectId: input.project_id ?? null,
     parentTaskId: input.parent_task_id ?? null,
-  })
+  }, { requireActiveProject: true })
   const { data, error } = await supabase.from('tasks').insert({ user_id: user.id, project_id: input.project_id ?? null, parent_task_id: input.parent_task_id ?? null, title, priority: input.priority ?? 'MEDIUM', estimated_minutes: input.estimated_minutes ?? null, due_at: input.due_at ?? null, scheduled_start: input.scheduled_start ?? null, scheduled_end: input.scheduled_end ?? null, recurrence_rule: input.recurrence_rule ?? null, recurrence_until: input.recurrence_until ?? null }).select('*').single()
   if (error) throw error
   if (input.recurrence_rule) {
@@ -71,7 +71,9 @@ export async function updateTask(id: string, input: { title: string; priority: T
       .single()
     if (currentTaskError) throw currentTaskError
     const links = resolveTaskOrganizationLinks(currentTask, input)
-    await assertTaskOrganizationLinks(supabase, user.id, { ...links, taskId: id })
+    await assertTaskOrganizationLinks(supabase, user.id, { ...links, taskId: id }, {
+      requireActiveProject: isNewProjectAssignment(currentTask.project_id, input.project_id),
+    })
   }
   // Build an explicit update allowlist. Server-action arguments are runtime input;
   // spreading them could let extra properties overwrite protected task columns.
@@ -115,19 +117,41 @@ export async function setTaskStatus(id: string, status: TaskStatus) {
     return current as Task
   }
   if (status === 'COMPLETED' && task.recurrence_rule && task.due_at) {
-    const nextDue = nextOccurrence(new Date(task.due_at), task.recurrence_rule as RecurrenceRule)
-    if (!task.recurrence_until || nextDue <= new Date(task.recurrence_until)) {
-      const duration = task.scheduled_start && task.scheduled_end ? new Date(task.scheduled_end).getTime() - new Date(task.scheduled_start).getTime() : null
-      const nextStart = task.scheduled_start ? nextOccurrence(new Date(task.scheduled_start), task.recurrence_rule as RecurrenceRule) : null
-      const nextEnd = nextStart && duration != null ? new Date(nextStart.getTime() + duration).toISOString() : null
-      const nextParentId = task.recurrence_parent_id ?? task.id
-      const { data: occurrence, error: occurrenceError } = await supabase.from('tasks').insert({ user_id: user.id, project_id: task.project_id, parent_task_id: task.parent_task_id, title: task.title, description: task.description, priority: task.priority, estimated_minutes: task.estimated_minutes, due_at: nextDue.toISOString(), scheduled_start: nextStart?.toISOString() ?? null, scheduled_end: nextEnd, recurrence_rule: task.recurrence_rule, recurrence_until: task.recurrence_until, recurrence_parent_id: nextParentId }).select('*').single()
-      if (occurrenceError) {
-        if (occurrenceError.code !== '23505') throw occurrenceError
-        const existing = await getExistingOccurrence(supabase, user.id, nextParentId, nextDue.toISOString())
-        if (!existing) throw occurrenceError
-      } else {
-        await supabase.from('activity_events').insert({ user_id: user.id, event_type: 'TASK_RECURRENCE_GENERATED', entity_type: 'TASK', entity_id: occurrence.id, metadata: { source_task_id: task.id } })
+    let projectCanReceiveTasks = !task.project_id
+    if (task.project_id) {
+      const { data: project, error: projectError } = await supabase
+        .from('projects')
+        .select('status')
+        .eq('id', task.project_id)
+        .eq('user_id', user.id)
+        .maybeSingle()
+      if (projectError) throw projectError
+      projectCanReceiveTasks = canCreateTaskInProject(project?.status)
+    }
+
+    // Archiving/completing a project preserves existing tasks but ends automatic
+    // recurrence creation for that project.
+    if (projectCanReceiveTasks) {
+      const nextDue = nextOccurrence(new Date(task.due_at), task.recurrence_rule as RecurrenceRule)
+      if (!task.recurrence_until || nextDue <= new Date(task.recurrence_until)) {
+        const duration = task.scheduled_start && task.scheduled_end ? new Date(task.scheduled_end).getTime() - new Date(task.scheduled_start).getTime() : null
+        const nextStart = task.scheduled_start ? nextOccurrence(new Date(task.scheduled_start), task.recurrence_rule as RecurrenceRule) : null
+        const nextEnd = nextStart && duration != null ? new Date(nextStart.getTime() + duration).toISOString() : null
+        const nextParentId = task.recurrence_parent_id ?? task.id
+        const { data: occurrence, error: occurrenceError } = await supabase.from('tasks').insert({ user_id: user.id, project_id: task.project_id, parent_task_id: task.parent_task_id, title: task.title, description: task.description, priority: task.priority, estimated_minutes: task.estimated_minutes, due_at: nextDue.toISOString(), scheduled_start: nextStart?.toISOString() ?? null, scheduled_end: nextEnd, recurrence_rule: task.recurrence_rule, recurrence_until: task.recurrence_until, recurrence_parent_id: nextParentId }).select('*').single()
+        if (occurrenceError) {
+          if (isInactiveProjectAssignmentError(occurrenceError)) {
+            // A concurrent project archive/completion won the race after the read.
+            // The task is already completed; intentionally stop the recurrence.
+          } else if (occurrenceError.code !== '23505') {
+            throw occurrenceError
+          } else {
+            const existing = await getExistingOccurrence(supabase, user.id, nextParentId, nextDue.toISOString())
+            if (!existing) throw occurrenceError
+          }
+        } else {
+          await supabase.from('activity_events').insert({ user_id: user.id, event_type: 'TASK_RECURRENCE_GENERATED', entity_type: 'TASK', entity_id: occurrence.id, metadata: { source_task_id: task.id } })
+        }
       }
     }
   }

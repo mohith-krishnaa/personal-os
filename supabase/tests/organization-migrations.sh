@@ -10,7 +10,7 @@ export PGDATABASE="${PGDATABASE:-personal_os_migration_test}"
 psql -X -v ON_ERROR_STOP=1 -c 'select 1' >/dev/null
 psql -X -v ON_ERROR_STOP=1 -f supabase/tests/organization-migration-bootstrap.sql
 
-expected_migrations=19
+expected_migrations=20
 actual_migrations="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | wc -l | tr -d ' ')"
 
 if [[ "$actual_migrations" -ne "$expected_migrations" ]]; then
@@ -37,6 +37,8 @@ if [[ "$applied_migrations" -ne "$expected_migrations" ]]; then
 fi
 
 psql -X -v ON_ERROR_STOP=1 -f supabase/tests/organization-migration-assertions.sql
+echo "Verifying project archive lifecycle and active-project task assignment"
+psql -X -v ON_ERROR_STOP=1 -f supabase/tests/project-archive-lifecycle.sql
 echo "Verifying Progress goal-metric compatibility"
 psql -X -v ON_ERROR_STOP=1 -f supabase/tests/progress-goal-compatibility.sql
 

@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { listTasksForUser } from './task-queries'
-import { assertTaskOrganizationLinks, resolveTaskOrganizationLinks } from './task-relationships'
+import { assertTaskOrganizationLinks, canCreateTaskInProject, isInactiveProjectAssignmentError, isNewProjectAssignment, resolveTaskOrganizationLinks } from './task-relationships'
 
 test('listTasksForUser scopes reads to the owner and optional project while preserving task ordering', async () => {
   const filters: Array<[string, string]> = []
@@ -216,4 +216,67 @@ test('explicit null clears a task relationship without clearing the omitted link
     projectId: 'project-1',
     parentTaskId: null,
   })
+})
+
+
+test('only ACTIVE projects accept new tasks', () => {
+  assert.equal(canCreateTaskInProject('ACTIVE'), true)
+  assert.equal(canCreateTaskInProject('COMPLETED'), false)
+  assert.equal(canCreateTaskInProject('ARCHIVED'), false)
+  assert.equal(canCreateTaskInProject(null), false)
+})
+
+test('new project assignment detection preserves unchanged or cleared legacy links', () => {
+  assert.equal(isNewProjectAssignment('archived-project', 'archived-project'), false)
+  assert.equal(isNewProjectAssignment('active-project', 'archived-project'), true)
+  assert.equal(isNewProjectAssignment(null, 'active-project'), true)
+  assert.equal(isNewProjectAssignment('archived-project', null), false)
+  assert.equal(isNewProjectAssignment('archived-project', undefined), false)
+})
+
+test('inactive-project race handling only matches the dedicated database constraint', () => {
+  assert.equal(isInactiveProjectAssignmentError({
+    code: '23514',
+    message: 'Tasks can only be linked to active projects.',
+  }), true)
+  assert.equal(isInactiveProjectAssignmentError({ code: '23514', message: 'Other check failed.' }), false)
+  assert.equal(isInactiveProjectAssignmentError({ code: '42501', message: 'Tasks can only be linked to active projects.' }), false)
+})
+
+test('task link preflight accepts a new assignment to an ACTIVE project', async () => {
+  const { supabase, calls } = createRelationshipSupabase([
+    { table: 'projects', data: { id: 'project-1', status: 'ACTIVE' }, error: null },
+  ])
+
+  await assertTaskOrganizationLinks(supabase, 'owner-1', { projectId: 'project-1' }, { requireActiveProject: true })
+
+  assert.deepEqual(calls, [
+    { table: 'projects', columns: 'id,status', filters: [['id', 'project-1'], ['user_id', 'owner-1']] },
+  ])
+})
+
+for (const status of ['COMPLETED', 'ARCHIVED']) {
+  test(`task link preflight rejects new assignments to ${status} projects`, async () => {
+    const { supabase, calls } = createRelationshipSupabase([
+      { table: 'projects', data: { id: 'project-1', status }, error: null },
+    ])
+
+    await assert.rejects(
+      () => assertTaskOrganizationLinks(supabase, 'owner-1', { projectId: 'project-1' }, { requireActiveProject: true }),
+      /Tasks can only be linked to active projects/,
+    )
+    assert.equal(calls.length, 1)
+  })
+}
+
+test('task link preflight preserves an existing archived-project relationship', async () => {
+  const { supabase, calls } = createRelationshipSupabase([
+    { table: 'projects', data: { id: 'archived-project' }, error: null },
+  ])
+
+  await assertTaskOrganizationLinks(supabase, 'owner-1', { projectId: 'archived-project' })
+
+  assert.deepEqual(calls, [
+    { table: 'projects', columns: 'id', filters: [['id', 'archived-project'], ['user_id', 'owner-1']] },
+  ])
 })

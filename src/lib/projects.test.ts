@@ -222,3 +222,74 @@ test('updateProject rejects unauthenticated callers before database access', asy
   )
   assert.equal(fromCalls, 0)
 })
+
+
+test('unfiltered owner project reads retain archived projects for existing task labels', async () => {
+  const userId = 'authenticated-owner'
+  const filters: Array<[string, string]> = []
+  const projects = [
+    { id: 'active', user_id: userId, name: 'Active', status: 'ACTIVE' },
+    { id: 'completed', user_id: userId, name: 'Completed', status: 'COMPLETED' },
+    { id: 'archived', user_id: userId, name: 'Archived', status: 'ARCHIVED' },
+  ]
+  const query = {
+    eq(column: string, value: string) {
+      filters.push([column, value])
+      return this
+    },
+    order: async () => ({ data: projects, error: null }),
+  }
+  const supabase = {
+    auth: { getUser: async () => ({ data: { user: { id: userId } }, error: null }) },
+    from(table: string) {
+      assert.equal(table, 'projects')
+      return { select: () => query }
+    },
+  } as any
+
+  const result = await listProjects(supabase)
+
+  assert.deepEqual(filters, [['user_id', userId]])
+  assert.deepEqual(result.map(project => project.status), ['ACTIVE', 'COMPLETED', 'ARCHIVED'])
+})
+
+test('archiving updates only the owner-scoped project row and does not rewrite task links', async () => {
+  const userId = 'authenticated-owner'
+  const calls: string[] = []
+  const filters: Array<[string, string]> = []
+  let patch: Record<string, unknown> | undefined
+  const query = {
+    eq(column: string, value: string) {
+      filters.push([column, value])
+      return this
+    },
+    select() {
+      return this
+    },
+    single: async () => ({
+      data: { id: 'project-1', user_id: userId, name: 'Archived', description: null, status: 'ARCHIVED' },
+      error: null,
+    }),
+  }
+  const supabase = {
+    auth: { getUser: async () => ({ data: { user: { id: userId } }, error: null }) },
+    from(table: string) {
+      calls.push(table)
+      assert.equal(table, 'projects')
+      return {
+        update(values: Record<string, unknown>) {
+          patch = values
+          return query
+        },
+      }
+    },
+  } as any
+
+  const result = await updateProject(supabase, 'project-1', { status: 'ARCHIVED' })
+
+  assert.deepEqual(calls, ['projects'])
+  assert.deepEqual(filters, [['id', 'project-1'], ['user_id', userId]])
+  assert.equal(patch?.status, 'ARCHIVED')
+  assert.deepEqual(Object.keys(patch ?? {}).sort(), ['status', 'updated_at'])
+  assert.equal(result.status, 'ARCHIVED')
+})

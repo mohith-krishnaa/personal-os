@@ -6,6 +6,26 @@ export type TaskOrganizationLinks = {
   taskId?: string
 }
 
+export function canCreateTaskInProject(status: string | null | undefined) {
+  return status === 'ACTIVE'
+}
+
+export function isNewProjectAssignment(
+  currentProjectId: string | null,
+  requestedProjectId: string | null | undefined,
+) {
+  return requestedProjectId !== undefined
+    && requestedProjectId !== null
+    && requestedProjectId !== currentProjectId
+}
+
+export function isInactiveProjectAssignmentError(error: unknown) {
+  if (!error || typeof error !== 'object') return false
+  const candidate = error as { code?: unknown; message?: unknown }
+  return candidate.code === '23514'
+    && candidate.message === 'Tasks can only be linked to active projects.'
+}
+
 export function resolveTaskOrganizationLinks(
   current: { project_id: string | null; parent_task_id: string | null },
   patch: { project_id?: string | null; parent_task_id?: string | null },
@@ -18,12 +38,13 @@ export function resolveTaskOrganizationLinks(
 
 /**
  * Preflight task links against the authenticated owner before a task write.
- * Database constraints/triggers remain authoritative for races and indirect cycles.
+ * The database trigger remains authoritative for races and direct PostgREST writes.
  */
 export async function assertTaskOrganizationLinks(
   supabase: SupabaseClient,
   userId: string,
   links: TaskOrganizationLinks,
+  options: { requireActiveProject?: boolean } = {},
 ) {
   if (!userId) throw new Error('Unauthorized')
 
@@ -51,11 +72,14 @@ export async function assertTaskOrganizationLinks(
   if (projectId !== null) {
     const { data: project, error: projectError } = await supabase
       .from('projects')
-      .select('id')
+      .select(options.requireActiveProject ? 'id,status' : 'id')
       .eq('id', projectId)
       .eq('user_id', userId)
       .maybeSingle()
 
     if (projectError || !project) throw new Error('Project not found.')
+    if (options.requireActiveProject && !canCreateTaskInProject(project.status)) {
+      throw new Error('Tasks can only be linked to active projects.')
+    }
   }
 }
