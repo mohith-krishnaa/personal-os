@@ -115,7 +115,7 @@ wait_for_sleep() {
   local sleeping=0
 
   for _ in $(seq 1 200); do
-    sleeping="$(psql -X -Atq -v app_name="$app_name" -c "SELECT count(*) FROM pg_stat_activity WHERE application_name = :'app_name' AND state = 'active' AND query LIKE '%pg_sleep(2)%';")"
+    sleeping="$(psql -X -Atq -c "SELECT count(*) FROM pg_stat_activity WHERE application_name = '$app_name' AND state = 'active' AND query LIKE '%pg_sleep(2)%';")"
     if [[ "$sleeping" == "1" ]]; then return 0; fi
     sleep 0.05
   done
@@ -130,9 +130,9 @@ wait_for_blocker() {
   local blocked=0
 
   for _ in $(seq 1 200); do
-    blocked="$(psql -X -Atq -v waiting_app="$waiting_app" -v blocking_app="$blocking_app" -c "SELECT count(*) FROM pg_stat_activity AS waiting WHERE waiting.application_name = :'waiting_app' AND EXISTS (SELECT 1 FROM pg_stat_activity AS blocking WHERE blocking.application_name = :'blocking_app' AND blocking.pid = ANY(pg_blocking_pids(waiting.pid)));")"
+    blocked="$(psql -X -Atq -c "SELECT count(*) FROM pg_stat_activity AS waiting WHERE waiting.application_name = '$waiting_app' AND EXISTS (SELECT 1 FROM pg_stat_activity AS blocking WHERE blocking.application_name = '$blocking_app' AND blocking.pid = ANY(pg_blocking_pids(waiting.pid)));")"
     if [[ "$blocked" == "1" ]]; then return 0; fi
-    active="$(psql -X -Atq -v waiting_app="$waiting_app" -c "SELECT count(*) FROM pg_stat_activity WHERE application_name = :'waiting_app' AND state = 'active';")"
+    active="$(psql -X -Atq -c "SELECT count(*) FROM pg_stat_activity WHERE application_name = '$waiting_app' AND state = 'active';")"
     if [[ "$active" == "0" ]]; then break; fi
     sleep 0.05
   done
