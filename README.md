@@ -45,7 +45,7 @@ Behavior modeling, workload prediction, intelligent scheduling, and continuous i
 ## Architecture Principles
 
 - PostgreSQL as the source of truth
-- Task INSERT/UPDATE activity events are written in the same PostgreSQL statement transaction via a SECURITY INVOKER trigger; DELETE events and client create-request idempotency are not yet covered, and activity_events is not an immutable audit log
+- Task INSERT/UPDATE activity events are written in the same PostgreSQL statement transaction via a SECURITY INVOKER trigger; task/subtask creation uses per-owner client request IDs and payload fingerprints for same-request retries; DELETE events and immutable activity-event retention are not yet covered
 - Deterministic business logic for scheduling and constraints
 - AI operates through validated tools rather than direct database access
 - User approval for consequential external or bulk actions
