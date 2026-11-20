@@ -2,7 +2,7 @@
 
 Status: implementation is under review in PR #11. This document records repository-level design decisions; it does not certify the live Supabase schema or deployment.
 
-Latest code/test verification (2026-11-20): commit `44021a9834790ecf3732f23566fbe47e596cd7a0` passed [CI #350](https://github.com/mohith-krishnaa/personal-os/actions/runs/44666341292): all 20 PostgreSQL 17 migrations replayed; Organization/RLS, archive lifecycle, and task hierarchy concurrency checks passed; 90/90 application tests, TypeScript typecheck, and production build passed; npm audit reported 0 vulnerabilities. [CI #351](https://github.com/mohith-krishnaa/personal-os/actions/runs/44666411625) passed on documentation checkpoint `cc5a57af1bf3e55042bbcc3b3eaca248b3f1eabb` with the same configured checks. No lint script is configured.
+Latest code/test verification (2026-11-20): commit `91075f588cd42f88b7014bb7e8d9eab8a32e3ab6` passed [CI #354](https://github.com/mohith-krishnaa/personal-os/actions/runs/44673853542): all 20 PostgreSQL 17 migrations replayed; Organization/RLS and archive lifecycle assertions passed; hierarchy/concurrency checks passed; 90/90 application tests, TypeScript typecheck, and production build passed; npm audit reported 0 vulnerabilities. The existing esbuild install-script allowlist warning remains; no lint script is configured.
 
 ## Trust boundaries
 
@@ -434,3 +434,12 @@ This guard is branch-only and is not authorization to apply production DDL. Prod
 - The task editor and server preflight expose only ACTIVE projects for new links. Direct authenticated PostgREST writes are covered by the database trigger, not just the UI filter.
 - Recurring task completion does not create another occurrence for a COMPLETED/ARCHIVED project. If a project is archived concurrently after the application read, the dedicated check-violation is treated as the expected end of that recurrence; unrelated insert errors still propagate.
 - `supabase/tests/project-archive-lifecycle.sql` verifies preserved links, allowed existing-task edits/parent maintenance, rejected new tasks/reassignments into inactive projects, and accepted ACTIVE assignments. The migration runner replays and reapplies the migration to verify idempotence. The row-lock race itself is a separate pending two-session regression.
+
+
+## Direct subtask INSERT lifecycle regression — 2026-11-20
+
+- `supabase/tests/project-archive-lifecycle.sql` now tests direct database subtask INSERTs that bypass application preflight. A subtask under an ACTIVE project succeeds and retains its exact project and parent IDs; equivalent INSERTs under COMPLETED and ARCHIVED projects fail with the expected check violation and leave no task row.
+- The fixture verifies an existing child remains attached to its archived project and parent. Existing foreign-owner, cross-project parent, self-parenting, and hierarchy-cycle checks remain in `organization-task-hierarchy.sql` and the concurrency runner.
+- The full migration runner already executes the lifecycle fixture after replay; no migration-count or workflow change was needed. The branch remains at 20 migrations. CI #354 passed on code/test commit `91075f588cd42f88b7014bb7e8d9eab8a32e3ab6`.
+- Fresh read-only production inspection still shows 8 live migrations, legacy `projects.title/status`, task project/parent columns, RLS enabled on projects/tasks, and no user-defined triggers on those live tables. The active-project trigger is branch-only. No production DDL, migration, RLS change, backup, restore, or merge occurred.
+- Next: verify the same inactive-project subtask behavior through the authenticated role in the two-owner migration fixture, while retaining existing owner/parent relationship denial assertions. Production rollout remains gated by a complete owner-controlled schema/data/roles backup and isolated restore, checklist conflict review, and authenticated two-user PostgREST CRUD/isolation.
