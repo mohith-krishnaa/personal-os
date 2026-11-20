@@ -10,7 +10,7 @@ export PGDATABASE="${PGDATABASE:-personal_os_migration_test}"
 psql -X -v ON_ERROR_STOP=1 -c 'select 1' >/dev/null
 psql -X -v ON_ERROR_STOP=1 -f supabase/tests/organization-migration-bootstrap.sql
 
-expected_migrations=20
+expected_migrations=21
 actual_migrations="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | wc -l | tr -d ' ')"
 
 if [[ "$actual_migrations" -ne "$expected_migrations" ]]; then
@@ -37,6 +37,53 @@ if [[ "$applied_migrations" -ne "$expected_migrations" ]]; then
 fi
 
 psql -X -v ON_ERROR_STOP=1 -f supabase/tests/organization-migration-assertions.sql
+echo "Reapplying the reminder/notification ownership migration to verify idempotence"
+psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261120000200_enforce_reminder_notification_ownership.sql
+
+echo "Verifying the reminder ownership migration fails closed on unexpected foreign keys"
+set +e
+unexpected_reminder_fk_output="$(
+  psql -X -v ON_ERROR_STOP=1 2>&1 <<'SQL'
+BEGIN;
+ALTER TABLE public.reminders
+  ADD CONSTRAINT test_unexpected_reminders_task_fk
+  FOREIGN KEY (task_id) REFERENCES auth.users(id)
+  ON DELETE CASCADE NOT VALID;
+\i supabase/migrations/20261120000200_enforce_reminder_notification_ownership.sql
+ROLLBACK;
+SQL
+)"
+unexpected_reminder_fk_status=$?
+set -e
+
+if [[ "$unexpected_reminder_fk_status" -eq 0 ]] || ! grep -Fq 'Unexpected foreign-key contract for public.reminders.task_id' <<<"$unexpected_reminder_fk_output"; then
+  echo "Reminder ownership migration did not fail closed on an unexpected task_id foreign key:"
+  printf '%s\n' "$unexpected_reminder_fk_output"
+  exit 1
+fi
+
+echo "Verifying the notification ownership migration fails closed on unexpected foreign keys"
+set +e
+unexpected_notification_fk_output="$(
+  psql -X -v ON_ERROR_STOP=1 2>&1 <<'SQL'
+BEGIN;
+ALTER TABLE public.notifications
+  ADD CONSTRAINT test_unexpected_notifications_reminder_fk
+  FOREIGN KEY (reminder_id) REFERENCES auth.users(id)
+  ON DELETE CASCADE NOT VALID;
+\i supabase/migrations/20261120000200_enforce_reminder_notification_ownership.sql
+ROLLBACK;
+SQL
+)"
+unexpected_notification_fk_status=$?
+set -e
+
+if [[ "$unexpected_notification_fk_status" -eq 0 ]] || ! grep -Fq 'Unexpected foreign-key contract for public.notifications.reminder_id' <<<"$unexpected_notification_fk_output"; then
+  echo "Notification ownership migration did not fail closed on an unexpected reminder_id foreign key:"
+  printf '%s\n' "$unexpected_notification_fk_output"
+  exit 1
+fi
+
 echo "Reapplying the active-project task-link migration to verify idempotence"
 psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261120000100_enforce_active_project_task_links.sql
 echo "Verifying project archive lifecycle and active-project task assignment"

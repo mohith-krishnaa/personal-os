@@ -472,8 +472,132 @@ BEGIN
 END
 $assert_schema$;
 
+DO $assert_reminder_notification_ownership$
+DECLARE
+  tasks_id_attnum smallint;
+  tasks_user_attnum smallint;
+  reminders_id_attnum smallint;
+  reminders_user_attnum smallint;
+  reminders_task_attnum smallint;
+  notifications_reminder_attnum smallint;
+  notifications_user_attnum smallint;
+  notifications_task_attnum smallint;
+BEGIN
+  SELECT attnum INTO tasks_id_attnum FROM pg_attribute
+  WHERE attrelid = 'public.tasks'::regclass AND attname = 'id' AND NOT attisdropped;
+  SELECT attnum INTO tasks_user_attnum FROM pg_attribute
+  WHERE attrelid = 'public.tasks'::regclass AND attname = 'user_id' AND NOT attisdropped;
+  SELECT attnum INTO reminders_id_attnum FROM pg_attribute
+  WHERE attrelid = 'public.reminders'::regclass AND attname = 'id' AND NOT attisdropped;
+  SELECT attnum INTO reminders_user_attnum FROM pg_attribute
+  WHERE attrelid = 'public.reminders'::regclass AND attname = 'user_id' AND NOT attisdropped;
+  SELECT attnum INTO reminders_task_attnum FROM pg_attribute
+  WHERE attrelid = 'public.reminders'::regclass AND attname = 'task_id' AND NOT attisdropped;
+  SELECT attnum INTO notifications_reminder_attnum FROM pg_attribute
+  WHERE attrelid = 'public.notifications'::regclass AND attname = 'reminder_id' AND NOT attisdropped;
+  SELECT attnum INTO notifications_user_attnum FROM pg_attribute
+  WHERE attrelid = 'public.notifications'::regclass AND attname = 'user_id' AND NOT attisdropped;
+  SELECT attnum INTO notifications_task_attnum FROM pg_attribute
+  WHERE attrelid = 'public.notifications'::regclass AND attname = 'task_id' AND NOT attisdropped;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.tasks'::regclass
+      AND conname = 'tasks_id_user_id_key'
+      AND contype = 'u' AND convalidated AND NOT condeferrable
+      AND conkey = ARRAY[tasks_id_attnum, tasks_user_attnum]::smallint[]
+  ) THEN
+    RAISE EXCEPTION 'The tasks(id,user_id) unique key required by reminder ownership is missing.';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.reminders'::regclass
+      AND conname = 'reminders_id_user_id_task_id_key'
+      AND contype = 'u' AND convalidated AND NOT condeferrable
+      AND conkey = ARRAY[
+        reminders_id_attnum, reminders_user_attnum, reminders_task_attnum
+      ]::smallint[]
+  ) THEN
+    RAISE EXCEPTION 'The reminders(id,user_id,task_id) unique key required by notification ownership is missing.';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.reminders'::regclass
+      AND conname = 'reminders_task_owner_fkey'
+      AND contype = 'f'
+      AND confrelid = 'public.tasks'::regclass
+      AND conkey = ARRAY[reminders_task_attnum, reminders_user_attnum]::smallint[]
+      AND confkey = ARRAY[tasks_id_attnum, tasks_user_attnum]::smallint[]
+      AND confdeltype = 'c' AND confupdtype = 'a' AND convalidated
+  ) THEN
+    RAISE EXCEPTION 'The validated reminders_task_owner_fkey owner relationship is missing.';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.notifications'::regclass
+      AND conname = 'notifications_reminder_owner_task_fkey'
+      AND contype = 'f'
+      AND confrelid = 'public.reminders'::regclass
+      AND conkey = ARRAY[
+        notifications_reminder_attnum,
+        notifications_user_attnum,
+        notifications_task_attnum
+      ]::smallint[]
+      AND confkey = ARRAY[
+        reminders_id_attnum,
+        reminders_user_attnum,
+        reminders_task_attnum
+      ]::smallint[]
+      AND confdeltype = 'c' AND confupdtype = 'a' AND convalidated
+  ) THEN
+    RAISE EXCEPTION 'The validated notifications_reminder_owner_task_fkey owner/task relationship is missing.';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.reminders'::regclass
+      AND conname = 'reminders_task_id_fkey'
+  ) OR EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.notifications'::regclass
+      AND conname = 'notifications_reminder_id_fkey'
+  ) THEN
+    RAISE EXCEPTION 'A weaker single-column reminder ownership foreign key remains.';
+  END IF;
+
+  IF (
+    SELECT count(*) FROM pg_constraint
+    WHERE conrelid = 'public.reminders'::regclass
+      AND contype = 'f'
+      AND reminders_task_attnum = ANY(conkey)
+  ) <> 1 OR (
+    SELECT count(*) FROM pg_constraint
+    WHERE conrelid = 'public.notifications'::regclass
+      AND contype = 'f'
+      AND notifications_reminder_attnum = ANY(conkey)
+  ) <> 1 THEN
+    RAISE EXCEPTION 'Unexpected duplicate foreign keys remain on reminder ownership source columns.';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.notifications'::regclass
+      AND conname = 'notifications_task_id_fkey'
+      AND contype = 'f'
+      AND confrelid = 'public.tasks'::regclass
+      AND conkey = ARRAY[notifications_task_attnum]::smallint[]
+      AND confdeltype = 'c' AND convalidated
+  ) THEN
+    RAISE EXCEPTION 'The existing notification.task_id cascade foreign key was not preserved.';
+  END IF;
+END
+$assert_reminder_notification_ownership$;
 
 -- Simulate a legacy malformed canonical row whose owner matches the caller
+-- but whose task belongs to the other owner. SELECT RLS must hide it. whose owner matches the caller
 -- but whose task belongs to the other owner. SELECT RLS must hide it.
 INSERT INTO public.checklist_items (id, user_id, task_id, title)
 VALUES (
@@ -505,13 +629,23 @@ VALUES
   ('71000000-0000-4000-8000-000000000002', '11111111-1111-4111-8111-111111111111', '70000000-0000-4000-8000-000000000002', '2099-01-01T10:00:00Z'),
   ('71000000-0000-4000-8000-000000000003', '11111111-1111-4111-8111-111111111111', '70000000-0000-4000-8000-000000000004', '2099-01-01T11:00:00Z');
 
+-- Owner A/B reminder fixtures support authenticated relationship tests.
+INSERT INTO public.reminders (id, user_id, task_id, remind_at)
+VALUES
+  ('81000000-0000-4000-8000-000000000001', '11111111-1111-4111-8111-111111111111', '10000000-0000-4000-8000-000000000001', '2099-01-02T09:00:00Z'),
+  ('81000000-0000-4000-8000-000000000002', '22222222-2222-4222-8222-222222222222', '20000000-0000-4000-8000-000000000001', '2099-01-02T09:00:00Z'),
+  ('81000000-0000-4000-8000-000000000003', '11111111-1111-4111-8111-111111111111', '70000000-0000-4000-8000-000000000004', '2099-01-02T10:00:00Z'),
+  ('81000000-0000-4000-8000-000000000004', '22222222-2222-4222-8222-222222222222', '70000000-0000-4000-8000-000000000006', '2099-01-02T10:00:00Z');
+
 -- Notifications have no client INSERT policy; seed them before switching to
--- authenticated so the task-delete test can verify their FK cascade.
+-- authenticated so the task-delete test and ownership regressions have valid rows.
 INSERT INTO public.notifications (id, user_id, reminder_id, task_id, title, body)
 VALUES
   ('72000000-0000-4000-8000-000000000001', '11111111-1111-4111-8111-111111111111', '71000000-0000-4000-8000-000000000001', '70000000-0000-4000-8000-000000000001', 'Cascade root reminder', 'Seeded notification'),
   ('72000000-0000-4000-8000-000000000002', '11111111-1111-4111-8111-111111111111', '71000000-0000-4000-8000-000000000002', '70000000-0000-4000-8000-000000000002', 'Cascade child reminder', 'Seeded notification'),
-  ('72000000-0000-4000-8000-000000000003', '11111111-1111-4111-8111-111111111111', '71000000-0000-4000-8000-000000000003', '70000000-0000-4000-8000-000000000004', 'Unrelated task reminder', 'Must survive parent deletion');
+  ('72000000-0000-4000-8000-000000000003', '11111111-1111-4111-8111-111111111111', '71000000-0000-4000-8000-000000000003', '70000000-0000-4000-8000-000000000004', 'Unrelated task reminder', 'Must survive parent deletion'),
+  ('82000000-0000-4000-8000-000000000001', '11111111-1111-4111-8111-111111111111', '81000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', 'Owner A reminder', 'Ownership fixture'),
+  ('82000000-0000-4000-8000-000000000002', '22222222-2222-4222-8222-222222222222', '81000000-0000-4000-8000-000000000002', '20000000-0000-4000-8000-000000000001', 'Owner B reminder', 'Ownership fixture');
 
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
@@ -531,6 +665,7 @@ DECLARE
   project_name text;
   project_title text;
   error_message text;
+  error_constraint text;
 BEGIN
   IF current_user <> 'authenticated' THEN
     RAISE EXCEPTION 'Owner A assertions must execute as the authenticated database role; current_user is %.', current_user;
@@ -561,6 +696,180 @@ BEGIN
   IF visible_legacy_checklists <> 2 THEN
     RAISE EXCEPTION 'Owner A must see its valid legacy row and preserved ID-collision source row; found %.',
       visible_legacy_checklists;
+  END IF;
+
+  -- Reminder INSERT/UPDATE must bind task_id to the same owner, even when the
+  -- caller supplies a valid foreign task UUID that RLS hides from SELECT.
+  INSERT INTO public.reminders (id, user_id, task_id, remind_at)
+  VALUES (
+    '83000000-0000-4000-8000-000000000001',
+    auth.uid(),
+    '10000000-0000-4000-8000-000000000001',
+    '2099-01-03T09:00:00Z'
+  );
+
+  UPDATE public.reminders
+  SET task_id = '70000000-0000-4000-8000-000000000004'
+  WHERE id = '83000000-0000-4000-8000-000000000001';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 1 OR NOT EXISTS (
+    SELECT 1 FROM public.reminders
+    WHERE id = '83000000-0000-4000-8000-000000000001'
+      AND user_id = auth.uid()
+      AND task_id = '70000000-0000-4000-8000-000000000004'
+  ) THEN
+    RAISE EXCEPTION 'Owner A could not move a reminder between its own tasks.';
+  END IF;
+
+  UPDATE public.reminders
+  SET task_id = '10000000-0000-4000-8000-000000000001'
+  WHERE id = '83000000-0000-4000-8000-000000000001';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 1 OR NOT EXISTS (
+    SELECT 1 FROM public.reminders
+    WHERE id = '83000000-0000-4000-8000-000000000001'
+      AND task_id = '10000000-0000-4000-8000-000000000001'
+  ) THEN
+    RAISE EXCEPTION 'Owner A could not restore a valid same-owner reminder task link.';
+  END IF;
+
+  BEGIN
+    INSERT INTO public.reminders (id, user_id, task_id, remind_at)
+    VALUES (
+      '83000000-0000-4000-8000-000000000002',
+      auth.uid(),
+      '20000000-0000-4000-8000-000000000001',
+      '2099-01-03T10:00:00Z'
+    );
+    RAISE EXCEPTION 'Owner A created a reminder for Owner B task.'
+      USING ERRCODE = 'P0001';
+  EXCEPTION WHEN foreign_key_violation THEN
+    GET STACKED DIAGNOSTICS error_constraint = CONSTRAINT_NAME;
+    IF error_constraint <> 'reminders_task_owner_fkey' THEN
+      RAISE EXCEPTION 'Owner A cross-owner reminder INSERT failed on unexpected constraint %.', error_constraint;
+    END IF;
+  END;
+
+  IF EXISTS (
+    SELECT 1 FROM public.reminders
+    WHERE id = '83000000-0000-4000-8000-000000000002'
+  ) THEN
+    RAISE EXCEPTION 'Rejected Owner A cross-owner reminder INSERT left a row behind.';
+  END IF;
+
+  BEGIN
+    UPDATE public.reminders
+    SET task_id = '20000000-0000-4000-8000-000000000001'
+    WHERE id = '83000000-0000-4000-8000-000000000001';
+    RAISE EXCEPTION 'Owner A reassigned a reminder to Owner B task.'
+      USING ERRCODE = 'P0001';
+  EXCEPTION WHEN foreign_key_violation THEN
+    GET STACKED DIAGNOSTICS error_constraint = CONSTRAINT_NAME;
+    IF error_constraint <> 'reminders_task_owner_fkey' THEN
+      RAISE EXCEPTION 'Owner A cross-owner reminder UPDATE failed on unexpected constraint %.', error_constraint;
+    END IF;
+  END;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.reminders
+    WHERE id = '83000000-0000-4000-8000-000000000001'
+      AND task_id = '10000000-0000-4000-8000-000000000001'
+  ) THEN
+    RAISE EXCEPTION 'Rejected Owner A reminder UPDATE changed the original task link.';
+  END IF;
+
+  -- A legitimate same-owner notification reassignment succeeds. All later
+  -- negative updates must leave this exact reminder/task pair unchanged.
+  UPDATE public.notifications
+  SET reminder_id = '81000000-0000-4000-8000-000000000003',
+      task_id = '70000000-0000-4000-8000-000000000004'
+  WHERE id = '82000000-0000-4000-8000-000000000001';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 1 OR NOT EXISTS (
+    SELECT 1 FROM public.notifications
+    WHERE id = '82000000-0000-4000-8000-000000000001'
+      AND user_id = auth.uid()
+      AND reminder_id = '81000000-0000-4000-8000-000000000003'
+      AND task_id = '70000000-0000-4000-8000-000000000004'
+  ) THEN
+    RAISE EXCEPTION 'Owner A could not reassign a notification to a matching same-owner reminder/task pair.';
+  END IF;
+
+  UPDATE public.notifications
+  SET read_at = now()
+  WHERE id = '82000000-0000-4000-8000-000000000001';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 1 THEN
+    RAISE EXCEPTION 'Owner A could not update the read state of its own notification.';
+  END IF;
+
+  BEGIN
+    UPDATE public.notifications
+    SET task_id = '20000000-0000-4000-8000-000000000001'
+    WHERE id = '82000000-0000-4000-8000-000000000001';
+    RAISE EXCEPTION 'Owner A reassigned a notification to Owner B task.'
+      USING ERRCODE = 'P0001';
+  EXCEPTION WHEN foreign_key_violation THEN
+    GET STACKED DIAGNOSTICS error_constraint = CONSTRAINT_NAME;
+    IF error_constraint <> 'notifications_reminder_owner_task_fkey' THEN
+      RAISE EXCEPTION 'Owner A cross-owner notification task UPDATE failed on unexpected constraint %.', error_constraint;
+    END IF;
+  END;
+
+  BEGIN
+    UPDATE public.notifications
+    SET reminder_id = '81000000-0000-4000-8000-000000000002'
+    WHERE id = '82000000-0000-4000-8000-000000000001';
+    RAISE EXCEPTION 'Owner A reassigned a notification to Owner B reminder.'
+      USING ERRCODE = 'P0001';
+  EXCEPTION WHEN foreign_key_violation THEN
+    GET STACKED DIAGNOSTICS error_constraint = CONSTRAINT_NAME;
+    IF error_constraint <> 'notifications_reminder_owner_task_fkey' THEN
+      RAISE EXCEPTION 'Owner A cross-owner notification reminder UPDATE failed on unexpected constraint %.', error_constraint;
+    END IF;
+  END;
+
+  BEGIN
+    UPDATE public.notifications
+    SET reminder_id = '81000000-0000-4000-8000-000000000001'
+    WHERE id = '82000000-0000-4000-8000-000000000001';
+    RAISE EXCEPTION 'Owner A linked a notification to a same-owner reminder for a different task.'
+      USING ERRCODE = 'P0001';
+  EXCEPTION WHEN foreign_key_violation THEN
+    GET STACKED DIAGNOSTICS error_constraint = CONSTRAINT_NAME;
+    IF error_constraint <> 'notifications_reminder_owner_task_fkey' THEN
+      RAISE EXCEPTION 'Owner A mismatched notification pair failed on unexpected constraint %.', error_constraint;
+    END IF;
+  END;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.notifications
+    WHERE id = '82000000-0000-4000-8000-000000000001'
+      AND reminder_id = '81000000-0000-4000-8000-000000000003'
+      AND task_id = '70000000-0000-4000-8000-000000000004'
+  ) THEN
+    RAISE EXCEPTION 'Rejected Owner A notification UPDATE changed its previous reminder/task pair.';
+  END IF;
+
+  BEGIN
+    UPDATE public.reminders
+    SET task_id = '10000000-0000-4000-8000-000000000001'
+    WHERE id = '81000000-0000-4000-8000-000000000003';
+    RAISE EXCEPTION 'Owner A changed a reminder task while a notification still references its original task.'
+      USING ERRCODE = 'P0001';
+  EXCEPTION WHEN foreign_key_violation THEN
+    GET STACKED DIAGNOSTICS error_constraint = CONSTRAINT_NAME;
+    IF error_constraint <> 'notifications_reminder_owner_task_fkey' THEN
+      RAISE EXCEPTION 'Owner A reminder task-change protection failed on unexpected constraint %.', error_constraint;
+    END IF;
+  END;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.reminders
+    WHERE id = '81000000-0000-4000-8000-000000000003'
+      AND task_id = '70000000-0000-4000-8000-000000000004'
+  ) THEN
+    RAISE EXCEPTION 'Rejected Owner A reminder task change modified the existing notification relationship.';
   END IF;
 
   IF EXISTS (
@@ -1350,6 +1659,7 @@ DECLARE
   visible_legacy_checklists integer;
   affected_rows integer;
   error_message text;
+  error_constraint text;
 BEGIN
   IF current_user <> 'authenticated' THEN
     RAISE EXCEPTION 'Owner B assertions must execute as the authenticated database role; current_user is %.', current_user;
@@ -1380,6 +1690,175 @@ BEGIN
   IF visible_legacy_checklists <> 1 THEN
     RAISE EXCEPTION 'Owner B must see only its one legacy checklist row; found %.',
       visible_legacy_checklists;
+  END IF;
+
+  INSERT INTO public.reminders (id, user_id, task_id, remind_at)
+  VALUES (
+    '83000000-0000-4000-8000-000000000003',
+    auth.uid(),
+    '20000000-0000-4000-8000-000000000001',
+    '2099-01-04T09:00:00Z'
+  );
+
+  UPDATE public.reminders
+  SET task_id = '70000000-0000-4000-8000-000000000006'
+  WHERE id = '83000000-0000-4000-8000-000000000003';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 1 OR NOT EXISTS (
+    SELECT 1 FROM public.reminders
+    WHERE id = '83000000-0000-4000-8000-000000000003'
+      AND task_id = '70000000-0000-4000-8000-000000000006'
+  ) THEN
+    RAISE EXCEPTION 'Owner B could not move a reminder between its own tasks.';
+  END IF;
+
+  UPDATE public.reminders
+  SET task_id = '20000000-0000-4000-8000-000000000001'
+  WHERE id = '83000000-0000-4000-8000-000000000003';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 1 OR NOT EXISTS (
+    SELECT 1 FROM public.reminders
+    WHERE id = '83000000-0000-4000-8000-000000000003'
+      AND task_id = '20000000-0000-4000-8000-000000000001'
+  ) THEN
+    RAISE EXCEPTION 'Owner B could not restore a valid same-owner reminder task link.';
+  END IF;
+
+  BEGIN
+    INSERT INTO public.reminders (id, user_id, task_id, remind_at)
+    VALUES (
+      '83000000-0000-4000-8000-000000000004',
+      auth.uid(),
+      '10000000-0000-4000-8000-000000000001',
+      '2099-01-04T10:00:00Z'
+    );
+    RAISE EXCEPTION 'Owner B created a reminder for Owner A task.'
+      USING ERRCODE = 'P0001';
+  EXCEPTION WHEN foreign_key_violation THEN
+    GET STACKED DIAGNOSTICS error_constraint = CONSTRAINT_NAME;
+    IF error_constraint <> 'reminders_task_owner_fkey' THEN
+      RAISE EXCEPTION 'Owner B cross-owner reminder INSERT failed on unexpected constraint %.', error_constraint;
+    END IF;
+  END;
+
+  IF EXISTS (
+    SELECT 1 FROM public.reminders
+    WHERE id = '83000000-0000-4000-8000-000000000004'
+  ) THEN
+    RAISE EXCEPTION 'Rejected Owner B cross-owner reminder INSERT left a row behind.';
+  END IF;
+
+  BEGIN
+    UPDATE public.reminders
+    SET task_id = '10000000-0000-4000-8000-000000000001'
+    WHERE id = '83000000-0000-4000-8000-000000000003';
+    RAISE EXCEPTION 'Owner B reassigned a reminder to Owner A task.'
+      USING ERRCODE = 'P0001';
+  EXCEPTION WHEN foreign_key_violation THEN
+    GET STACKED DIAGNOSTICS error_constraint = CONSTRAINT_NAME;
+    IF error_constraint <> 'reminders_task_owner_fkey' THEN
+      RAISE EXCEPTION 'Owner B cross-owner reminder UPDATE failed on unexpected constraint %.', error_constraint;
+    END IF;
+  END;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.reminders
+    WHERE id = '83000000-0000-4000-8000-000000000003'
+      AND task_id = '20000000-0000-4000-8000-000000000001'
+  ) THEN
+    RAISE EXCEPTION 'Rejected Owner B reminder UPDATE changed the original task link.';
+  END IF;
+
+  UPDATE public.notifications
+  SET reminder_id = '81000000-0000-4000-8000-000000000004',
+      task_id = '70000000-0000-4000-8000-000000000006'
+  WHERE id = '82000000-0000-4000-8000-000000000002';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 1 OR NOT EXISTS (
+    SELECT 1 FROM public.notifications
+    WHERE id = '82000000-0000-4000-8000-000000000002'
+      AND user_id = auth.uid()
+      AND reminder_id = '81000000-0000-4000-8000-000000000004'
+      AND task_id = '70000000-0000-4000-8000-000000000006'
+  ) THEN
+    RAISE EXCEPTION 'Owner B could not reassign a notification to a matching same-owner reminder/task pair.';
+  END IF;
+
+  UPDATE public.notifications
+  SET read_at = now()
+  WHERE id = '82000000-0000-4000-8000-000000000002';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 1 THEN
+    RAISE EXCEPTION 'Owner B could not update the read state of its own notification.';
+  END IF;
+
+  BEGIN
+    UPDATE public.notifications
+    SET task_id = '10000000-0000-4000-8000-000000000001'
+    WHERE id = '82000000-0000-4000-8000-000000000002';
+    RAISE EXCEPTION 'Owner B reassigned a notification to Owner A task.'
+      USING ERRCODE = 'P0001';
+  EXCEPTION WHEN foreign_key_violation THEN
+    GET STACKED DIAGNOSTICS error_constraint = CONSTRAINT_NAME;
+    IF error_constraint <> 'notifications_reminder_owner_task_fkey' THEN
+      RAISE EXCEPTION 'Owner B cross-owner notification task UPDATE failed on unexpected constraint %.', error_constraint;
+    END IF;
+  END;
+
+  BEGIN
+    UPDATE public.notifications
+    SET reminder_id = '81000000-0000-4000-8000-000000000001'
+    WHERE id = '82000000-0000-4000-8000-000000000002';
+    RAISE EXCEPTION 'Owner B reassigned a notification to Owner A reminder.'
+      USING ERRCODE = 'P0001';
+  EXCEPTION WHEN foreign_key_violation THEN
+    GET STACKED DIAGNOSTICS error_constraint = CONSTRAINT_NAME;
+    IF error_constraint <> 'notifications_reminder_owner_task_fkey' THEN
+      RAISE EXCEPTION 'Owner B cross-owner notification reminder UPDATE failed on unexpected constraint %.', error_constraint;
+    END IF;
+  END;
+
+  BEGIN
+    UPDATE public.notifications
+    SET reminder_id = '81000000-0000-4000-8000-000000000002'
+    WHERE id = '82000000-0000-4000-8000-000000000002';
+    RAISE EXCEPTION 'Owner B linked a notification to a same-owner reminder for a different task.'
+      USING ERRCODE = 'P0001';
+  EXCEPTION WHEN foreign_key_violation THEN
+    GET STACKED DIAGNOSTICS error_constraint = CONSTRAINT_NAME;
+    IF error_constraint <> 'notifications_reminder_owner_task_fkey' THEN
+      RAISE EXCEPTION 'Owner B mismatched notification pair failed on unexpected constraint %.', error_constraint;
+    END IF;
+  END;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.notifications
+    WHERE id = '82000000-0000-4000-8000-000000000002'
+      AND reminder_id = '81000000-0000-4000-8000-000000000004'
+      AND task_id = '70000000-0000-4000-8000-000000000006'
+  ) THEN
+    RAISE EXCEPTION 'Rejected Owner B notification UPDATE changed its previous reminder/task pair.';
+  END IF;
+
+  BEGIN
+    UPDATE public.reminders
+    SET task_id = '20000000-0000-4000-8000-000000000001'
+    WHERE id = '81000000-0000-4000-8000-000000000004';
+    RAISE EXCEPTION 'Owner B changed a reminder task while a notification still references its original task.'
+      USING ERRCODE = 'P0001';
+  EXCEPTION WHEN foreign_key_violation THEN
+    GET STACKED DIAGNOSTICS error_constraint = CONSTRAINT_NAME;
+    IF error_constraint <> 'notifications_reminder_owner_task_fkey' THEN
+      RAISE EXCEPTION 'Owner B reminder task-change protection failed on unexpected constraint %.', error_constraint;
+    END IF;
+  END;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.reminders
+    WHERE id = '81000000-0000-4000-8000-000000000004'
+      AND task_id = '70000000-0000-4000-8000-000000000006'
+  ) THEN
+    RAISE EXCEPTION 'Rejected Owner B reminder task change modified the existing notification relationship.';
   END IF;
 
   IF NOT EXISTS (
@@ -1633,6 +2112,102 @@ BEGIN
 END
 $owner_b$;
 
+-- The reminder delivery worker uses service_role. BYPASSRLS must not bypass
+-- referential ownership integrity; valid worker writes still succeed.
+RESET ROLE;
+SET request.jwt.claim.sub = '';
+SET ROLE service_role;
+
+DO $service_role$
+DECLARE
+  error_constraint text;
+BEGIN
+  IF current_user <> 'service_role' OR NOT EXISTS (
+    SELECT 1 FROM pg_roles WHERE rolname = current_user AND rolbypassrls
+  ) THEN
+    RAISE EXCEPTION 'The worker regression must execute as the BYPASSRLS service_role.';
+  END IF;
+
+  INSERT INTO public.reminders (id, user_id, task_id, remind_at)
+  VALUES
+    ('83000000-0000-4000-8000-000000000005', '11111111-1111-4111-8111-111111111111', '10000000-0000-4000-8000-000000000001', '2099-01-05T09:00:00Z'),
+    ('83000000-0000-4000-8000-000000000006', '22222222-2222-4222-8222-222222222222', '20000000-0000-4000-8000-000000000001', '2099-01-05T09:00:00Z');
+
+  INSERT INTO public.notifications (id, user_id, reminder_id, task_id, title, body)
+  VALUES (
+    '82000000-0000-4000-8000-000000000003',
+    '11111111-1111-4111-8111-111111111111',
+    '83000000-0000-4000-8000-000000000005',
+    '10000000-0000-4000-8000-000000000001',
+    'Service role valid notification',
+    'Worker path'
+  );
+
+  BEGIN
+    INSERT INTO public.reminders (id, user_id, task_id, remind_at)
+    VALUES (
+      '83000000-0000-4000-8000-000000000007',
+      '11111111-1111-4111-8111-111111111111',
+      '20000000-0000-4000-8000-000000000001',
+      '2099-01-05T10:00:00Z'
+    );
+    RAISE EXCEPTION 'service_role created a reminder with a foreign-owner task.'
+      USING ERRCODE = 'P0001';
+  EXCEPTION WHEN foreign_key_violation THEN
+    GET STACKED DIAGNOSTICS error_constraint = CONSTRAINT_NAME;
+    IF error_constraint <> 'reminders_task_owner_fkey' THEN
+      RAISE EXCEPTION 'service_role reminder ownership failed on unexpected constraint %.', error_constraint;
+    END IF;
+  END;
+
+  BEGIN
+    INSERT INTO public.notifications (id, user_id, reminder_id, task_id, title, body)
+    VALUES (
+      '82000000-0000-4000-8000-000000000004',
+      '11111111-1111-4111-8111-111111111111',
+      '83000000-0000-4000-8000-000000000006',
+      '20000000-0000-4000-8000-000000000001',
+      'Service role cross-owner notification',
+      'Must be rejected'
+    );
+    RAISE EXCEPTION 'service_role created a notification for another owner reminder.'
+      USING ERRCODE = 'P0001';
+  EXCEPTION WHEN foreign_key_violation THEN
+    GET STACKED DIAGNOSTICS error_constraint = CONSTRAINT_NAME;
+    IF error_constraint <> 'notifications_reminder_owner_task_fkey' THEN
+      RAISE EXCEPTION 'service_role notification ownership failed on unexpected constraint %.', error_constraint;
+    END IF;
+  END;
+
+  BEGIN
+    UPDATE public.notifications
+    SET task_id = '20000000-0000-4000-8000-000000000001'
+    WHERE id = '82000000-0000-4000-8000-000000000003';
+    RAISE EXCEPTION 'service_role changed a valid notification to a mismatched task.'
+      USING ERRCODE = 'P0001';
+  EXCEPTION WHEN foreign_key_violation THEN
+    GET STACKED DIAGNOSTICS error_constraint = CONSTRAINT_NAME;
+    IF error_constraint <> 'notifications_reminder_owner_task_fkey' THEN
+      RAISE EXCEPTION 'service_role notification task integrity failed on unexpected constraint %.', error_constraint;
+    END IF;
+  END;
+
+  IF EXISTS (
+    SELECT 1 FROM public.reminders
+    WHERE id = '83000000-0000-4000-8000-000000000007'
+  ) OR EXISTS (
+    SELECT 1 FROM public.notifications
+    WHERE id = '82000000-0000-4000-8000-000000000004'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM public.notifications
+    WHERE id = '82000000-0000-4000-8000-000000000003'
+      AND reminder_id = '83000000-0000-4000-8000-000000000005'
+      AND task_id = '10000000-0000-4000-8000-000000000001'
+  ) THEN
+    RAISE EXCEPTION 'service_role ownership rejection left invalid rows or changed a valid notification.';
+  END IF;
+END
+$service_role$;
 
 RESET ROLE;
 SET request.jwt.claim.sub = '';

@@ -283,3 +283,44 @@ left join pg_constraint con
  and con.conname = e.constraint_name
  and con.contype = 'c'
 order by e.column_name;
+
+-- 13. Reminder/notification ownership foreign keys.
+-- The composite constraints prevent cross-owner task links and notifications
+-- whose task does not match their reminder, including service_role writes.
+with expected(table_name, constraint_name, description) as (
+  values
+    ('reminders', 'reminders_task_owner_fkey', 'FOREIGN KEY (task_id, user_id) REFERENCES tasks(id, user_id) ON DELETE CASCADE'),
+    ('notifications', 'notifications_reminder_owner_task_fkey', 'FOREIGN KEY (reminder_id, user_id, task_id) REFERENCES reminders(id, user_id, task_id) ON DELETE CASCADE')
+)
+select
+  e.table_name,
+  e.constraint_name,
+  e.description as expected_definition,
+  con.oid is not null as constraint_present,
+  coalesce(con.convalidated, false) as constraint_validated,
+  pg_get_constraintdef(con.oid) as actual_definition
+from expected e
+left join pg_constraint con
+  on con.conrelid = to_regclass(format('public.%I', e.table_name))
+ and con.conname = e.constraint_name
+ and con.contype = 'f'
+order by e.table_name, e.constraint_name;
+
+-- 14. Supporting composite unique keys required by the ownership foreign keys.
+with expected(table_name, constraint_name) as (
+  values
+    ('tasks', 'tasks_id_user_id_key'),
+    ('reminders', 'reminders_id_user_id_task_id_key')
+)
+select
+  e.table_name,
+  e.constraint_name,
+  con.oid is not null as constraint_present,
+  coalesce(con.convalidated, false) as constraint_validated,
+  pg_get_constraintdef(con.oid) as actual_definition
+from expected e
+left join pg_constraint con
+  on con.conrelid = to_regclass(format('public.%I', e.table_name))
+ and con.conname = e.constraint_name
+ and con.contype = 'u'
+order by e.table_name, e.constraint_name;
