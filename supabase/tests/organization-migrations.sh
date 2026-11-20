@@ -10,7 +10,7 @@ export PGDATABASE="${PGDATABASE:-personal_os_migration_test}"
 psql -X -v ON_ERROR_STOP=1 -c 'select 1' >/dev/null
 psql -X -v ON_ERROR_STOP=1 -f supabase/tests/organization-migration-bootstrap.sql
 
-expected_migrations=23
+expected_migrations=24
 actual_migrations="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | wc -l | tr -d ' ')"
 
 if [[ "$actual_migrations" -ne "$expected_migrations" ]]; then
@@ -39,6 +39,11 @@ fi
 psql -X -v ON_ERROR_STOP=1 -f supabase/tests/organization-migration-assertions.sql
 echo "Verifying transactional task activity events"
 psql -X -v ON_ERROR_STOP=1 -f supabase/tests/task-activity-events.sql
+echo "Verifying per-owner task creation request idempotency"
+psql -X -v ON_ERROR_STOP=1 -f supabase/tests/task-create-idempotency.sql
+bash supabase/tests/task-create-idempotency-concurrency.sh
+echo "Reapplying task create request idempotency migration to verify idempotence"
+psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261121000200_task_create_request_idempotency.sql
 echo "Reapplying durable task activity event migration to verify idempotence"
 psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261121000100_durable_task_activity_events.sql
 echo "Reapplying atomic reminder delivery migration to verify idempotence"
