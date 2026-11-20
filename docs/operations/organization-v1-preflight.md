@@ -6,6 +6,20 @@ Application rollout: BLOCKED — no recoverable backup has been produced.
 
 This runbook records the live read-only inspection and the safe path to complete Organization V1. It does not authorize production DDL or a PR merge.
 
+## Latest authenticated task deletion/cascade audit — 2026-11-20
+
+Code/test commit `48be370e03c320e66bd368183b3d4099ca987b47` passed [CI #371](https://github.com/mohith-krishnaa/personal-os/actions/runs/44710866792): 20/20 migrations replayed on PostgreSQL 17; authenticated Owner A/B RLS and task deletion/cascade assertions passed; archive lifecycle and hierarchy/two-session concurrency checks passed; 90/90 application tests, typecheck, and production build passed; npm install found 0 vulnerabilities. The esbuild install-script allowlist warning remains; no lint script is configured.
+
+The branch audit found no task-delete server action/service among the 53 TypeScript/TSX modules. The authenticated database role does have task DELETE privilege, constrained by the owner RLS policy. The regression deletes an owned three-level task chain and verifies canonical/legacy checklists, reminders, and notifications cascade; unrelated task-associated records survive; a recurring occurrence survives with `recurrence_parent_id` cleared; and a foreign owner's parent/child remain intact after an attempted cross-owner delete.
+
+Fresh read-only live inspection: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, 8 migration-ledger rows, 9 public tables with RLS enabled. Live FK actions are `tasks.parent_task_id CASCADE`, `tasks.recurrence_parent_id SET NULL`, `tasks.project_id SET NULL`, `reminders.task_id CASCADE`, and `notifications.task_id/reminder_id CASCADE`. The two checklist tables are absent live. Authenticated task DELETE privilege is present; no user-defined triggers exist on tasks/reminders/notifications.
+
+**Follow-up integrity risk to verify:** live `reminders_owner_insert/update` and `notifications_owner_update` policies check only `user_id`; they do not visibly enforce referenced task/reminder ownership. The application reminder service performs an owner-scoped task preflight, but direct PostgREST needs its own two-owner regression before rollout.
+
+No migration, runtime code, RLS policy, or production record changed. No production DDL/DML, migration, backup, restore, or merge occurred. Owner-controlled complete schema/data/roles backup and successful isolated restore, restored-copy checklist conflict review, and authenticated two-user PostgREST CRUD/isolation remain mandatory.
+
+**Next repository task:** verify and harden reminder/notification task-owner links with authenticated Owner A/B INSERT/UPDATE tests. Keep Analytics queued.
+
 ## Latest authenticated parent-task reassignment verification — 2026-11-20
 
 Code/test commit `0a4bd7e623cee437580d425d0fb71e5758febb47` passed [CI #364](https://github.com/mohith-krishnaa/personal-os/actions/runs/44694065363). The workflow replayed all 20 migrations in disposable PostgreSQL 17; authenticated Owner A/B and anonymous RLS assertions, project archive lifecycle, task hierarchy and two-session concurrency checks passed; 90/90 application tests, typecheck, and production build passed; npm install found 0 vulnerabilities. No migration was added; repository count remains 20.
