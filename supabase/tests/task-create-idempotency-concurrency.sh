@@ -74,7 +74,7 @@ if ! grep -Fq "$winner_id|Concurrent winner" "$tmpdir/retry.out"; then
 fi
 
 psql -X -v ON_ERROR_STOP=1 <<SQL
-DO $verify$
+DO \$verify\$
 BEGIN
   IF (SELECT count(*) FROM public.tasks WHERE user_id = '$owner_id' AND client_request_id = '$request_id') <> 1 THEN
     RAISE EXCEPTION 'Concurrent duplicate requests created more than one task.';
@@ -86,7 +86,7 @@ BEGIN
     RAISE EXCEPTION 'Concurrent duplicate requests did not produce exactly one TASK_CREATED event.';
   END IF;
 END;
-$verify$;
+\$verify\$;
 SQL
 
 echo "Concurrent task create idempotency passed."
