@@ -1,3 +1,12 @@
+> **Verified checkpoint — 2026-11-21 (task/subtask create request idempotency).** Branch `feature/organization-v1`; the repository now contains **24 migrations**. Fresh read-only inspection of project `gujzvkyytxsnervovvrt` reconfirmed eight live migration-ledger versions, so **16 migrations are branch-only**. The new local-only migration is `20261121000200_task_create_request_idempotency.sql`.
+>
+> The migration adds a per-owner unique `(user_id, client_request_id)` key, a SHA-256 create-payload fingerprint, a hash-format check, and an immutable request-identity trigger. First-party task editor, quick-add, and subtask forms reuse the same client UUID for an unchanged payload. The server resolves existing requests before mutable relationship preflight, uses conflict-ignore upsert for concurrent requests, and rejects same-key/different-payload reuse. The migration does not change RLS or introduce SECURITY DEFINER privileges.
+>
+> Disposable PostgreSQL tests cover per-owner uniqueness, same-payload duplicate suppression, one TASK_CREATED event, request identity immutability, hash format, and a two-session concurrent request race. The application suite covers client key reuse/change, task/subtask service paths, same-request retry, payload mismatch, conflict fallback, and database error propagation. The migration runner expects 24 files and reapplies the new migration. The final CI result for the implementation and final documentation HEAD is recorded in the latest `PROJECT_STATE.md` checkpoint. Production remains read-only; backup/restore and authenticated two-owner PostgREST acceptance remain required. DELETE events and immutable activity-event retention are still incomplete.
+>
+> **Next task:** design and test transactional `TASK_DELETED` events for direct task deletion and descendant cascades. Keep Analytics queued.
+---
+
 > **Verified checkpoint — 2026-11-21 (transactional task activity events).** Branch `feature/organization-v1`; code HEAD `e288c55768bca52e906d51fd6b9580f3ba0cff33`; [CI #408](https://github.com/mohith-krishnaa/personal-os/actions/runs/44802872792) passed on code HEAD; [CI #409](https://github.com/mohith-krishnaa/personal-os/actions/runs/44803558307) passed on final documentation HEAD `7ff05d1c407c5f6e65b409806db55fc7a28fcf4a`. PR #11 remains open/unmerged.
 >
 > Repository inventory: **23 migrations**. Fresh read-only inspection reconfirmed eight live ledger versions, so 15 are branch-only. The new local-only migration is `20261121000100_durable_task_activity_events.sql`.
