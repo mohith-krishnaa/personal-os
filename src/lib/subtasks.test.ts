@@ -7,6 +7,25 @@ function unreachableDatabase() {
   return { from: () => { throw new Error('database should not be reached') } } as any
 }
 
+function createLookupSupabase(responses: Array<{ table: string; data: unknown; error: unknown | null }>) {
+  const pending = [...responses]
+  const calls: string[] = []
+  const supabase = {
+    from(table: string) {
+      calls.push(table)
+      const response = pending.shift()
+      assert.ok(response, `unexpected query for ${table}`)
+      assert.equal(response.table, table)
+      return {
+        select() { return this },
+        eq() { return this },
+        single: async () => response,
+      }
+    },
+  } as any
+  return { supabase, calls }
+}
+
 function createSubtaskDatabase(projectStatus: string) {
   const parentFilters: Array<[string, string]> = []
   const projectFilters: Array<[string, string]> = []
@@ -124,6 +143,42 @@ test('creates a subtask only after owner-scoped ACTIVE-project preflight', async
   }])
 })
 
+test('createSubtask preserves parent database authorization errors', async () => {
+  const databaseError = { code: '42501', message: 'permission denied for table tasks' }
+  const { supabase } = createLookupSupabase([
+    { table: 'tasks', data: null, error: databaseError },
+  ])
+
+  await assert.rejects(
+    () => createSubtask(supabase, 'owner-1', 'parent-1', { title: 'Child task' }),
+    error => error === databaseError,
+  )
+})
+
+test('createSubtask preserves project database authorization errors', async () => {
+  const databaseError = { code: '42501', message: 'permission denied for table projects' }
+  const { supabase } = createLookupSupabase([
+    { table: 'tasks', data: { id: 'parent-1', user_id: 'owner-1', project_id: 'project-1' }, error: null },
+    { table: 'projects', data: null, error: databaseError },
+  ])
+
+  await assert.rejects(
+    () => createSubtask(supabase, 'owner-1', 'parent-1', { title: 'Child task' }),
+    error => error === databaseError,
+  )
+})
+
+test('createSubtask maps a PostgREST zero-row parent result to the owner-safe not-found message', async () => {
+  const { supabase } = createLookupSupabase([
+    { table: 'tasks', data: null, error: { code: 'PGRST116', message: 'JSON object requested, no rows returned' } },
+  ])
+
+  await assert.rejects(
+    () => createSubtask(supabase, 'owner-1', 'foreign-parent', { title: 'Child task' }),
+    /Parent task not found/,
+  )
+})
+
 for (const status of ['COMPLETED', 'ARCHIVED']) {
   test(`rejects new subtasks under ${status} projects before task insertion`, async () => {
     const { supabase, projectFilters, inserts } = createSubtaskDatabase(status)
@@ -227,6 +282,19 @@ test('lists subtasks scoped to the requested owner and parent task', async () =>
   assert.deepEqual(result, children)
 })
 
+test('listSubtasks preserves parent database authorization errors', async () => {
+  const databaseError = { code: '42501', message: 'permission denied for table tasks' }
+  const { supabase, calls } = createLookupSupabase([
+    { table: 'tasks', data: null, error: databaseError },
+  ])
+
+  await assert.rejects(
+    () => listSubtasks(supabase, 'owner-1', 'parent-1'),
+    error => error === databaseError,
+  )
+  assert.deepEqual(calls, ['tasks'])
+})
+
 test('does not list children when the parent does not belong to the requested owner', async () => {
   let fromCalls = 0
   const supabase = {
@@ -235,7 +303,7 @@ test('does not list children when the parent does not belong to the requested ow
       return {
         select() { return this },
         eq() { return this },
-        single: async () => ({ data: null, error: { message: 'not found' } }),
+        single: async () => ({ data: null, error: { code: 'PGRST116', message: 'JSON object requested, no rows returned' } }),
       }
     },
   } as any

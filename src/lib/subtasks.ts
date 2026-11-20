@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Task } from '@/types/task'
-import { canCreateTaskInProject } from './task-relationships'
+import { canCreateTaskInProject, throwIfUnexpectedLookupError } from './task-relationships'
 
 export type SubtaskInput = {
   title: string
@@ -19,14 +19,16 @@ function assertValidTitle(title: string) {
 
 async function assertParentOwnership(supabase: SupabaseClient, userId: string, parentTaskId: string) {
   const { data: parent, error } = await supabase.from('tasks').select('id,user_id,project_id').eq('id', parentTaskId).eq('user_id', userId).single()
-  if (error || !parent) throw new Error('Parent task not found.')
+  throwIfUnexpectedLookupError(error)
+  if (!parent) throw new Error('Parent task not found.')
   return parent as Pick<Task, 'id' | 'user_id' | 'project_id'>
 }
 
 async function assertActiveProjectOwnership(supabase: SupabaseClient, userId: string, projectId: string | null | undefined) {
   if (!projectId) return
   const { data, error } = await supabase.from('projects').select('id,status').eq('id', projectId).eq('user_id', userId).single()
-  if (error || !data) throw new Error('Project not found.')
+  throwIfUnexpectedLookupError(error)
+  if (!data) throw new Error('Project not found.')
   if (!canCreateTaskInProject(data.status)) throw new Error('Tasks can only be linked to active projects.')
 }
 

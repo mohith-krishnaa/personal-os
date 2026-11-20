@@ -26,6 +26,18 @@ export function isInactiveProjectAssignmentError(error: unknown) {
     && candidate.message === 'Tasks can only be linked to active projects.'
 }
 
+/**
+ * Preserve real lookup failures (especially SQLSTATE 42501) instead of
+ * disguising them as an owner-scoped not-found result. PostgREST PGRST116 is
+ * the expected zero-row result for the single-row subtask lookups; callers
+ * still convert a missing visible row into their generic not-found message.
+ */
+export function throwIfUnexpectedLookupError(error: unknown) {
+  if (!error) return
+  if (typeof error === 'object' && 'code' in error && error.code === 'PGRST116') return
+  throw error
+}
+
 export function resolveTaskOrganizationLinks(
   current: { project_id: string | null; parent_task_id: string | null },
   patch: { project_id?: string | null; parent_task_id?: string | null },
@@ -63,7 +75,8 @@ export async function assertTaskOrganizationLinks(
       .eq('user_id', userId)
       .maybeSingle()
 
-    if (parentError || !parent) throw new Error('Parent task not found.')
+    throwIfUnexpectedLookupError(parentError)
+    if (!parent) throw new Error('Parent task not found.')
     if ((parent.project_id ?? null) !== projectId) {
       throw new Error('Subtask must belong to the same project as its parent.')
     }
@@ -78,7 +91,8 @@ export async function assertTaskOrganizationLinks(
         .eq('user_id', userId)
         .maybeSingle()
 
-      if (projectError || !project) throw new Error('Project not found.')
+      throwIfUnexpectedLookupError(projectError)
+      if (!project) throw new Error('Project not found.')
       if (!canCreateTaskInProject(project.status)) {
         throw new Error('Tasks can only be linked to active projects.')
       }
@@ -90,7 +104,8 @@ export async function assertTaskOrganizationLinks(
         .eq('user_id', userId)
         .maybeSingle()
 
-      if (projectError || !project) throw new Error('Project not found.')
+      throwIfUnexpectedLookupError(projectError)
+      if (!project) throw new Error('Project not found.')
     }
   }
 }

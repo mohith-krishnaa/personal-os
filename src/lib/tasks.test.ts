@@ -143,6 +143,18 @@ test('task link preflight rejects a parent not owned by the caller', async () =>
   assert.equal(calls.length, 1)
 })
 
+test('task link preflight preserves parent database authorization errors', async () => {
+  const databaseError = { code: '42501', message: 'permission denied for table tasks' }
+  const { supabase } = createRelationshipSupabase([
+    { table: 'tasks', data: null, error: databaseError },
+  ])
+
+  await assert.rejects(
+    () => assertTaskOrganizationLinks(supabase, 'owner-1', { parentTaskId: 'parent-1' }),
+    error => error === databaseError,
+  )
+})
+
 test('task link preflight rejects a parent in a different project', async () => {
   const { supabase, calls } = createRelationshipSupabase([
     { table: 'tasks', data: { id: 'parent-1', user_id: 'owner-1', project_id: 'project-1' }, error: null },
@@ -170,7 +182,19 @@ test('task link preflight rejects a project not owned by the caller', async () =
   assert.deepEqual(calls[0].filters, [['id', 'foreign-project'], ['user_id', 'owner-1']])
 })
 
-test('task link preflight rejects direct self-parenting before database access', async () => {
+test('task link preflight preserves project database authorization errors', async () => {
+  const databaseError = { code: '42501', message: 'permission denied for table projects' }
+  const { supabase } = createRelationshipSupabase([
+    { table: 'projects', data: null, error: databaseError },
+  ])
+
+  await assert.rejects(
+    () => assertTaskOrganizationLinks(supabase, 'owner-1', { projectId: 'project-1' }),
+    error => error === databaseError,
+  )
+})
+
+test('task link preflight rejects direct self-parenting before database access', async () =>
   const { supabase, calls } = createRelationshipSupabase([])
 
   await assert.rejects(
