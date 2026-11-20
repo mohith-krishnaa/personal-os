@@ -34,6 +34,8 @@ jobs:
         with:
           node-version: 24
       - run: npm install
+      - name: Run isolated PostgREST acceptance preflight tests
+        run: npm run test:acceptance:preflight
       - name: Install PostgreSQL client
         run: sudo apt-get update -qq && sudo apt-get install -y postgresql-client
       - name: Replay core and Organization migrations with RLS checks

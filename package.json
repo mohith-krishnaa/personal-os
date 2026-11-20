@@ -8,7 +8,8 @@
     "start": "next start",
     "test": "tsx --test src/lib/recurrence.test.ts src/lib/reminders.test.ts src/lib/reminder-delivery-handler.test.ts src/lib/progress.test.ts src/lib/progress-service.test.ts src/lib/project-validation.test.ts src/lib/projects.test.ts src/lib/subtasks.test.ts src/lib/checklists.test.ts src/lib/tasks.test.ts scripts/postgrest-organization-acceptance.test.ts",
     "typecheck": "tsc --noEmit",
-    "acceptance:organization:postgrest": "tsx scripts/postgrest-organization-acceptance.ts"
+    "acceptance:organization:postgrest": "tsx scripts/postgrest-organization-acceptance.ts",
+    "test:acceptance:preflight": "tsx --test scripts/postgrest-organization-acceptance.test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "latest",
