@@ -8,16 +8,17 @@ This runbook records the live read-only inspection and the safe path to complete
 
 ## Latest verified checkpoint — 2026-11-20
 
-Code/test HEAD `569d384f88b2f137d78ec5da8b41f40e40b73b28` passed [CI #343](https://github.com/mohith-krishnaa/personal-os/actions/runs/44652747495): 20-migration PostgreSQL 17 replay, active-project migration reapplication, archive lifecycle SQL assertions, Organization/RLS assertions, task hierarchy concurrency, 87/87 application tests, typecheck, and production build.
+Code/test HEAD `c016f78410eac0ddcfd521be19890853bd5268b2` passed [CI #347](https://github.com/mohith-krishnaa/personal-os/actions/runs/44659601808): full PostgreSQL 17 replay of 20 migrations, Organization/RLS assertions, sequential project archive lifecycle assertions, two-session project-status/task-assignment races in both lock orders, the existing task-hierarchy cycle race, 87/87 application tests, TypeScript typecheck, and production build. No lint script is configured.
 
-The new local-only migration `20261120000100_enforce_active_project_task_links.sql` adds a SECURITY INVOKER trigger requiring ACTIVE projects for new task links and actual reassignment. Existing tasks remain attached when a project is completed/archived; existing task edits and same-project parent maintenance remain possible. A `FOR SHARE` lock serializes link creation with project status changes. The application preflight and recurring-task flow use the same ACTIVE-only rule.
+The concurrency regression extends the disposable task-hierarchy fixture with `projects.status` and installs the branch-only active-project guard. In the assignment-first case, the archive transaction is observed blocked by the task transaction's `FOR SHARE` project lock; both then commit and the historical task link remains. In the completion-first case, the assignment is observed blocked by the project update; after completion commits, the assignment fails with the expected check violation and leaves no link. The test checks final state and session cleanup.
 
-Fresh read-only live inspection: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, 8 applied migrations, 9 public tables with RLS enabled, and 0 reported rows. The live legacy `projects.status` check includes ACTIVE/COMPLETED/ARCHIVED; `projects.name`, Organization checklist tables, and user-defined task triggers remain absent. No production operation was performed.
+CI #346 failed because psql does not interpolate `:'variable'` syntax inside a `-c` SQL string; the logs showed a syntax error at the colon. Commit `c016f78410eac0ddcfd521be19890853bd5268b2` replaced those parameters with fixed test-owned application-name literals, and #347 passed. No migration was added; the branch remains at 20 files.
+
+Fresh read-only live inspection: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, exactly 8 migration-ledger rows. The live schema still has legacy `projects.title/status` and `tasks.project_id/parent_task_id`; `projects.name` is absent; no user-defined triggers exist on the live `projects` or `tasks` tables. The branch-only trigger and its concurrency behavior have not been applied to production. No production DDL/DML, migration, RLS change, backup, restore, or merge occurred.
 
 The owner-controlled complete schema/data/roles backup, successful isolated restore, restored-copy checklist conflict review, and authenticated two-user PostgREST CRUD/isolation tests remain mandatory. No local checkout is attached, so local working-tree status is unverified.
 
-
-**Next repository task:** audit the Progress service and dashboard behavior against nullable legacy goal metrics. Do not advance to Analytics until Organization acceptance is genuinely complete.
+**Next repository task:** audit every runtime task INSERT/creation path, including recurring generation and subtasks, to confirm it uses the ACTIVE-project service preflight or remains protected by the database trigger while preserving owner filters. Do not advance to Analytics until Organization acceptance is genuinely complete.
 
 ## Legacy checklist compatibility contract — 2026-11-19
 

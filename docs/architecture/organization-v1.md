@@ -2,7 +2,7 @@
 
 Status: implementation is under review in PR #11. This document records repository-level design decisions; it does not certify the live Supabase schema or deployment.
 
-Latest code/test verification (2026-11-20): commit `569d384f88b2f137d78ec5da8b41f40e40b73b28` passed [CI #343](https://github.com/mohith-krishnaa/personal-os/actions/runs/44652747495): all 20 PostgreSQL 17 migrations, active-project migration reapplication, archive lifecycle SQL assertions, Organization/RLS assertions, task hierarchy concurrency, 87/87 application tests, TypeScript typecheck, and production build. npm audit found 0 vulnerabilities. No lint script is configured. Fresh read-only live inspection still shows 8 applied migrations and no user-defined tasks triggers; production rollout remains blocked by complete backup/isolated-restore and authenticated two-user PostgREST verification.
+Latest code/test verification (2026-11-20): commit `c016f78410eac0ddcfd521be19890853bd5268b2` passed [CI #347](https://github.com/mohith-krishnaa/personal-os/actions/runs/44659601808): all 20 PostgreSQL 17 migrations replayed; Organization/RLS and sequential archive lifecycle assertions passed; both two-session project-status/task-assignment lock orders and the existing hierarchy-cycle race passed; 87/87 application tests, TypeScript typecheck, and production build passed. CI #346 exposed unsupported psql variable interpolation in a `-c` probe; the fixed-literal probe passed on #347. No lint script is configured. The new behavior is disposable-CI evidence only; the live project still has 8 migrations and no user-defined triggers on `projects` or `tasks`.
 
 ## Trust boundaries
 
@@ -19,6 +19,13 @@ Latest code/test verification (2026-11-20): commit `569d384f88b2f137d78ec5da8b41
 - A subtask's parent must belong to the same user, and the subtask must use the same project as its parent.
 - Task hierarchy must not contain self-links or indirect cycles.
 - A checklist item must belong to the same user as its task.
+
+## Project archive/task-assignment concurrency decision — 2026-11-20
+
+- The `require_active_project_for_new_task_links` SECURITY INVOKER trigger takes a `FOR SHARE` lock on the owner-matched project row before accepting a new task link. Project status updates conflict with that lock, so assignment and completion/archive have a deterministic serialization order.
+- If assignment wins, the task link commits first and a later archive/completion may commit without detaching the historical link. If completion/archive wins, the waiting assignment must observe the inactive status and fail with the dedicated check violation.
+- CI #347 exercises both READ COMMITTED lock orders with separate PostgreSQL sessions, confirms the waiting session is blocked by the expected writer via `pg_blocking_pids`, verifies final project/task state, and checks for lingering sessions. The existing task-hierarchy cycle race remains covered.
+- This test runs against a disposable PostgreSQL 17 fixture. It does not prove that the trigger exists in production; the live Supabase project remains at 8 migrations and has no user-defined trigger on `projects` or `tasks`.
 - The application uses `public.checklist_items` as its canonical checklist table.
 - The legacy `public.task_checklist_items` table is retained and reconciled forward; it is not dropped as part of Organization V1.
 - The application-facing project field is `projects.name`. Where a legacy `projects.title` column exists, the compatibility migration backfills and dual-writes the two fields rather than dropping the legacy column.
