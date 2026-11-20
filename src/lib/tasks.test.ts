@@ -194,7 +194,7 @@ test('task link preflight preserves project database authorization errors', asyn
   )
 })
 
-test('task link preflight rejects direct self-parenting before database access', async () =>
+test('task link preflight rejects direct self-parenting before database access', async () => {
   const { supabase, calls } = createRelationshipSupabase([])
 
   await assert.rejects(
