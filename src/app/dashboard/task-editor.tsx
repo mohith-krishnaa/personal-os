@@ -1,18 +1,56 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { RecurrenceRule, TaskPriority } from '@/types/task'
 import type { Project } from '@/types/project'
 import { addTaskAction } from './actions'
+import { getClientRequestState, type PendingClientRequest } from '@/lib/client-request-id'
 
 type Frequency = 'NONE' | 'DAILY' | 'WEEKLY' | 'MONTHLY'
 const weekdayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 export default function TaskEditor({ projects = [] }: { projects?: Project[] }) {
+  const requestRef = useRef<PendingClientRequest>(null)
   const [open, setOpen] = useState(false); const [title, setTitle] = useState(''); const [priority, setPriority] = useState<TaskPriority>('MEDIUM'); const [minutes, setMinutes] = useState(''); const [dueAt, setDueAt] = useState(''); const [projectId, setProjectId] = useState(''); const [frequency, setFrequency] = useState<Frequency>('NONE'); const [interval, setInterval] = useState('1'); const [weekdays, setWeekdays] = useState<number[]>([]); const [monthDay, setMonthDay] = useState(''); const [loading, setLoading] = useState(false); const [error, setError] = useState('')
   function toggleWeekday(day: number) { setWeekdays(current => current.includes(day) ? current.filter(value => value !== day) : [...current, day].sort((a, b) => a - b)) }
   function buildRecurrence(): RecurrenceRule | null { if (frequency === 'NONE') return null; const parsedInterval = Number(interval); if (!Number.isInteger(parsedInterval) || parsedInterval < 1) throw new Error('Recurrence interval must be a positive integer.'); if (!dueAt) throw new Error('Recurring tasks need a due date/time.'); if (frequency === 'DAILY') return { frequency: 'DAILY', interval: parsedInterval }; if (frequency === 'MONTHLY') { const day = Number(monthDay || dueAt.slice(8, 10)); return { frequency: 'MONTHLY', interval: parsedInterval, dayOfMonth: day, anchorDayOfMonth: day } } const selected = weekdays.length ? weekdays : [new Date(dueAt).getDay()]; return { frequency: 'WEEKLY', interval: parsedInterval, weekdays: selected, anchorDate: new Date(dueAt).toISOString() } }
-  async function submit() { if (!title.trim()) return; setLoading(true); setError(''); try { await addTaskAction({ title, priority, estimated_minutes: minutes ? Number(minutes) : null, due_at: dueAt ? new Date(dueAt).toISOString() : null, project_id: projectId || null, recurrence_rule: buildRecurrence() }); setTitle(''); setMinutes(''); setDueAt(''); setProjectId(''); setPriority('MEDIUM'); setFrequency('NONE'); setInterval('1'); setWeekdays([]); setMonthDay(''); setOpen(false) } catch (err) { setError(err instanceof Error ? err.message : 'Could not create task.') } finally { setLoading(false) } }
+  async function submit() {
+    if (!title.trim() || loading) return
+    setLoading(true)
+    setError('')
+    try {
+      const payload = {
+        title,
+        priority,
+        estimated_minutes: minutes ? Number(minutes) : null,
+        due_at: dueAt ? new Date(dueAt).toISOString() : null,
+        project_id: projectId || null,
+        recurrence_rule: buildRecurrence(),
+      }
+      const request = getClientRequestState(
+        requestRef.current,
+        payload,
+        () => globalThis.crypto.randomUUID(),
+      )
+      requestRef.current = request
+      await addTaskAction({ ...payload, client_request_id: request.id })
+      requestRef.current = null
+      setTitle('')
+      setMinutes('')
+      setDueAt('')
+      setProjectId('')
+      setPriority('MEDIUM')
+      setFrequency('NONE')
+      setInterval('1')
+      setWeekdays([])
+      setMonthDay('')
+      setOpen(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not create task.')
+    } finally {
+      setLoading(false)
+    }
+  }
   if (!open) return <button onClick={() => setOpen(true)} style={{ background: '#f4f4f5', color: '#090a0c', border: 0, borderRadius: 10, padding: '10px 14px', fontWeight: 700 }}>+ New task</button>
   return <form onSubmit={e => { e.preventDefault(); void submit() }} style={{ display: 'grid', gap: 10, padding: 16, border: '1px solid #303640', borderRadius: 14, background: '#111419' }}>
     <input autoFocus value={title} onChange={e => setTitle(e.target.value)} placeholder="What needs to be done?" aria-label="Task title" style={{ background: '#0b0d10', color: '#f4f4f5', border: '1px solid #303640', borderRadius: 9, padding: 10 }} />
