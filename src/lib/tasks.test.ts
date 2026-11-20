@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { listTasksForUser } from './task-queries'
+import { updateTaskForUser, type UpdateTaskInput } from './tasks'
 import { assertTaskOrganizationLinks, canCreateTaskInProject, isInactiveProjectAssignmentError, isNewProjectAssignment, resolveTaskOrganizationLinks } from './task-relationships'
 
 test('listTasksForUser scopes reads to the owner and optional project while preserving task ordering', async () => {
@@ -303,4 +304,241 @@ test('task link preflight preserves an existing archived-project relationship', 
   assert.deepEqual(calls, [
     { table: 'projects', columns: 'id', filters: [['id', 'archived-project'], ['user_id', 'owner-1']] },
   ])
+})
+
+
+type UpdateTaskPlan = {
+  table: string
+  action: 'select' | 'update' | 'insert'
+  data?: unknown
+  error?: unknown
+}
+
+function createUpdateTaskSupabase(plans: UpdateTaskPlan[]) {
+  const calls: Array<{
+    table: string
+    action?: 'select' | 'update' | 'insert'
+    columns?: string
+    payload?: Record<string, unknown>
+    filters: Array<[string, string]>
+  }> = []
+
+  function finish(call: (typeof calls)[number]) {
+    const plan = plans.shift()
+    assert.ok(plan, `unexpected ${call.action} query for ${call.table}`)
+    assert.equal(plan.table, call.table)
+    assert.equal(plan.action, call.action)
+    return { data: plan.data ?? null, error: plan.error ?? null }
+  }
+
+  const supabase = {
+    from(table: string) {
+      const call = { table, filters: [] as Array<[string, string]> }
+      calls.push(call)
+      return {
+        select(columns: string) {
+          if (!call.action) call.action = 'select'
+          call.columns = columns
+          return this
+        },
+        update(payload: Record<string, unknown>) {
+          call.action = 'update'
+          call.payload = payload
+          return this
+        },
+        insert(payload: Record<string, unknown>) {
+          call.action = 'insert'
+          call.payload = payload
+          return Promise.resolve(finish(call))
+        },
+        eq(column: string, value: string) {
+          call.filters.push([column, value])
+          return this
+        },
+        single() {
+          return Promise.resolve(finish(call))
+        },
+        maybeSingle() {
+          return Promise.resolve(finish(call))
+        },
+      }
+    },
+  } as any
+
+  return { supabase, calls, remainingPlans: () => plans.length }
+}
+
+function validTaskUpdate(): UpdateTaskInput {
+  return {
+    title: '  Updated task  ',
+    priority: 'HIGH',
+    estimated_minutes: 45,
+    due_at: null,
+    scheduled_start: null,
+    scheduled_end: null,
+  }
+}
+
+test('updateTaskForUser rejects a missing owner before database access', async () => {
+  let fromCalls = 0
+  const supabase = {
+    from() {
+      fromCalls += 1
+      throw new Error('database should not be reached')
+    },
+  } as any
+
+  await assert.rejects(
+    () => updateTaskForUser(supabase, '', 'task-1', validTaskUpdate()),
+    /Unauthorized/,
+  )
+  assert.equal(fromCalls, 0)
+})
+
+test('updateTaskForUser leaves omitted relationships untouched and enforces its update allowlist', async () => {
+  const { supabase, calls, remainingPlans } = createUpdateTaskSupabase([
+    { table: 'tasks', action: 'update', data: { id: 'task-1', user_id: 'owner-1' } },
+    { table: 'activity_events', action: 'insert' },
+  ])
+  const input = {
+    ...validTaskUpdate(),
+    id: 'attacker-task',
+    user_id: 'attacker',
+    status: 'COMPLETED',
+    created_at: 'spoofed',
+    recurrence_parent_id: 'attacker-parent',
+  } as UpdateTaskInput & Record<string, unknown>
+
+  await updateTaskForUser(supabase, 'owner-1', 'task-1', input)
+
+  assert.deepEqual(calls[0].filters, [['id', 'task-1'], ['user_id', 'owner-1']])
+  assert.deepEqual(Object.keys(calls[0].payload ?? {}).sort(), [
+    'due_at',
+    'estimated_minutes',
+    'priority',
+    'recurrence_rule',
+    'recurrence_until',
+    'scheduled_end',
+    'scheduled_start',
+    'title',
+    'updated_at',
+  ])
+  assert.equal(calls[0].payload?.title, 'Updated task')
+  assert.equal(calls[0].payload?.project_id, undefined)
+  assert.equal(calls[0].payload?.parent_task_id, undefined)
+  assert.equal(calls[0].payload?.user_id, undefined)
+  assert.equal(calls[0].payload?.status, undefined)
+  assert.equal(calls[0].payload?.recurrence_parent_id, undefined)
+  assert.equal(typeof calls[0].payload?.updated_at, 'string')
+  assert.deepEqual(calls[1].payload, {
+    user_id: 'owner-1',
+    event_type: 'TASK_UPDATED',
+    entity_type: 'TASK',
+    entity_id: 'task-1',
+    metadata: { source: 'dashboard', recurrence_scope: 'occurrence_only' },
+  })
+  assert.equal(remainingPlans(), 0)
+})
+
+test('updateTaskForUser validates a parent change while preserving an omitted project link', async () => {
+  const { supabase, calls, remainingPlans } = createUpdateTaskSupabase([
+    { table: 'tasks', action: 'select', data: { project_id: 'project-1', parent_task_id: 'old-parent' } },
+    { table: 'tasks', action: 'select', data: { id: 'new-parent', user_id: 'owner-1', project_id: 'project-1' } },
+    { table: 'projects', action: 'select', data: { id: 'project-1' } },
+    { table: 'tasks', action: 'update', data: { id: 'task-1', parent_task_id: 'new-parent' } },
+    { table: 'activity_events', action: 'insert' },
+  ])
+
+  await updateTaskForUser(supabase, 'owner-1', 'task-1', {
+    ...validTaskUpdate(),
+    parent_task_id: 'new-parent',
+  })
+
+  assert.deepEqual(calls[0].filters, [['id', 'task-1'], ['user_id', 'owner-1']])
+  assert.equal(calls[0].columns, 'project_id,parent_task_id')
+  assert.deepEqual(calls[1].filters, [['id', 'new-parent'], ['user_id', 'owner-1']])
+  assert.deepEqual(calls[2].filters, [['id', 'project-1'], ['user_id', 'owner-1']])
+  assert.deepEqual(calls[3].filters, [['id', 'task-1'], ['user_id', 'owner-1']])
+  assert.equal(calls[3].payload?.parent_task_id, 'new-parent')
+  assert.equal(calls[3].payload?.project_id, undefined)
+  assert.equal(remainingPlans(), 0)
+})
+
+test('updateTaskForUser treats an explicit null parent as a clear while preserving the omitted project', async () => {
+  const { supabase, calls, remainingPlans } = createUpdateTaskSupabase([
+    { table: 'tasks', action: 'select', data: { project_id: 'project-1', parent_task_id: 'old-parent' } },
+    { table: 'projects', action: 'select', data: { id: 'project-1' } },
+    { table: 'tasks', action: 'update', data: { id: 'task-1', project_id: 'project-1', parent_task_id: null } },
+    { table: 'activity_events', action: 'insert' },
+  ])
+
+  await updateTaskForUser(supabase, 'owner-1', 'task-1', {
+    ...validTaskUpdate(),
+    parent_task_id: null,
+  })
+
+  assert.deepEqual(calls[0].filters, [['id', 'task-1'], ['user_id', 'owner-1']])
+  assert.deepEqual(calls[1].filters, [['id', 'project-1'], ['user_id', 'owner-1']])
+  assert.equal(calls[2].payload?.parent_task_id, null)
+  assert.equal(calls[2].payload?.project_id, undefined)
+  assert.equal(remainingPlans(), 0)
+})
+
+test('updateTaskForUser treats an explicit null project as a clear when the parent is omitted', async () => {
+  const { supabase, calls, remainingPlans } = createUpdateTaskSupabase([
+    { table: 'tasks', action: 'select', data: { project_id: 'project-1', parent_task_id: null } },
+    { table: 'tasks', action: 'update', data: { id: 'task-1', project_id: null, parent_task_id: null } },
+    { table: 'activity_events', action: 'insert' },
+  ])
+
+  await updateTaskForUser(supabase, 'owner-1', 'task-1', {
+    ...validTaskUpdate(),
+    project_id: null,
+  })
+
+  assert.deepEqual(calls[0].filters, [['id', 'task-1'], ['user_id', 'owner-1']])
+  assert.equal(calls[1].payload?.project_id, null)
+  assert.equal(calls[1].payload?.parent_task_id, undefined)
+  assert.equal(remainingPlans(), 0)
+})
+
+test('updateTaskForUser requires an ACTIVE owner project before a new project assignment', async () => {
+  const { supabase, calls, remainingPlans } = createUpdateTaskSupabase([
+    { table: 'tasks', action: 'select', data: { project_id: null, parent_task_id: null } },
+    { table: 'projects', action: 'select', data: { id: 'project-2', status: 'ACTIVE' } },
+    { table: 'tasks', action: 'update', data: { id: 'task-1', project_id: 'project-2' } },
+    { table: 'activity_events', action: 'insert' },
+  ])
+
+  await updateTaskForUser(supabase, 'owner-1', 'task-1', {
+    ...validTaskUpdate(),
+    project_id: 'project-2',
+  })
+
+  assert.equal(calls[1].columns, 'id,status')
+  assert.deepEqual(calls[1].filters, [['id', 'project-2'], ['user_id', 'owner-1']])
+  assert.equal(calls[2].payload?.project_id, 'project-2')
+  assert.equal(remainingPlans(), 0)
+})
+
+test('updateTaskForUser rejects an ARCHIVED project before mutating task relationships', async () => {
+  const originalTask = { project_id: null, parent_task_id: null }
+  const { supabase, calls, remainingPlans } = createUpdateTaskSupabase([
+    { table: 'tasks', action: 'select', data: originalTask },
+    { table: 'projects', action: 'select', data: { id: 'archived-project', status: 'ARCHIVED' } },
+  ])
+
+  await assert.rejects(
+    () => updateTaskForUser(supabase, 'owner-1', 'task-1', {
+      ...validTaskUpdate(),
+      project_id: 'archived-project',
+    }),
+    /Tasks can only be linked to active projects/,
+  )
+
+  assert.equal(calls.length, 2)
+  assert.equal(calls.some(call => call.action === 'update'), false)
+  assert.equal(calls.some(call => call.action === 'insert'), false)
+  assert.deepEqual(originalTask, { project_id: null, parent_task_id: null })
+  assert.equal(remainingPlans(), 0)
 })
