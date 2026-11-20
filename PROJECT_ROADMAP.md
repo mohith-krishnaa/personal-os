@@ -6,7 +6,7 @@ Task INSERT/UPDATE activity events are now written by a SECURITY INVOKER Postgre
 
 The task-event contract is not fully idempotent at the user-intent level. Task/subtask create requests do not yet carry a stable client request key, so a retried create can produce a second task row and a second valid TASK_CREATED event. DELETE events are not captured. `activity_events` remains mutable and polymorphic, not an immutable audit log. Analytics must not interpret event counts as counts of user intent, nor infer that an absent event proves no task deletion occurred.
 
-Organization V1 remains **in progress**. The branch contains 23 migrations; the last verified production ledger had 8 versions, but production was not queried during this run. Complete owner-controlled schema/data/roles backup, successful isolated restore, restored-copy checklist reconciliation review, and authenticated two-owner PostgREST acceptance remain mandatory. Analytics remains queued.
+Organization V1 remains **in progress**. The branch contains 23 migrations; fresh read-only production inspection reconfirmed 8 live ledger versions, so 15 are branch-only. Complete owner-controlled schema/data/roles backup, successful isolated restore, restored-copy checklist reconciliation review, and authenticated two-owner PostgREST acceptance remain mandatory. Analytics remains queued.
 
 **Next bounded task:** add stable client-generated request IDs for task and subtask creation, enforce a per-owner unique request key, and test same-key retries and concurrent duplicate submissions. Do not make Analytics depend on user-intent event counts until this gap and DELETE semantics are resolved.
 

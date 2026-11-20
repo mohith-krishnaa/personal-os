@@ -1,6 +1,6 @@
 > **Verified checkpoint — 2026-11-21 (transactional task activity events).** Branch `feature/organization-v1`; code HEAD `e288c55768bca52e906d51fd6b9580f3ba0cff33`; [CI #408](https://github.com/mohith-krishnaa/personal-os/actions/runs/44802872792) passed on code HEAD; [CI #409](https://github.com/mohith-krishnaa/personal-os/actions/runs/44803558307) passed on final documentation HEAD `7ff05d1c407c5f6e65b409806db55fc7a28fcf4a`. PR #11 remains open/unmerged.
 >
-> Repository inventory: **23 migrations**. The last verified live ledger had eight versions, so 15 are branch-only if that ledger is unchanged; production was not queried during this run. The new local-only migration is `20261121000100_durable_task_activity_events.sql`.
+> Repository inventory: **23 migrations**. Fresh read-only inspection reconfirmed eight live ledger versions, so 15 are branch-only. The new local-only migration is `20261121000100_durable_task_activity_events.sql`.
 >
 > The migration installs a SECURITY INVOKER AFTER INSERT/UPDATE trigger on tasks. Task creation, meaningful updates, status changes, and recurrence occurrence inserts write their activity events in the same statement transaction. Failure rolls back the task statement. The trigger retains existing activity_events RLS and grants no SECURITY DEFINER bypass. Read-only preflight query 16 reports its security/privilege contract.
 >
