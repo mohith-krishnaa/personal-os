@@ -4,7 +4,8 @@
 
 create table public.projects (
   id uuid primary key,
-  user_id uuid not null
+  user_id uuid not null,
+  status text not null default 'ACTIVE'
 );
 
 create table public.tasks (
@@ -19,6 +20,8 @@ create table public.tasks (
 create trigger validate_task_organization_links
 before insert or update of user_id, project_id, parent_task_id on public.tasks
 for each row execute function public.validate_task_organization_links();
+
+\ir ../migrations/20261120000100_enforce_active_project_task_links.sql
 
 insert into public.projects (id, user_id) values
   ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '11111111-1111-4111-8111-111111111111'),
