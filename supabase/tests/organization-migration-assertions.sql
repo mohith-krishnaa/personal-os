@@ -639,6 +639,44 @@ BEGIN
     RAISE EXCEPTION 'Authenticated UPDATE could not reassign a task to another parent in the same owned project.';
   END IF;
 
+  -- A three-level chain must not be closed into a cycle by an authenticated UPDATE.
+  INSERT INTO public.tasks (id, user_id, project_id, parent_task_id, title)
+  VALUES (
+    '40000000-0000-4000-8000-000000000013',
+    auth.uid(),
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    '40000000-0000-4000-8000-000000000003',
+    'Owner A hierarchy-cycle descendant'
+  );
+
+  BEGIN
+    UPDATE public.tasks
+    SET parent_task_id = '40000000-0000-4000-8000-000000000013'
+    WHERE id = '40000000-0000-4000-8000-000000000009';
+    RAISE EXCEPTION 'Authenticated hierarchy-cycle UPDATE unexpectedly succeeded.'
+      USING ERRCODE = 'P0001';
+  EXCEPTION WHEN check_violation THEN
+    GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
+    IF error_message <> 'Task hierarchy cannot contain cycles.' THEN
+      RAISE EXCEPTION 'Authenticated hierarchy-cycle UPDATE failed for an unexpected reason: %', error_message;
+    END IF;
+  END;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.tasks root
+    JOIN public.tasks child
+      ON child.id = '40000000-0000-4000-8000-000000000003'
+    JOIN public.tasks descendant
+      ON descendant.id = '40000000-0000-4000-8000-000000000013'
+    WHERE root.id = '40000000-0000-4000-8000-000000000009'
+      AND root.parent_task_id IS NULL
+      AND child.parent_task_id = root.id
+      AND descendant.parent_task_id = child.id
+  ) THEN
+    RAISE EXCEPTION 'Rejected Owner A hierarchy-cycle UPDATE changed the existing parent chain.';
+  END IF;
+
   -- A parent in another project owned by the same user must still be rejected.
   BEGIN
     UPDATE public.tasks
@@ -1295,6 +1333,41 @@ BEGIN
     SELECT 1 FROM public.tasks WHERE id = '40000000-0000-4000-8000-000000000002'
   ) THEN
     RAISE EXCEPTION 'Rejected Owner B cross-owner project INSERT left a task row behind.';
+  END IF;
+
+  -- Owner B must receive the same cycle protection within its own isolated project.
+  INSERT INTO public.tasks (id, user_id, project_id, parent_task_id, title)
+  VALUES (
+    '40000000-0000-4000-8000-000000000014',
+    auth.uid(),
+    'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+    '20000000-0000-4000-8000-000000000001',
+    'Owner B hierarchy-cycle descendant'
+  );
+
+  BEGIN
+    UPDATE public.tasks
+    SET parent_task_id = '40000000-0000-4000-8000-000000000014'
+    WHERE id = '20000000-0000-4000-8000-000000000001';
+    RAISE EXCEPTION 'Owner B authenticated hierarchy-cycle UPDATE unexpectedly succeeded.'
+      USING ERRCODE = 'P0001';
+  EXCEPTION WHEN check_violation THEN
+    GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
+    IF error_message <> 'Task hierarchy cannot contain cycles.' THEN
+      RAISE EXCEPTION 'Owner B hierarchy-cycle UPDATE failed for an unexpected reason: %', error_message;
+    END IF;
+  END;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.tasks root
+    JOIN public.tasks descendant
+      ON descendant.id = '40000000-0000-4000-8000-000000000014'
+    WHERE root.id = '20000000-0000-4000-8000-000000000001'
+      AND root.parent_task_id IS NULL
+      AND descendant.parent_task_id = root.id
+  ) THEN
+    RAISE EXCEPTION 'Rejected Owner B hierarchy-cycle UPDATE changed the existing parent chain.';
   END IF;
 
   -- A valid Owner B project cannot be combined with Owner A's hidden parent.
