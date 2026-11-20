@@ -349,15 +349,16 @@ where n.nspname = 'public'
   and pg_get_function_identity_arguments(p.oid) = 'p_limit integer';
 
 
--- 16. Transactional task activity-event contract.
+-- 16. Transactional task activity-event contract; migration 27 moves the trigger to a trusted SECURITY DEFINER writer.
 select
   t.tgname is not null and t.tgenabled = 'O' as task_activity_trigger_enabled,
-  p.prosecdef = false as trigger_is_security_invoker,
+  p.prosecdef = true as trigger_is_security_definer,
+  pg_get_userbyid(p.proowner) = 'postgres' as trigger_owner_is_postgres,
   coalesce(p.proconfig, array[]::text[]) @> array['search_path=pg_catalog, public']::text[] as trigger_search_path_safe,
   has_function_privilege('authenticated', p.oid, 'EXECUTE') as authenticated_can_execute_trigger,
   has_function_privilege('service_role', p.oid, 'EXECUTE') as service_role_can_execute_trigger,
   has_function_privilege('anon', p.oid, 'EXECUTE') as anon_can_execute_trigger,
-  has_table_privilege('authenticated', 'public.activity_events', 'INSERT') as authenticated_can_insert_activity_events,
+  NOT has_table_privilege('authenticated', 'public.activity_events', 'INSERT') as authenticated_cannot_insert_activity_events,
   exists (
     select 1 from pg_policies policy
     where policy.schemaname = 'public'
@@ -367,15 +368,12 @@ select
       and policy.roles @> array['authenticated']::name[]
       and policy.qual ilike '%auth.uid%'
   ) as activity_events_select_owner_policy_present,
-  exists (
+  NOT EXISTS (
     select 1 from pg_policies policy
     where policy.schemaname = 'public'
       and policy.tablename = 'activity_events'
       and policy.policyname = 'activity_events_insert_owner'
-      and policy.cmd = 'INSERT'
-      and policy.roles @> array['authenticated']::name[]
-      and policy.with_check ilike '%auth.uid%'
-  ) as activity_events_insert_owner_policy_present,
+  ) as activity_events_insert_owner_policy_absent,
   not exists (
     select 1 from pg_policies policy
     where policy.schemaname = 'public'
@@ -451,7 +449,7 @@ FROM task_columns c
 LEFT JOIN trigger_function p ON true;
 
 -- 18. Transactional task DELETE event contract.
--- TASK_DELETED is emitted only when the authenticated JWT subject owns the deleted row.
+-- TASK_DELETED is emitted only when the authenticated JWT subject owns the deleted row; task events are written by the postgres-owned SECURITY DEFINER trigger.
 -- Service-role/Auth-account cascades intentionally skip the event so auth.users cleanup
 -- can cascade both tasks and activity_events without inserting a row for a deleted user.
 WITH task_activity_trigger AS (
@@ -474,10 +472,11 @@ SELECT
   coalesce((SELECT trigger_definition ILIKE '%DELETE%' FROM task_activity_trigger), false) AS task_delete_event_enabled,
   coalesce((SELECT prosrc LIKE '%TASK_DELETED%' FROM task_activity_trigger), false) AS task_deleted_event_mapping_present,
   coalesce((SELECT prosrc LIKE '%auth.uid() IS DISTINCT FROM OLD.user_id%' FROM task_activity_trigger), false) AS task_delete_owner_context_guard_present,
-  coalesce((SELECT prosecdef = false FROM task_activity_trigger), false) AS task_activity_trigger_is_security_invoker,
+  coalesce((SELECT prosecdef = true FROM task_activity_trigger), false) AS task_activity_trigger_is_security_definer,
+  coalesce((SELECT pg_get_userbyid(p.proowner) = 'postgres' FROM pg_proc p WHERE p.oid = (SELECT function_oid FROM task_activity_trigger)), false) AS task_activity_trigger_owner_is_postgres,
   coalesce((SELECT proconfig @> ARRAY['search_path=pg_catalog, public']::text[] FROM task_activity_trigger), false) AS task_activity_trigger_search_path_safe,
   CASE WHEN (SELECT function_oid FROM task_activity_trigger) IS NULL THEN false
-       ELSE has_function_privilege('authenticated', (SELECT function_oid FROM task_activity_trigger), 'EXECUTE') END AS authenticated_can_execute_task_activity_trigger,
+       ELSE NOT has_function_privilege('authenticated', (SELECT function_oid FROM task_activity_trigger), 'EXECUTE') END AS authenticated_cannot_execute_task_activity_trigger,
   CASE WHEN (SELECT function_oid FROM task_activity_trigger) IS NULL THEN false
        ELSE has_function_privilege('service_role', (SELECT function_oid FROM task_activity_trigger), 'EXECUTE') END AS service_role_can_execute_task_activity_trigger,
   CASE WHEN (SELECT function_oid FROM task_activity_trigger) IS NULL THEN false
@@ -509,8 +508,8 @@ SELECT
 
 
 -- 19. Append-only activity-event access contract.
--- Application roles may SELECT/INSERT only. The postgres table owner retains
--- controlled maintenance/retention privileges; auth.users FK cleanup still cascades.
+-- Authenticated clients are SELECT-only; trusted task-trigger and reminder-RPC paths write events.
+-- service_role remains a trusted backend writer; postgres retains maintenance privileges.
 WITH event_table AS (
   SELECT
     c.relrowsecurity,
@@ -530,15 +529,12 @@ SELECT
       AND policy.roles @> ARRAY['authenticated']::name[]
       AND policy.qual ILIKE '%auth.uid%'
   ) AS activity_events_select_owner_policy_present,
-  EXISTS (
+  NOT EXISTS (
     SELECT 1 FROM pg_policies policy
     WHERE policy.schemaname = 'public'
       AND policy.tablename = 'activity_events'
       AND policy.policyname = 'activity_events_insert_owner'
-      AND policy.cmd = 'INSERT'
-      AND policy.roles @> ARRAY['authenticated']::name[]
-      AND policy.with_check ILIKE '%auth.uid%'
-  ) AS activity_events_insert_owner_policy_present,
+  ) AS activity_events_insert_owner_policy_absent,
   NOT EXISTS (
     SELECT 1 FROM pg_policies policy
     WHERE policy.schemaname = 'public'
@@ -546,7 +542,7 @@ SELECT
       AND policy.cmd IN ('ALL', 'UPDATE', 'DELETE')
   ) AS activity_events_mutation_policies_absent,
   has_table_privilege('authenticated', 'public.activity_events', 'SELECT') AS authenticated_can_select,
-  has_table_privilege('authenticated', 'public.activity_events', 'INSERT') AS authenticated_can_insert,
+  NOT has_table_privilege('authenticated', 'public.activity_events', 'INSERT') AS authenticated_cannot_insert,
   has_table_privilege('authenticated', 'public.activity_events', 'UPDATE') AS authenticated_can_update,
   has_table_privilege('authenticated', 'public.activity_events', 'DELETE') AS authenticated_can_delete,
   has_table_privilege('authenticated', 'public.activity_events', 'TRUNCATE') AS authenticated_can_truncate,
@@ -563,3 +559,73 @@ SELECT
   has_table_privilege('postgres', 'public.activity_events', 'DELETE') AS postgres_owner_can_delete_for_maintenance,
   has_table_privilege('postgres', 'public.activity_events', 'TRUNCATE') AS postgres_owner_can_truncate_for_maintenance
 FROM event_table;
+
+-- 20. Activity-event schema, entity, and idempotency contract.
+-- This reports intentional polymorphism and the domain-specific retry guards;
+-- it does not infer event counts as user-intent counts.
+WITH event_columns AS (
+  SELECT
+    a.attname,
+    a.atttypid,
+    a.attnotnull
+  FROM pg_attribute a
+  WHERE a.attrelid = to_regclass('public.activity_events')
+    AND a.attnum > 0
+    AND NOT a.attisdropped
+), task_writer AS (
+  SELECT p.prosrc
+  FROM pg_proc p
+  WHERE p.oid = to_regprocedure('public.record_task_activity_event()')
+), reminder_writer AS (
+  SELECT p.prosrc
+  FROM pg_proc p
+  WHERE p.oid = to_regprocedure('public.claim_due_reminders(integer)')
+), event_constraints AS (
+  SELECT
+    bool_or(con.contype = 'c' AND pg_get_constraintdef(con.oid) ILIKE '%event_type%') AS event_type_check_present,
+    bool_or(con.contype = 'c' AND pg_get_constraintdef(con.oid) ILIKE '%entity_type%' AND pg_get_constraintdef(con.oid) ILIKE '%entity_id%') AS entity_pair_check_present,
+    bool_or(con.contype = 'f' AND a.attname = 'entity_id') AS entity_id_foreign_key_present
+  FROM pg_constraint con
+  LEFT JOIN LATERAL unnest(con.conkey) AS key_attnum(attnum) ON true
+  LEFT JOIN pg_attribute a ON a.attrelid = con.conrelid AND a.attnum = key_attnum.attnum
+  WHERE con.conrelid = to_regclass('public.activity_events')
+), task_indexes AS (
+  SELECT
+    EXISTS (
+      SELECT 1 FROM pg_constraint
+      WHERE conrelid = to_regclass('public.tasks')
+        AND conname = 'tasks_user_client_request_unique'
+        AND contype = 'u'
+        AND convalidated
+    ) AS task_create_request_unique,
+    EXISTS (
+      SELECT 1 FROM pg_indexes
+      WHERE schemaname = 'public'
+        AND tablename = 'tasks'
+        AND indexname = 'tasks_recurring_occurrence_unique'
+    ) AS recurring_occurrence_unique
+), reminder_indexes AS (
+  SELECT EXISTS (
+    SELECT 1 FROM pg_indexes
+    WHERE schemaname = 'public'
+      AND tablename = 'notifications'
+      AND indexname = 'notifications_reminder_unique'
+  ) AS reminder_notification_unique
+)
+SELECT
+  EXISTS (SELECT 1 FROM event_columns WHERE attname = 'event_type' AND atttypid = 'text'::regtype AND attnotnull) AS event_type_text_not_null,
+  EXISTS (SELECT 1 FROM event_columns WHERE attname = 'entity_type' AND atttypid = 'text'::regtype AND NOT attnotnull) AS entity_type_nullable,
+  EXISTS (SELECT 1 FROM event_columns WHERE attname = 'entity_id' AND atttypid = 'uuid'::regtype AND NOT attnotnull) AS entity_id_uuid_nullable,
+  EXISTS (SELECT 1 FROM event_columns WHERE attname = 'metadata' AND atttypid = 'jsonb'::regtype AND attnotnull) AS metadata_jsonb_not_null,
+  coalesce((SELECT event_type_check_present FROM event_constraints), false) AS event_type_check_present,
+  coalesce((SELECT entity_pair_check_present FROM event_constraints), false) AS entity_pair_check_present,
+  coalesce((SELECT entity_id_foreign_key_present FROM event_constraints), false) AS entity_id_foreign_key_present,
+  EXISTS (SELECT 1 FROM task_writer WHERE prosrc LIKE '%TASK_CREATED%' AND prosrc LIKE '%TASK_UPDATED%' AND prosrc LIKE '%TASK_COMPLETED%' AND prosrc LIKE '%TASK_STATUS_CHANGED%' AND prosrc LIKE '%TASK_RECURRENCE_GENERATED%' AND prosrc LIKE '%TASK_DELETED%') AS task_event_mapping_complete,
+  EXISTS (SELECT 1 FROM reminder_writer WHERE prosrc LIKE '%REMINDER_DELIVERED%') AS reminder_event_mapping_present,
+  coalesce((SELECT task_create_request_unique FROM task_indexes), false) AS task_create_request_unique,
+  coalesce((SELECT recurring_occurrence_unique FROM task_indexes), false) AS recurring_occurrence_unique,
+  coalesce((SELECT reminder_notification_unique FROM reminder_indexes), false) AS reminder_notification_unique,
+  NOT EXISTS (
+    SELECT 1 FROM event_columns
+    WHERE attname IN ('idempotency_key', 'client_request_id', 'event_request_id')
+  ) AS generic_event_idempotency_key_absent;

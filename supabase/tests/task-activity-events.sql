@@ -49,14 +49,15 @@ BEGIN
     WHERE t.tgrelid = 'public.tasks'::regclass
       AND t.tgname = 'tasks_record_activity_event'
       AND NOT t.tgisinternal AND t.tgenabled = 'O'
-      AND NOT p.prosecdef
+      AND p.prosecdef
+      AND pg_get_userbyid(p.proowner) = 'postgres'
       AND coalesce(p.proconfig, array[]::text[]) @> array['search_path=pg_catalog, public']::text[]
   ) THEN
-    RAISE EXCEPTION 'Task activity trigger must be enabled, SECURITY INVOKER, and use a fixed search_path.';
+    RAISE EXCEPTION 'Task activity trigger must be postgres-owned SECURITY DEFINER and use a fixed search_path.';
   END IF;
 
   IF has_function_privilege('anon', 'public.record_task_activity_event()', 'EXECUTE')
-     OR NOT has_function_privilege('authenticated', 'public.record_task_activity_event()', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.record_task_activity_event()', 'EXECUTE')
      OR NOT has_function_privilege('service_role', 'public.record_task_activity_event()', 'EXECUTE') THEN
     RAISE EXCEPTION 'Task activity trigger EXECUTE grants are incorrect.';
   END IF;

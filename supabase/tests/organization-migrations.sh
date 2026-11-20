@@ -10,7 +10,7 @@ export PGDATABASE="${PGDATABASE:-personal_os_migration_test}"
 psql -X -v ON_ERROR_STOP=1 -c 'select 1' >/dev/null
 psql -X -v ON_ERROR_STOP=1 -f supabase/tests/organization-migration-bootstrap.sql
 
-expected_migrations=26
+expected_migrations=27
 actual_migrations="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | wc -l | tr -d ' ')"
 
 if [[ "$actual_migrations" -ne "$expected_migrations" ]]; then
@@ -54,6 +54,8 @@ echo "Reapplying task DELETE activity event migration to verify idempotence"
 psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261121000300_task_delete_activity_events.sql
 echo "Reapplying activity-event append-only migration to verify idempotence"
 psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261121000400_activity_events_append_only.sql
+echo "Reapplying trusted activity-event writer migration to verify idempotence"
+psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261121000500_trusted_activity_event_writers.sql
 echo "Reapplying atomic reminder delivery migration to verify idempotence"
 psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261120000300_atomic_reminder_delivery.sql
 echo "Reapplying the reminder/notification ownership migration to verify idempotence"

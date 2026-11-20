@@ -63,16 +63,17 @@ BEGIN
       AND t.tgname = 'tasks_record_activity_event'
       AND NOT t.tgisinternal
       AND t.tgenabled = 'O'
-      AND NOT p.prosecdef
+      AND p.prosecdef
+      AND pg_get_userbyid(p.proowner) = 'postgres'
       AND coalesce(p.proconfig, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog, public']::text[]
       AND p.prosrc LIKE '%TASK_DELETED%'
       AND p.prosrc LIKE '%auth.uid() IS DISTINCT FROM OLD.user_id%'
   ) THEN
-    RAISE EXCEPTION 'Task delete event trigger must be SECURITY INVOKER, fixed-search-path, and owner-context guarded.';
+    RAISE EXCEPTION 'Task delete event trigger must be postgres-owned SECURITY DEFINER, fixed-search-path, and owner-context guarded.';
   END IF;
 
   IF has_function_privilege('anon', 'public.record_task_activity_event()', 'EXECUTE')
-     OR NOT has_function_privilege('authenticated', 'public.record_task_activity_event()', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.record_task_activity_event()', 'EXECUTE')
      OR NOT has_function_privilege('service_role', 'public.record_task_activity_event()', 'EXECUTE') THEN
     RAISE EXCEPTION 'Task activity trigger EXECUTE grants are incorrect.';
   END IF;
