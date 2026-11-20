@@ -156,7 +156,7 @@
 # Personal-OS — Persistent Project State
 
 > Canonical recovery checkpoint. Read this before making project claims or changes.
-> Last reconciled: 2026-11-20. The pre-refresh branch HEAD `1d0ad43319e3a85f6280632e1d663c8d0c4e3b16` passed CI #319; this commit is a documentation-only refresh and requires its own workflow result.
+> Last reconciled: 2026-11-20. Code/test HEAD `0a4bd7e623cee437580d425d0fb71e5758febb47` passed [CI #364](https://github.com/mohith-krishnaa/personal-os/actions/runs/44694065363): 20/20 PostgreSQL 17 migrations replayed; authenticated parent reassignment/RLS and archive lifecycle assertions passed; 90/90 application tests, typecheck, and production build passed. The final full-workflow documentation checkpoint `c7fbd7780ce2b0ac780c754e260d3b178908b851` passed CI #365.
 
 ## Baseline verified state — 2026-11-19
 

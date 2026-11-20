@@ -154,13 +154,13 @@
 # Personal OS — Project Roadmap & Mind Map
 
 > Single source of truth for project direction. Verify GitHub/Supabase/CI before making claims.
-> Last reconciled: 2026-11-20. Code/test head `569d384f88b2f137d78ec5da8b41f40e40b73b28` passed CI #343, including 20-migration PostgreSQL 17 replay, active-project lifecycle/idempotence assertions, 87/87 application tests, typecheck, and production build.
+> Last reconciled: 2026-11-20. Code/test head `0a4bd7e623cee437580d425d0fb71e5758febb47` passed [CI #364](https://github.com/mohith-krishnaa/personal-os/actions/runs/44694065363), including 20-migration PostgreSQL 17 replay, authenticated parent reassignment and RLS assertions, 90/90 application tests, typecheck, and production build.
 
 ## Current position
 
 **Completed:** Core productivity, Recurring Tasks V1, and Reminders V1. Progress & Streaks V1 application implementation is complete, but live schema compatibility repair remains pending.
 
-**In progress:** Organization V1 remains under review on `feature/organization-v1` / PR #11. Code/test head `569d384f88b2f137d78ec5da8b41f40e40b73b28` passed [CI #343](https://github.com/mohith-krishnaa/personal-os/actions/runs/44652747495): all 20 PostgreSQL 17 migrations, active-project lifecycle/idempotence assertions, Organization/RLS assertions, hierarchy concurrency, 87/87 application tests, typecheck, and production build. New task creation/reassignment now requires ACTIVE projects at both application and database-trigger boundaries; existing task links survive completion/archive, and recurring generation stops for inactive projects.
+**In progress:** Organization V1 remains under review on `feature/organization-v1` / PR #11. Code/test head `0a4bd7e623cee437580d425d0fb71e5758febb47` passed [CI #364](https://github.com/mohith-krishnaa/personal-os/actions/runs/44694065363): all 20 PostgreSQL 17 migrations, authenticated Owner A/B and anonymous RLS assertions, archive lifecycle, hierarchy and two-session concurrency checks, 90/90 application tests, typecheck, and production build. Authenticated task project reassignment and parent-task reassignment now have explicit success/denial/state-preservation coverage. Existing archived-project relationships remain maintainable without allowing new links into inactive projects.
 
 **Production acceptance blocked:** live Supabase still has only 8 migrations applied, lacks `projects.name`, both checklist tables, Organization task-link triggers, and goal metric columns. No complete owner-controlled schema/data/roles backup has been restored in isolation, and authenticated two-user live PostgREST verification is outstanding. No production changes or PR merge were made.
 
