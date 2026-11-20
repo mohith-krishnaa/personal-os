@@ -86,8 +86,12 @@ BEGIN
     RAISE EXCEPTION 'The same request UUID must be reusable by a different owner.';
   END IF;
 
-  IF (SELECT count(*) FROM public.tasks WHERE client_request_id = request_id) <> 2 THEN
-    RAISE EXCEPTION 'Request uniqueness is not scoped to owner_id.';
+  IF (SELECT count(*) FROM public.tasks WHERE user_id = auth.uid() AND client_request_id = request_id) <> 1 THEN
+    RAISE EXCEPTION 'Owner B could not reuse the same request UUID in its own scope.';
+  END IF;
+  PERFORM set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', true);
+  IF (SELECT count(*) FROM public.tasks WHERE user_id = auth.uid() AND client_request_id = request_id) <> 1 THEN
+    RAISE EXCEPTION 'Owner A request key was not preserved independently from Owner B.';
   END IF;
 
   error_constraint := NULL;
