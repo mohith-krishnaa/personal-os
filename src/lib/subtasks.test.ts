@@ -3,6 +3,8 @@ import assert from 'node:assert/strict'
 import { createSubtask, listSubtasks } from './subtasks'
 import { afterSubtaskCreated, afterSubtaskListLoadFailed } from './subtask-state'
 
+const REQUEST_ID = '94000000-0000-4000-8000-000000000099'
+
 function unreachableDatabase() {
   return { from: () => { throw new Error('database should not be reached') } } as any
 }
@@ -20,6 +22,7 @@ function createLookupSupabase(responses: Array<{ table: string; data: unknown; e
         select() { return this },
         eq() { return this },
         single: async () => response,
+        maybeSingle: async () => response,
       }
     },
   } as any
@@ -27,6 +30,7 @@ function createLookupSupabase(responses: Array<{ table: string; data: unknown; e
 }
 
 function createSubtaskDatabase(projectStatus: string) {
+  const requestFilters: Array<[string, string]> = []
   const parentFilters: Array<[string, string]> = []
   const projectFilters: Array<[string, string]> = []
   const inserts: Array<Record<string, unknown>> = []
@@ -37,6 +41,20 @@ function createSubtaskDatabase(projectStatus: string) {
       if (table === 'tasks') {
         taskReads += 1
         if (taskReads === 1) {
+          return {
+            select(columns: string) {
+              assert.equal(columns, '*')
+              return this
+            },
+            eq(column: string, value: string) {
+              requestFilters.push([column, value])
+              return this
+            },
+            maybeSingle: async () => ({ data: null, error: null }),
+          }
+        }
+
+        if (taskReads === 2) {
           return {
             select(columns: string) {
               assert.equal(columns, 'id,user_id,project_id')
@@ -54,17 +72,14 @@ function createSubtaskDatabase(projectStatus: string) {
         }
 
         return {
-          insert(values: Record<string, unknown>) {
+          upsert(values: Record<string, unknown>) {
             inserts.push(values)
             return {
-              select() {
-                return {
-                  single: async () => ({
-                    data: { id: 'subtask-1', ...values },
-                    error: null,
-                  }),
-                }
-              },
+              select() { return this },
+              maybeSingle: async () => ({
+                data: { id: 'subtask-1', ...values },
+                error: null,
+              }),
             }
           },
         }
@@ -91,26 +106,26 @@ function createSubtaskDatabase(projectStatus: string) {
     },
   } as any
 
-  return { supabase, parentFilters, projectFilters, inserts }
+  return { supabase, requestFilters, parentFilters, projectFilters, inserts }
 }
 
 test('rejects blank subtask titles before database access', async () => {
   await assert.rejects(
-    () => createSubtask(unreachableDatabase(), 'user', 'parent', { title: '   ' }),
+    () => createSubtask(unreachableDatabase(), 'user', 'parent', { client_request_id: REQUEST_ID, title: '   ' }),
     /Subtask title is required/,
   )
 })
 
 test('rejects overlong subtask titles before database access', async () => {
   await assert.rejects(
-    () => createSubtask(unreachableDatabase(), 'user', 'parent', { title: 'x'.repeat(241) }),
+    () => createSubtask(unreachableDatabase(), 'user', 'parent', { client_request_id: REQUEST_ID, title: 'x'.repeat(241) }),
     /240 characters or fewer/,
   )
 })
 
 test('rejects a missing parent task id before database access', async () => {
   await assert.rejects(
-    () => createSubtask(unreachableDatabase(), 'user', '', { title: 'Valid title' }),
+    () => createSubtask(unreachableDatabase(), 'user', '', { client_request_id: REQUEST_ID, title: 'Valid title' }),
     /Parent task is required/,
   )
 })
@@ -118,21 +133,26 @@ test('rejects a missing parent task id before database access', async () => {
 test('rejects non-positive estimated minutes before database access', async () => {
   for (const estimated_minutes of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
     await assert.rejects(
-      () => createSubtask(unreachableDatabase(), 'user', 'parent', { title: 'Valid title', estimated_minutes }),
+      () => createSubtask(unreachableDatabase(), 'user', 'parent', { client_request_id: REQUEST_ID, title: 'Valid title', estimated_minutes }),
       /Estimated minutes must be greater than zero/,
     )
   }
 })
 
 test('creates a subtask only after owner-scoped ACTIVE-project preflight', async () => {
-  const { supabase, parentFilters, projectFilters, inserts } = createSubtaskDatabase('ACTIVE')
+  const { supabase, requestFilters, parentFilters, projectFilters, inserts } = createSubtaskDatabase('ACTIVE')
 
-  const result = await createSubtask(supabase, 'owner-1', 'parent-1', { title: 'Child task' })
+  const result = await createSubtask(supabase, 'owner-1', 'parent-1', { client_request_id: REQUEST_ID, title: 'Child task' })
 
   assert.equal(result.id, 'subtask-1')
+  assert.deepEqual(requestFilters, [['user_id', 'owner-1'], ['client_request_id', REQUEST_ID]])
   assert.deepEqual(parentFilters, [['id', 'parent-1'], ['user_id', 'owner-1']])
   assert.deepEqual(projectFilters, [['id', 'project-1'], ['user_id', 'owner-1']])
-  assert.deepEqual(inserts, [{
+  assert.equal(inserts.length, 1)
+  const { client_request_id, client_request_hash, ...insertedValues } = inserts[0]
+  assert.equal(client_request_id, REQUEST_ID)
+  assert.match(String(client_request_hash), /^[0-9a-f]{64}$/)
+  assert.deepEqual(insertedValues, {
     user_id: 'owner-1',
     parent_task_id: 'parent-1',
     project_id: 'project-1',
@@ -140,17 +160,18 @@ test('creates a subtask only after owner-scoped ACTIVE-project preflight', async
     priority: 'MEDIUM',
     due_at: null,
     estimated_minutes: null,
-  }])
+  })
 })
 
 test('createSubtask preserves parent database authorization errors', async () => {
   const databaseError = { code: '42501', message: 'permission denied for table tasks' }
   const { supabase } = createLookupSupabase([
+    { table: 'tasks', data: null, error: null },
     { table: 'tasks', data: null, error: databaseError },
   ])
 
   await assert.rejects(
-    () => createSubtask(supabase, 'owner-1', 'parent-1', { title: 'Child task' }),
+    () => createSubtask(supabase, 'owner-1', 'parent-1', { client_request_id: REQUEST_ID, title: 'Child task' }),
     error => error instanceof Error && error.message === 'You are not authorized to access the requested task or project.' && (error as Error & { code?: string }).code === '42501',
   )
 })
@@ -158,23 +179,25 @@ test('createSubtask preserves parent database authorization errors', async () =>
 test('createSubtask preserves project database authorization errors', async () => {
   const databaseError = { code: '42501', message: 'permission denied for table projects' }
   const { supabase } = createLookupSupabase([
+    { table: 'tasks', data: null, error: null },
     { table: 'tasks', data: { id: 'parent-1', user_id: 'owner-1', project_id: 'project-1' }, error: null },
     { table: 'projects', data: null, error: databaseError },
   ])
 
   await assert.rejects(
-    () => createSubtask(supabase, 'owner-1', 'parent-1', { title: 'Child task' }),
+    () => createSubtask(supabase, 'owner-1', 'parent-1', { client_request_id: REQUEST_ID, title: 'Child task' }),
     error => error instanceof Error && error.message === 'You are not authorized to access the requested task or project.' && (error as Error & { code?: string }).code === '42501',
   )
 })
 
 test('createSubtask maps a PostgREST zero-row parent result to the owner-safe not-found message', async () => {
   const { supabase } = createLookupSupabase([
+    { table: 'tasks', data: null, error: null },
     { table: 'tasks', data: null, error: { code: 'PGRST116', message: 'JSON object requested, no rows returned' } },
   ])
 
   await assert.rejects(
-    () => createSubtask(supabase, 'owner-1', 'foreign-parent', { title: 'Child task' }),
+    () => createSubtask(supabase, 'owner-1', 'foreign-parent', { client_request_id: REQUEST_ID, title: 'Child task' }),
     /Parent task not found/,
   )
 })
@@ -184,7 +207,7 @@ for (const status of ['COMPLETED', 'ARCHIVED']) {
     const { supabase, projectFilters, inserts } = createSubtaskDatabase(status)
 
     await assert.rejects(
-      () => createSubtask(supabase, 'owner-1', 'parent-1', { title: 'Child task' }),
+      () => createSubtask(supabase, 'owner-1', 'parent-1', { client_request_id: REQUEST_ID, title: 'Child task' }),
       /Tasks can only be linked to active projects/,
     )
 
@@ -194,37 +217,16 @@ for (const status of ['COMPLETED', 'ARCHIVED']) {
 }
 
 test('rejects a project that differs from the parent project before insert', async () => {
-  const supabase = {
-    from(table: string) {
-      if (table !== 'tasks') throw new Error('project lookup should not be reached')
-      return {
-        select() {
-          return {
-            eq() {
-              return {
-                eq() {
-                  return {
-                    single: async () => ({
-                      data: { id: 'parent', user_id: 'user', project_id: 'parent-project' },
-                      error: null,
-                    }),
-                  }
-                },
-              }
-            },
-          }
-        },
-        insert() {
-          throw new Error('task insert should not be reached')
-        },
-      }
-    },
-  } as any
+  const { supabase, calls } = createLookupSupabase([
+    { table: 'tasks', data: null, error: null },
+    { table: 'tasks', data: { id: 'parent', user_id: 'user', project_id: 'parent-project' }, error: null },
+  ])
 
   await assert.rejects(
-    () => createSubtask(supabase, 'user', 'parent', { title: 'Valid title', project_id: 'other-project' }),
+    () => createSubtask(supabase, 'user', 'parent', { client_request_id: REQUEST_ID, title: 'Valid title', project_id: 'other-project' }),
     /same project as its parent/,
   )
+  assert.deepEqual(calls, ['tasks', 'tasks'])
 })
 
 test('lists subtasks scoped to the requested owner and parent task', async () => {
