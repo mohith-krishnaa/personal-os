@@ -20,15 +20,16 @@ Latest code/test verification (2026-11-20): commit `c016f78410eac0ddcfd521be1989
 - Task hierarchy must not contain self-links or indirect cycles.
 - A checklist item must belong to the same user as its task.
 
+- The application uses `public.checklist_items` as its canonical checklist table.
+- The legacy `public.task_checklist_items` table is retained and reconciled forward; it is not dropped as part of Organization V1.
+- The application-facing project field is `projects.name`. Where a legacy `projects.title` column exists, the compatibility migration backfills and dual-writes the two fields rather than dropping the legacy column.
+
 ## Project archive/task-assignment concurrency decision — 2026-11-20
 
 - The `require_active_project_for_new_task_links` SECURITY INVOKER trigger takes a `FOR SHARE` lock on the owner-matched project row before accepting a new task link. Project status updates conflict with that lock, so assignment and completion/archive have a deterministic serialization order.
 - If assignment wins, the task link commits first and a later archive/completion may commit without detaching the historical link. If completion/archive wins, the waiting assignment must observe the inactive status and fail with the dedicated check violation.
 - CI #347 exercises both READ COMMITTED lock orders with separate PostgreSQL sessions, confirms the waiting session is blocked by the expected writer via `pg_blocking_pids`, verifies final project/task state, and checks for lingering sessions. The existing task-hierarchy cycle race remains covered.
 - This test runs against a disposable PostgreSQL 17 fixture. It does not prove that the trigger exists in production; the live Supabase project remains at 8 migrations and has no user-defined trigger on `projects` or `tasks`.
-- The application uses `public.checklist_items` as its canonical checklist table.
-- The legacy `public.task_checklist_items` table is retained and reconciled forward; it is not dropped as part of Organization V1.
-- The application-facing project field is `projects.name`. Where a legacy `projects.title` column exists, the compatibility migration backfills and dual-writes the two fields rather than dropping the legacy column.
 
 ## Project name/title compatibility decision — 2026-11-20
 
