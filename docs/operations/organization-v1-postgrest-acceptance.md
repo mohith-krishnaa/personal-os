@@ -27,7 +27,7 @@ The owner must retain a private evidence package outside Git containing:
 
 The current read-only snapshot (2026-11-20) has nine empty public application tables, zero auth.users, zero Storage buckets/objects, and zero Vault secrets, but it still has a custom auth.users profile-bootstrap trigger, an installed supabase_vault extension, and four installed non-plpgsql extensions. Recheck all counts and customizations immediately before export. The default Supabase CLI dump excludes auth/storage and extension-created schemas; a default schema dump alone is not complete.
 
-After the restored base has been verified, the isolated target must show exactly the eight source migrations applied and the 14 branch-only migrations pending. Review the dry-run, apply those 14 migrations only to the isolated target, run the checklist conflict report, and then run the two-owner PostgREST harness. Do not apply migrations to production. The environment variables below are owner attestations, not evidence; set them only after the artifacts and restore checks above have actually been reviewed.
+After the restored base has been verified, the isolated target must show exactly the eight source migrations applied and the 19 branch-only migrations pending (27 repository migrations total at the 2026-11-21 checkpoint). Review the dry-run, apply those 19 migrations only to the isolated target, run the checklist conflict report, and then run the two-owner PostgREST harness. Do not apply migrations to production. The environment variables below are owner attestations, not evidence; set them only after the artifacts and restore checks above have actually been reviewed.
 
 ## Environment
 
@@ -69,9 +69,13 @@ Using two separate authenticated sessions and only the public anon/publishable k
 - Each owner can create, read, update, and delete canonical checklist_items and legacy task_checklist_items.
 - Cross-owner SELECT returns no rows.
 - Cross-owner UPDATE and DELETE affect no rows.
+- Owner A cannot directly INSERT an `activity_events` row; the request must fail with PostgreSQL `42501`.
+- A successful task INSERT creates exactly one trusted `TASK_CREATED` event for the authenticated owner and task.
+- Each owner can read its own task event; the other owner cannot read it.
 - Owner spoofing, cross-owner project/task/parent links, and cross-owner checklist/task links are rejected.
 - Deleting a parent task cascades only through its own child hierarchy and attached checklist rows; the other owner's task remains.
-- The script deletes only the IDs it created, using the same authenticated owner sessions.
+- The script deletes only the project, task, and checklist IDs it created, using the same authenticated owner sessions.
+- It never attempts to delete `activity_events`. Task INSERT/UPDATE/DELETE triggers create append-only event rows, so task-linked test events remain after fixture cleanup. The script reports the retained event count for both owners.
 
 The harness does not create Auth users, delete Auth users, or inspect production. The live PostgREST acceptance run does not run automatically in CI; its unit tests cover the environment/URL/key safety gate without contacting Supabase. A successful unit-test run is not evidence that the live PostgREST acceptance suite has been executed.
 
@@ -89,3 +93,11 @@ The CI workflow runs `npm run test:acceptance:preflight` before PostgreSQL clien
 ## Task create request idempotency
 
 When exercising authenticated task or subtask creation, provide a stable UUID in `client_request_id` and a 64-character lowercase SHA-256 payload fingerprint in `client_request_hash`. Repeat the same owner/request key with the same payload and verify only one task and one `TASK_CREATED` event exist. Reuse the same key with a different payload through the application service and verify it is rejected without changing the original row. The same UUID must remain usable by a second owner because uniqueness is scoped by `user_id`. Verify attempts to update either request-identity column are rejected. This acceptance remains unexecuted until the complete backup and isolated-restore gates are satisfied.
+
+## Trusted activity-event acceptance and retained artifacts
+
+The live PostgREST harness verifies the public API boundary after migrations 26 and 27 are present on the isolated target: authenticated direct event INSERT is denied, a normal task INSERT creates exactly one `TASK_CREATED` event through the trusted trigger, the owner can read that event, and the other owner cannot. The harness uses only the anon/publishable key and the two authenticated sessions.
+
+The harness deliberately does not delete activity events. Its task cleanup produces `TASK_DELETED` events, while earlier task creates and updates may also have produced events. It counts and reports all remaining `activity_events` rows whose `entity_id` belongs to the run's created task IDs. These retained rows are expected artifacts. Use a disposable isolated project and disposable test identities; after acceptance, discard the isolated project or perform separately reviewed owner-level cleanup. Do not grant application roles event deletion just to make this harness clean up after itself.
+
+Event-write failure rollback is verified by the PostgreSQL migration-replay integration tests (`supabase/tests/task-activity-events.sql` and `supabase/tests/task-delete-activity-events.sql`), which inject a trigger failure and assert that task INSERT/UPDATE/DELETE and cascades roll back. The anon-key PostgREST harness does not disable or replace triggers to simulate internal database failure; it verifies the successful public API writer path only. CI runs those SQL rollback tests through `supabase/tests/organization-migrations.sh`.

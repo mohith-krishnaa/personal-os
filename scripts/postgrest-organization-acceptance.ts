@@ -160,6 +160,31 @@ function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
 }
 
+export type ActivityEventAcceptanceRow = {
+  id: string
+  user_id: string
+  event_type: string
+  entity_type: string | null
+  entity_id: string | null
+}
+
+export function assertSingleTaskCreatedEvent(
+  events: readonly ActivityEventAcceptanceRow[],
+  expectedOwnerId: string,
+  expectedTaskId: string,
+) {
+  assert(
+    events.length === 1,
+    'Expected exactly one TASK_CREATED event for the accepted task; found ' + events.length + '.',
+  )
+  const event = events[0]
+  assert(event.user_id === expectedOwnerId, 'TASK_CREATED event owner does not match the authenticated owner.')
+  assert(event.event_type === 'TASK_CREATED', 'The trusted task insert emitted an unexpected event type.')
+  assert(event.entity_type === 'TASK', 'TASK_CREATED event entity_type must be TASK.')
+  assert(event.entity_id === expectedTaskId, 'TASK_CREATED event entity_id does not match the inserted task.')
+  return event
+}
+
 async function insertOwnedRow(client: Client, table: string, values: Record<string, unknown>, ids: string[]) {
   const { data, error } = await client.from(table).insert(values).select('id,user_id').single()
   if (error || !data) {
@@ -221,6 +246,21 @@ async function cleanup(client: Client, rows: CreatedRows) {
     }
   }
   return errors
+}
+
+async function countRetainedActivityEvents(client: Client, taskIds: string[]) {
+  const uniqueTaskIds = [...new Set(taskIds)]
+  if (uniqueTaskIds.length === 0) return 0
+
+  const { count, error } = await client
+    .from('activity_events')
+    .select('id', { count: 'exact', head: true })
+    .in('entity_id', uniqueTaskIds)
+
+  if (error) {
+    throw new Error('Retained activity-event count failed (' + error.code + ').')
+  }
+  return count ?? 0
 }
 
 async function signIn(client: Client, credentials: OwnerCredentials, label: string) {
@@ -288,6 +328,53 @@ export async function runOrganizationAcceptance(config: AcceptanceConfig) {
     const taskB = await insertOwnedRow(ownerB, 'tasks', {
       user_id: userB.id, project_id: projectB.id, title: runMarker + 'owner_b_root',
     }, rowsB.tasks)
+
+    await expectRlsDenied('Owner A cannot directly INSERT activity events', ownerA.from('activity_events').insert({
+      user_id: userA.id,
+      event_type: 'TASK_COMPLETED',
+      entity_type: 'TASK',
+      entity_id: taskA.id,
+      metadata: { status: 'COMPLETED', source: 'postgrest-acceptance-forbidden-direct-insert' },
+    }).select('id').single())
+
+    const taskACreatedEvents = await ownerA.from('activity_events')
+      .select('id,user_id,event_type,entity_type,entity_id')
+      .eq('user_id', userA.id)
+      .eq('event_type', 'TASK_CREATED')
+      .eq('entity_type', 'TASK')
+      .eq('entity_id', taskA.id)
+    if (taskACreatedEvents.error) {
+      throw new Error('Owner A activity-event SELECT failed (' + taskACreatedEvents.error.code + ').')
+    }
+    assertSingleTaskCreatedEvent(
+      (taskACreatedEvents.data ?? []) as ActivityEventAcceptanceRow[],
+      userA.id,
+      taskA.id,
+    )
+
+    const taskBCreatedEvents = await ownerB.from('activity_events')
+      .select('id,user_id,event_type,entity_type,entity_id')
+      .eq('user_id', userB.id)
+      .eq('event_type', 'TASK_CREATED')
+      .eq('entity_type', 'TASK')
+      .eq('entity_id', taskB.id)
+    if (taskBCreatedEvents.error) {
+      throw new Error('Owner B activity-event SELECT failed (' + taskBCreatedEvents.error.code + ').')
+    }
+    assertSingleTaskCreatedEvent(
+      (taskBCreatedEvents.data ?? []) as ActivityEventAcceptanceRow[],
+      userB.id,
+      taskB.id,
+    )
+
+    await expectEmpty(
+      'Owner B cannot read Owner A task activity events',
+      ownerB.from('activity_events').select('id').eq('entity_id', taskA.id),
+    )
+    await expectEmpty(
+      'Owner A cannot read Owner B task activity events',
+      ownerA.from('activity_events').select('id').eq('entity_id', taskB.id),
+    )
 
     await expectEmpty('Owner B task SELECT isolation', ownerB.from('tasks').select('id').eq('id', taskA.id))
     await expectEmpty('Owner A task SELECT isolation', ownerA.from('tasks').select('id').eq('id', taskB.id))
@@ -431,8 +518,19 @@ export async function runOrganizationAcceptance(config: AcceptanceConfig) {
     ...await cleanup(ownerB, rowsB),
   ]
 
+  let retainedActivityEvents = 0
+  try {
+    const [ownerAEvents, ownerBEvents] = await Promise.all([
+      countRetainedActivityEvents(ownerA, rowsA.tasks),
+      countRetainedActivityEvents(ownerB, rowsB.tasks),
+    ])
+    retainedActivityEvents = ownerAEvents + ownerBEvents
+  } catch (error) {
+    cleanupErrors.push(error instanceof Error ? error.message : 'Could not count retained activity-event artifacts.')
+  }
+
   if (runFailure || cleanupErrors.length) {
-    const details = [runFailure, ...cleanupErrors].filter(Boolean).join(' | ')
+    const details = [runFailure, ...cleanupErrors, retainedActivityEvents + ' task-linked activity-event rows retained'].filter(Boolean).join(' | ')
     throw new Error(details)
   }
 
@@ -444,6 +542,7 @@ export async function runOrganizationAcceptance(config: AcceptanceConfig) {
     canonicalAndLegacyChecklistCrud: true,
     crossOwnerIsolation: true,
     cleanupCompleted: true,
+    retainedActivityEvents,
   }
 }
 
@@ -451,7 +550,8 @@ async function main() {
   const config = loadAcceptanceConfig(process.env, process.argv.slice(2))
   const result = await runOrganizationAcceptance(config)
   console.log('Organization PostgREST acceptance passed for isolated project ' + result.projectRef + '.')
-  console.log('Two owners; project/task/subtask/canonical+legacy checklist CRUD; cross-owner SELECT/INSERT/UPDATE/DELETE; cleanup completed.')
+  console.log('Two owners; project/task/subtask/canonical+legacy checklist CRUD; cross-owner isolation; trusted activity-event writer and read isolation passed.')
+  console.log(result.retainedActivityEvents + ' task-linked activity-event rows were retained; the harness never deletes activity events.')
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

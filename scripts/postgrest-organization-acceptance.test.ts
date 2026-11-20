@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { loadAcceptanceConfig } from './postgrest-organization-acceptance'
+import {
+  assertSingleTaskCreatedEvent,
+  loadAcceptanceConfig,
+  type ActivityEventAcceptanceRow,
+} from './postgrest-organization-acceptance'
 
 const validEnvironment = (): Record<string, string | undefined> => ({
   PERSONAL_OS_ACCEPTANCE_TARGET_ISOLATED: 'YES',
@@ -124,4 +128,72 @@ test('rejects a Supabase secret API key prefix', () => {
   const env = validEnvironment()
   env.PERSONAL_OS_ACCEPTANCE_ANON_KEY = 'sb_secret_test_key'
   assert.throws(() => loadAcceptanceConfig(env, ['--execute']), /secret\/service key is not allowed/)
+})
+
+const validTaskCreatedEvent: ActivityEventAcceptanceRow = {
+  id: 'event-1',
+  user_id: 'owner-a',
+  event_type: 'TASK_CREATED',
+  entity_type: 'TASK',
+  entity_id: 'task-a',
+}
+
+test('accepts exactly one trusted TASK_CREATED event for the expected owner and task', () => {
+  assert.equal(
+    assertSingleTaskCreatedEvent([validTaskCreatedEvent], 'owner-a', 'task-a'),
+    validTaskCreatedEvent,
+  )
+})
+
+test('rejects missing and duplicate TASK_CREATED events', () => {
+  assert.throws(
+    () => assertSingleTaskCreatedEvent([], 'owner-a', 'task-a'),
+    /exactly one TASK_CREATED event/,
+  )
+  assert.throws(
+    () => assertSingleTaskCreatedEvent(
+      [validTaskCreatedEvent, { ...validTaskCreatedEvent, id: 'event-2' }],
+      'owner-a',
+      'task-a',
+    ),
+    /exactly one TASK_CREATED event/,
+  )
+})
+
+test('rejects a TASK_CREATED event owned by a different user', () => {
+  assert.throws(
+    () => assertSingleTaskCreatedEvent(
+      [{ ...validTaskCreatedEvent, user_id: 'owner-b' }],
+      'owner-a',
+      'task-a',
+    ),
+    /owner does not match/,
+  )
+})
+
+test('rejects an unexpected event type or entity identity', () => {
+  assert.throws(
+    () => assertSingleTaskCreatedEvent(
+      [{ ...validTaskCreatedEvent, event_type: 'TASK_COMPLETED' }],
+      'owner-a',
+      'task-a',
+    ),
+    /unexpected event type/,
+  )
+  assert.throws(
+    () => assertSingleTaskCreatedEvent(
+      [{ ...validTaskCreatedEvent, entity_type: 'PROJECT' }],
+      'owner-a',
+      'task-a',
+    ),
+    /entity_type must be TASK/,
+  )
+  assert.throws(
+    () => assertSingleTaskCreatedEvent(
+      [{ ...validTaskCreatedEvent, entity_id: 'task-b' }],
+      'owner-a',
+      'task-a',
+    ),
+    /entity_id does not match/,
+  )
 })
