@@ -1,7 +1,8 @@
 # Latest verified checkpoint — trusted activity-event writer boundary and schema audit (2026-11-21)
 
 **Implementation/test commit:** `d05d5a47efd51dca6088ea211f897573b789374d` — [CI #444 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44827879515).  
-**Fail-closed preflight follow-up:** `fbb3be06e3c21156ce8e4f3d72c408d657af7d45` (included in this documentation checkpoint; final CI for this follow-up is pending).
+**Fail-closed preflight follow-up:** `fbb3be06e3c21156ce8e4f3d72c408d657af7d45` — [CI #445 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44828178553).  
+**Documentation content commit:** `b600b9b18a77d431926c71871f11b05ba31a77ef`; this state refresh is the next documentation-only checkpoint.
 
 ## Recovery and repository state
 
@@ -40,6 +41,10 @@ Current trusted event writers and entity contract:
 `entity_id` intentionally has no FK: task deletion events must retain the deleted task's identifier. `entity_type` and `entity_id` are nullable and have no pair CHECK; current trusted writers always populate both. `event_type` is free-form text without a CHECK/catalog, and `metadata` is JSONB without an object-shape CHECK. No generic event idempotency key exists.
 
 Retry protection is domain-specific: per-owner task create request UUID + payload hash; unique recurring occurrence; reminder row-lock/delivered marker + unique notification; no-op task updates do not emit a second event; repeated DELETE affects no row and emits no new event. Service-role/Auth-account cleanup intentionally skips per-task DELETE events. No event reader, backfill, or retention schedule is defined. Event counts are not equivalent to user intent, time spent, or productivity.
+
+## CI #445 — fail-closed follow-up
+
+CI #445 passed on `fbb3be06e3c21156ce8e4f3d72c408d657af7d45` after tightening the migration preflight to reject malformed owner-policy definitions and null owner values. The full workflow again passed: 17/17 PostgREST safety tests, 27 migration replay plus migration 27 reapplication, 147/147 application tests, typecheck, production build, and npm audit with 0 vulnerabilities.
 
 ## CI #444 evidence
 

@@ -2,7 +2,7 @@
 
 The branch contains **27 migrations**. The last fresh read-only production ledger contains **8 applied versions**, leaving **19 branch-only migrations**. Migration 27 is `20261121000500_trusted_activity_event_writers.sql`; it moves the task activity trigger to a postgres-owned SECURITY DEFINER writer, removes authenticated direct activity-event INSERT, and retains service_role as the trusted server-side writer.
 
-CI #444 passed on implementation/test commit `d05d5a47efd51dca6088ea211f897573b789374d`: 27/27 PostgreSQL 17 migrations, migration 27 reapplication, 17/17 PostgREST safety preflight tests, 147/147 application tests, typecheck, production build and npm audit (0 vulnerabilities). Follow-up `fbb3be06e3c21156ce8e4f3d72c408d657af7d45` tightens fail-closed policy-shape checks; final CI for the latest documentation checkpoint is required.
+CI #444 passed on implementation/test commit `d05d5a47efd51dca6088ea211f897573b789374d`: 27/27 PostgreSQL 17 migrations, migration 27 reapplication, 17/17 PostgREST safety preflight tests, 147/147 application tests, typecheck, production build and npm audit (0 vulnerabilities). Follow-up `fbb3be06e3c21156ce8e4f3d72c408d657af7d45` tightens fail-closed policy-shape checks and passed [CI #445](https://github.com/mohith-krishnaa/personal-os/actions/runs/44828178553).
 
 Production still has eight applied migrations and has not received migration 27. Owner-controlled complete backup, isolated restore, checklist conflict review and authenticated two-owner PostgREST acceptance remain required. Do not apply production migrations without explicit approval after the backup/restore gate.
 

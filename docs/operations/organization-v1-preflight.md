@@ -1,6 +1,6 @@
 # Latest preflight update — trusted activity-event writers (migration 27, 2026-11-21)
 
-The branch contains **27 migrations**; the last read-only production ledger contains **8**, leaving **19 branch-only**. Migration 27 is `20261121000500_trusted_activity_event_writers.sql`. CI #444 passed the implementation/test commit `d05d5a47efd51dca6088ea211f897573b789374d`: 27/27 PostgreSQL migrations, migration 27 reapplication, 17/17 PostgREST safety tests, 147/147 application tests, typecheck, production build and npm audit (0 vulnerabilities). The fail-closed follow-up `fbb3be06e3c21156ce8e4f3d72c408d657af7d45` tightens migration policy-shape checks and requires final CI on the latest branch HEAD.
+The branch contains **27 migrations**; the last read-only production ledger contains **8**, leaving **19 branch-only**. Migration 27 is `20261121000500_trusted_activity_event_writers.sql`. CI #444 passed the implementation/test commit `d05d5a47efd51dca6088ea211f897573b789374d`: 27/27 PostgreSQL migrations, migration 27 reapplication, 17/17 PostgREST safety tests, 147/147 application tests, typecheck, production build and npm audit (0 vulnerabilities). The fail-closed follow-up `fbb3be06e3c21156ce8e4f3d72c408d657af7d45` passed [CI #445](https://github.com/mohith-krishnaa/personal-os/actions/runs/44828178553): 27 migration replay/reapplication, 17/17 preflight tests, 147/147 application tests, typecheck, production build, and npm audit 0 vulnerabilities.
 
 ## Read-only query contracts
 
