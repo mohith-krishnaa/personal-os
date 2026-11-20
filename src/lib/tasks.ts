@@ -71,43 +71,43 @@ export async function updateTaskForUser(
   input: UpdateTaskInput,
 ) {
   if (!userId) throw new Error('Unauthorized')
-    const title = input.title.trim(); if (!title) throw new Error('Task title is required.')
-    if (input.estimated_minutes != null && (!Number.isFinite(input.estimated_minutes) || input.estimated_minutes <= 0)) throw new Error('Estimated minutes must be greater than zero.')
-    if (input.scheduled_start && input.scheduled_end && input.scheduled_end <= input.scheduled_start) throw new Error('Scheduled end must be after scheduled start.')
-    validateRecurrenceInput(input)
-    if (input.recurrence_rule && !input.due_at) throw new Error('Recurring tasks need a due date/time to calculate the next occurrence.')
-    if (input.project_id !== undefined || input.parent_task_id !== undefined) {
-      const { data: currentTask, error: currentTaskError } = await supabase
-        .from('tasks')
-        .select('project_id,parent_task_id')
-        .eq('id', id)
-        .eq('user_id', userId)
-        .single()
-      if (currentTaskError) throw currentTaskError
-      const links = resolveTaskOrganizationLinks(currentTask, input)
-      await assertTaskOrganizationLinks(supabase, userId, { ...links, taskId: id }, {
-        requireActiveProject: isNewProjectAssignment(currentTask.project_id, input.project_id),
-      })
-    }
-    // Build an explicit update allowlist. Server-action arguments are runtime input;
-    // spreading them could let extra properties overwrite protected task columns.
-    const patch: Record<string, unknown> = {
-      title,
-      priority: input.priority,
-      estimated_minutes: input.estimated_minutes,
-      due_at: input.due_at,
-      scheduled_start: input.scheduled_start,
-      scheduled_end: input.scheduled_end,
-      recurrence_rule: input.recurrence_rule ?? null,
-      recurrence_until: input.recurrence_until ?? null,
-      updated_at: new Date().toISOString(),
-    }
-    if (input.project_id !== undefined) patch.project_id = input.project_id
-    if (input.parent_task_id !== undefined) patch.parent_task_id = input.parent_task_id
-    const { data, error } = await supabase.from('tasks').update(patch).eq('id', id).eq('user_id', userId).select('*').single()
-    if (error) throw error
-    await supabase.from('activity_events').insert({ user_id: userId, event_type: 'TASK_UPDATED', entity_type: 'TASK', entity_id: id, metadata: { source: 'dashboard', recurrence_scope: 'occurrence_only' } })
-    return data as Task
+  const title = input.title.trim(); if (!title) throw new Error('Task title is required.')
+  if (input.estimated_minutes != null && (!Number.isFinite(input.estimated_minutes) || input.estimated_minutes <= 0)) throw new Error('Estimated minutes must be greater than zero.')
+  if (input.scheduled_start && input.scheduled_end && input.scheduled_end <= input.scheduled_start) throw new Error('Scheduled end must be after scheduled start.')
+  validateRecurrenceInput(input)
+  if (input.recurrence_rule && !input.due_at) throw new Error('Recurring tasks need a due date/time to calculate the next occurrence.')
+  if (input.project_id !== undefined || input.parent_task_id !== undefined) {
+    const { data: currentTask, error: currentTaskError } = await supabase
+      .from('tasks')
+      .select('project_id,parent_task_id')
+      .eq('id', id)
+      .eq('user_id', userId)
+      .single()
+    if (currentTaskError) throw currentTaskError
+    const links = resolveTaskOrganizationLinks(currentTask, input)
+    await assertTaskOrganizationLinks(supabase, userId, { ...links, taskId: id }, {
+      requireActiveProject: isNewProjectAssignment(currentTask.project_id, input.project_id),
+    })
+  }
+  // Build an explicit update allowlist. Server-action arguments are runtime input;
+  // spreading them could let extra properties overwrite protected task columns.
+  const patch: Record<string, unknown> = {
+    title,
+    priority: input.priority,
+    estimated_minutes: input.estimated_minutes,
+    due_at: input.due_at,
+    scheduled_start: input.scheduled_start,
+    scheduled_end: input.scheduled_end,
+    recurrence_rule: input.recurrence_rule ?? null,
+    recurrence_until: input.recurrence_until ?? null,
+    updated_at: new Date().toISOString(),
+  }
+  if (input.project_id !== undefined) patch.project_id = input.project_id
+  if (input.parent_task_id !== undefined) patch.parent_task_id = input.parent_task_id
+  const { data, error } = await supabase.from('tasks').update(patch).eq('id', id).eq('user_id', userId).select('*').single()
+  if (error) throw error
+  await supabase.from('activity_events').insert({ user_id: userId, event_type: 'TASK_UPDATED', entity_type: 'TASK', entity_id: id, metadata: { source: 'dashboard', recurrence_scope: 'occurrence_only' } })
+  return data as Task
 }
 
 export async function updateTask(id: string, input: UpdateTaskInput) {
