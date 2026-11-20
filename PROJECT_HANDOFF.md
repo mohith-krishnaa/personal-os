@@ -1,82 +1,61 @@
-# Latest verified checkpoint — trusted activity-event writer boundary and schema audit (2026-11-21)
+# Latest verified checkpoint — trusted activity-event PostgREST acceptance prepared (2026-11-21)
 
-**Implementation/test commit:** `d05d5a47efd51dca6088ea211f897573b789374d` — [CI #444 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44827879515).  
-**Fail-closed preflight follow-up:** `fbb3be06e3c21156ce8e4f3d72c408d657af7d45` — [CI #445 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44828178553).  
-**Documentation content commit:** `b600b9b18a77d431926c71871f11b05ba31a77ef`; state refresh commit: `d977769deb9c3f5cdb5e3efd1b812a2fce570e12`; final README/count checkpoint: `c179e331f75ba3a490043eb0b90c047a89ca0a3b` — [CI #448 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44828634302).
+**Implementation/test commit:** `8b2cf9426cb899817c1e7bb92015b39bab3cac85` — [CI #450 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44836136933).
 
-## Recovery and repository state
+## Repository recovery and state
 
-Starting branch `feature/organization-v1`, HEAD `0ea51cec79ba54ecb38b1d00d32abcc024640bc1`, PR #11 open and unmerged. The preceding completed task was migration 26's application-role append-only event access. The actual repository confirmed that task; no previous implementation was repeated.
+- The preceding automation result was migration 27's trusted activity-event writer audit; its result run ID was older than the recorded current run, so it was not attributed to the current run.
+- Branch: `feature/organization-v1`; implementation/test HEAD: `8b2cf9426cb899817c1e7bb92015b39bab3cac85`.
+- PR #11 remains open, unmerged, and mergeable. PR #12 remains an open superseded draft.
+- Branch comparison at the implementation checkpoint: 519 commits ahead of `main`, 0 behind.
+- Starting HEAD was `a018a1bd5b15840a8425acaa439281e957f6e0a5`; no previous PostgREST event-acceptance implementation was present.
 
-## Event writer audit and security correction
+## PostgREST trusted activity-event acceptance
 
-The activity-event writer audit found that authenticated users could INSERT arbitrary owner-scoped `event_type`, `entity_type`, `entity_id`, and `metadata` values directly. Owner-scoped RLS prevented cross-owner writes but did not prevent a user from fabricating their own `TASK_COMPLETED` or other history. That would make future analytics untrustworthy.
+Extended `scripts/postgrest-organization-acceptance.ts` to verify through two real authenticated PostgREST sessions:
 
-Added migration `20261121000500_trusted_activity_event_writers.sql` (migration 27):
+- Owner A's direct `activity_events` INSERT is rejected with SQLSTATE `42501`.
+- A normal task INSERT produces exactly one `TASK_CREATED` event with the expected owner, entity type, and task ID.
+- Each owner can read its own task event.
+- The other owner cannot read that event.
+- After fixture cleanup, the harness counts and reports task-linked event rows retained across both owners. It never attempts to delete append-only activity events.
 
-- Replaces the task activity trigger function with a postgres-owned, fixed-search-path SECURITY DEFINER trigger writer.
-- The trigger explicitly rejects authenticated INSERT/UPDATE owner mismatches; DELETE events remain limited to the authenticated owner context.
-- Removes the authenticated activity-event INSERT policy and revokes direct INSERT from authenticated users. Authenticated users retain owner-scoped SELECT only.
-- Retains service_role SELECT/INSERT as a trusted server-side role; reminder delivery continues through its existing postgres-owned SECURITY DEFINER RPC.
-- Revokes direct authenticated EXECUTE on the trigger function; the trigger continues to fire through the task DML path.
-- Preserves event insertion in the same task statement transaction, including rollback on event-write failure and descendant DELETE cascades.
-- Keeps Auth-account/service-role DELETE behavior unchanged.
+Added four pure regression tests for exact-one event cardinality, missing/duplicate events, owner identity, event type, and entity identity. The live harness remains manual and has not been executed.
 
-The migration fails closed on unexpected activity-event policies and verifies the reminder RPC remains a postgres-owned SECURITY DEFINER writer with a fixed search path. The follow-up commit `fbb3be06e3c21156ce8e4f3d72c408d657af7d45` tightens nullable policy/owner checks with `IS DISTINCT FROM` and `coalesce`.
+Event-write failure rollback is not simulated through the anon-key harness. It remains covered by PostgreSQL migration-replay integration tests in `task-activity-events.sql` and `task-delete-activity-events.sql`, which inject trigger failures and assert statement/cascade rollback.
 
-## Event schema and idempotency audit
+No migration was added. Repository migration count remains 27; the latest live ledger remains at 8, leaving 19 branch-only migrations.
 
-Current trusted event writers and entity contract:
+## CI #450 — implementation/test verification
 
-| Event type | Entity | Metadata contract |
-|---|---|---|
-| `TASK_CREATED` | `TASK`, task UUID | `source=database`, recurring boolean |
-| `TASK_RECURRENCE_GENERATED` | `TASK`, occurrence UUID | source task UUID |
-| `TASK_UPDATED` | `TASK`, task UUID | `source=database`; no field-level diff |
-| `TASK_COMPLETED` | `TASK`, task UUID | new status only |
-| `TASK_STATUS_CHANGED` | `TASK`, task UUID | new status only; previous status is not recorded |
-| `TASK_DELETED` | `TASK`, deleted task UUID | title/status/project/parent/recurrence-parent snapshot |
-| `REMINDER_DELIVERED` | `REMINDER`, reminder UUID | task UUID and delivery channel |
-
-`entity_id` intentionally has no FK: task deletion events must retain the deleted task's identifier. `entity_type` and `entity_id` are nullable and have no pair CHECK; current trusted writers always populate both. `event_type` is free-form text without a CHECK/catalog, and `metadata` is JSONB without an object-shape CHECK. No generic event idempotency key exists.
-
-Retry protection is domain-specific: per-owner task create request UUID + payload hash; unique recurring occurrence; reminder row-lock/delivered marker + unique notification; no-op task updates do not emit a second event; repeated DELETE affects no row and emits no new event. Service-role/Auth-account cleanup intentionally skips per-task DELETE events. No event reader, backfill, or retention schedule is defined. Event counts are not equivalent to user intent, time spent, or productivity.
-
-## Final checkpoint verification — CI #448
-
-CI #448 passed on `c179e331f75ba3a490043eb0b90c047a89ca0a3b`, the final README/count checkpoint: 17/17 PostgREST safety tests, 27 PostgreSQL 17 migrations with migration 27 reapplication, 147/147 application tests, typecheck, production build, and npm audit with 0 vulnerabilities.
-
-## CI #445 — fail-closed follow-up
-
-CI #445 passed on `fbb3be06e3c21156ce8e4f3d72c408d657af7d45` after tightening the migration preflight to reject malformed owner-policy definitions and null owner values. The full workflow again passed: 17/17 PostgREST safety tests, 27 migration replay plus migration 27 reapplication, 147/147 application tests, typecheck, production build, and npm audit with 0 vulnerabilities.
-
-## CI #444 evidence
-
-CI #444 passed on implementation/test commit `d05d5a47efd51dca6088ea211f897573b789374d`:
-
-- PostgREST safety preflight: 17/17 passed.
-- PostgreSQL 17 migration replay: 27/27 passed.
-- Migration 27 reapplication: passed.
-- Authenticated direct event INSERT denial and trigger-created TASK_CREATED event: passed.
-- Task INSERT/UPDATE/DELETE transaction and cascade rollback tests: passed.
-- Application tests: 147/147 passed.
+- PostgREST safety/event assertion preflight: **21/21 passed**.
+- PostgreSQL 17 migration replay: **27/27 passed**, including task activity-event rollback, task DELETE/cascade rollback, append-only access, and trusted-writer assertions.
+- Task hierarchy concurrency: passed.
+- Application tests: **151/151 passed**.
 - TypeScript typecheck: passed.
 - Production build: passed.
-- npm audit: 0 vulnerabilities.
+- npm audit: **0 vulnerabilities**.
 - No lint script is configured.
 
-CI #445 independently passed on the fail-closed follow-up; CI #444 does not cover it, while #445 does.
+## Live production status — read-only
 
-## Production remains unchanged
+Fresh Supabase inspection: project `gujzvkyytxsnervovvrt` is `ACTIVE_HEALTHY`, PostgreSQL 17.11.0.003 in `ap-southeast-1`; the live migration ledger contains 8 versions. All 9 public application tables have RLS enabled and currently report zero rows. The branch's 19 pending migrations remain undeployed.
 
-Fresh read-only production inspection on 2026-11-21: 8 live migration versions versus 27 repository migrations (19 branch-only); all 9 public application tables have RLS enabled and report zero rows. The live activity_events table still has the legacy `FOR ALL` policy and broad grants. Read-only query 20 confirmed: event_type text NOT NULL, entity_type/entity_id nullable, metadata JSONB NOT NULL, no event-type CHECK, no entity-pair CHECK, no entity_id FK, no generic event idempotency key, reminder event writer present, task trigger and task-create request key absent, recurrence and reminder uniqueness present. Migration 27 has not been applied to production.
+No production DDL, DML, migration, RLS modification, backup, restore, or PR merge was performed. The live two-owner harness was not executed.
 
-No production DDL/DML, migration, RLS change, backup, restore, or PR merge occurred. The complete owner-controlled schema/data/roles backup, successful isolated restoration, restored-copy checklist conflict review, and authenticated two-owner PostgREST acceptance remain required.
+## Remaining blockers
 
-**Next task:** extend the isolated PostgREST acceptance harness to prove that authenticated direct activity-event INSERT is rejected while an authenticated task INSERT still creates its trusted TASK_CREATED event. Keep the harness gated to a verified isolated restore. Analytics remains queued.
+1. Owner-controlled complete schema/data/roles backup.
+2. Successful restoration into a separate isolated Supabase project, including the custom Auth profile-bootstrap trigger and reviewed extension/Vault requirements.
+3. Checklist reconciliation conflict report reviewed against that restored copy.
+4. Authenticated two-owner PostgREST acceptance on the isolated target.
+5. Explicit owner approval before any production migration or schema change.
+
+## Next safe task
+
+While the owner-controlled restore remains unavailable, perform a static audit of the checklist reconciliation conflict report's operator disposition workflow (`task_owner_mismatch`, `canonical_id_collision`, and `missing_canonical`) and ensure the runbook defines evidence and safe resolution without automatic mutation. Do not retry production backup/export or run the PostgREST harness against production.
 
 ---
-
 # Latest verified checkpoint — application-role append-only activity events (2026-11-21)
 
 **Code/test HEAD:** `03217aefdefb88fee593629f217d7efaf36d538d`  
