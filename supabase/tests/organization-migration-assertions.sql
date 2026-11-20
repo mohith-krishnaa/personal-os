@@ -500,7 +500,20 @@ DECLARE
   affected_rows integer;
   project_name text;
   project_title text;
+  error_message text;
 BEGIN
+  IF current_user <> 'authenticated' THEN
+    RAISE EXCEPTION 'Owner A assertions must execute as the authenticated database role; current_user is %.', current_user;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM pg_roles
+    WHERE rolname = current_user
+      AND (rolsuper OR rolbypassrls)
+  ) THEN
+    RAISE EXCEPTION 'The authenticated test role must not bypass row-level security.';
+  END IF;
+
   IF auth.uid() <> '11111111-1111-4111-8111-111111111111'::uuid THEN
     RAISE EXCEPTION 'The test JWT subject was not resolved.';
   END IF;
@@ -544,6 +557,142 @@ BEGIN
     WHERE id = '30000000-0000-4000-8000-000000000004'
   ) THEN
     RAISE EXCEPTION 'Owner A can read a checklist row attached to Owner B task.';
+  END IF;
+
+  -- Direct task INSERTs below run as authenticated with RLS enabled, not as
+  -- the migration owner. A valid active-project subtask must be accepted.
+  INSERT INTO public.tasks (id, user_id, project_id, parent_task_id, title)
+  VALUES (
+    '40000000-0000-4000-8000-000000000003',
+    auth.uid(),
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    '10000000-0000-4000-8000-000000000001',
+    'Owner A authenticated active subtask'
+  );
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.tasks
+    WHERE id = '40000000-0000-4000-8000-000000000003'
+      AND user_id = auth.uid()
+      AND project_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+      AND parent_task_id = '10000000-0000-4000-8000-000000000001'
+  ) THEN
+    RAISE EXCEPTION 'Owner A could not create a subtask under its ACTIVE project with the correct parent link.';
+  END IF;
+
+  -- An owned ACTIVE project must not allow a foreign owner's parent task.
+  BEGIN
+    INSERT INTO public.tasks (id, user_id, project_id, parent_task_id, title)
+    VALUES (
+      '40000000-0000-4000-8000-000000000007',
+      auth.uid(),
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      '20000000-0000-4000-8000-000000000001',
+      'Owner A cross-owner parent attack'
+    );
+    RAISE EXCEPTION 'Task trigger accepted Owner B parent task for Owner A.'
+      USING ERRCODE = 'P0001';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+
+  IF EXISTS (
+    SELECT 1 FROM public.tasks WHERE id = '40000000-0000-4000-8000-000000000007'
+  ) THEN
+    RAISE EXCEPTION 'Rejected Owner A cross-owner parent INSERT left a task row behind.';
+  END IF;
+
+  -- The authenticated owner may complete/archive its project, but new
+  -- subtasks must be rejected after each status transition.
+  UPDATE public.projects
+  SET status = 'COMPLETED'
+  WHERE id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+
+  IF affected_rows <> 1 THEN
+    RAISE EXCEPTION 'Owner A could not complete its own project in the authenticated fixture.';
+  END IF;
+
+  BEGIN
+    INSERT INTO public.tasks (id, user_id, project_id, parent_task_id, title)
+    VALUES (
+      '40000000-0000-4000-8000-000000000004',
+      auth.uid(),
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      '10000000-0000-4000-8000-000000000001',
+      'Owner A subtask under completed project'
+    );
+    RAISE EXCEPTION 'Authenticated task INSERT under a COMPLETED project unexpectedly succeeded.'
+      USING ERRCODE = 'P0001';
+  EXCEPTION WHEN check_violation THEN
+    GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
+    IF error_message <> 'Tasks can only be linked to active projects.' THEN
+      RAISE EXCEPTION 'COMPLETED-project subtask failed for an unexpected reason: %', error_message;
+    END IF;
+  END;
+
+  IF EXISTS (
+    SELECT 1 FROM public.tasks WHERE id = '40000000-0000-4000-8000-000000000004'
+  ) THEN
+    RAISE EXCEPTION 'Rejected authenticated COMPLETED-project subtask left a task row behind.';
+  END IF;
+
+  UPDATE public.projects
+  SET status = 'ARCHIVED'
+  WHERE id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+
+  IF affected_rows <> 1 THEN
+    RAISE EXCEPTION 'Owner A could not archive its own completed project in the authenticated fixture.';
+  END IF;
+
+  BEGIN
+    INSERT INTO public.tasks (id, user_id, project_id, parent_task_id, title)
+    VALUES (
+      '40000000-0000-4000-8000-000000000005',
+      auth.uid(),
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      '10000000-0000-4000-8000-000000000001',
+      'Owner A subtask under archived project'
+    );
+    RAISE EXCEPTION 'Authenticated task INSERT under an ARCHIVED project unexpectedly succeeded.'
+      USING ERRCODE = 'P0001';
+  EXCEPTION WHEN check_violation THEN
+    GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
+    IF error_message <> 'Tasks can only be linked to active projects.' THEN
+      RAISE EXCEPTION 'ARCHIVED-project subtask failed for an unexpected reason: %', error_message;
+    END IF;
+  END;
+
+  IF EXISTS (
+    SELECT 1 FROM public.tasks WHERE id = '40000000-0000-4000-8000-000000000005'
+  ) THEN
+    RAISE EXCEPTION 'Rejected authenticated ARCHIVED-project subtask left a task row behind.';
+  END IF;
+
+  -- An unchanged historical project link remains valid after archive, including
+  -- when the update is issued by the authenticated owner.
+  UPDATE public.tasks
+  SET project_id = project_id
+  WHERE id IN (
+    '10000000-0000-4000-8000-000000000001',
+    '40000000-0000-4000-8000-000000000003'
+  );
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+
+  IF affected_rows <> 2 THEN
+    RAISE EXCEPTION 'Authenticated updates did not preserve both historical task/project links after archive.';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.tasks
+    WHERE id = '40000000-0000-4000-8000-000000000003'
+      AND project_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+      AND parent_task_id = '10000000-0000-4000-8000-000000000001'
+  ) THEN
+    RAISE EXCEPTION 'The authenticated subtask lost its historical project or parent relationship after archive.';
   END IF;
 
   -- Both compatibility directions must work for the legacy title and app name.
@@ -835,6 +984,18 @@ DECLARE
   visible_legacy_checklists integer;
   affected_rows integer;
 BEGIN
+  IF current_user <> 'authenticated' THEN
+    RAISE EXCEPTION 'Owner B assertions must execute as the authenticated database role; current_user is %.', current_user;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM pg_roles
+    WHERE rolname = current_user
+      AND (rolsuper OR rolbypassrls)
+  ) THEN
+    RAISE EXCEPTION 'The authenticated test role must not bypass row-level security for Owner B.';
+  END IF;
+
   IF auth.uid() <> '22222222-2222-4222-8222-222222222222'::uuid THEN
     RAISE EXCEPTION 'The second test JWT subject was not resolved.';
   END IF;
@@ -954,6 +1115,34 @@ BEGIN
   EXCEPTION WHEN insufficient_privilege THEN
     NULL;
   END;
+
+  IF EXISTS (
+    SELECT 1 FROM public.tasks WHERE id = '40000000-0000-4000-8000-000000000002'
+  ) THEN
+    RAISE EXCEPTION 'Rejected Owner B cross-owner project INSERT left a task row behind.';
+  END IF;
+
+  -- A valid Owner B project cannot be combined with Owner A's hidden parent.
+  BEGIN
+    INSERT INTO public.tasks (id, user_id, project_id, parent_task_id, title)
+    VALUES (
+      '40000000-0000-4000-8000-000000000006',
+      auth.uid(),
+      'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      '10000000-0000-4000-8000-000000000001',
+      'Owner B cross-owner parent attack'
+    );
+    RAISE EXCEPTION 'Task trigger accepted Owner A parent task for Owner B.'
+      USING ERRCODE = 'P0001';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+
+  IF EXISTS (
+    SELECT 1 FROM public.tasks WHERE id = '40000000-0000-4000-8000-000000000006'
+  ) THEN
+    RAISE EXCEPTION 'Rejected Owner B cross-owner parent INSERT left a task row behind.';
+  END IF;
 
   BEGIN
     INSERT INTO public.checklist_items (id, user_id, task_id, title)
