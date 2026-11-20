@@ -652,3 +652,9 @@ Migration `20261120000300_atomic_reminder_delivery.sql` keeps the existing `clai
 The API route calls the function once through the service-role client after validating the configured bearer secret. It no longer splits notification, reminder, and event writes across separate HTTP requests. Any database error aborts the RPC transaction, so a notification or event failure does not leave a committed delivered marker and the reminder remains eligible for retry.
 
 The function remains SECURITY DEFINER with `search_path = pg_catalog, public`; EXECUTE is revoked from PUBLIC, anon, and authenticated and granted only to service_role. The migration checks the exact unique notification index before replacing the function. CI injects failures at notification and event insertion, verifies retry, preserves an existing notification's read state, checks repeated-call idempotency, and runs a two-session SKIP LOCKED race.
+
+## Task create request idempotency — migration 24
+
+Task and subtask creation use a stable client-generated UUID scoped by `user_id`. The server stores a canonical SHA-256 payload fingerprint and uses the unique `(user_id, client_request_id)` constraint with conflict-ignore semantics. Same-payload retries resolve to the existing owner-scoped task; reuse with different details is rejected. The request identity is immutable after insert. The task editor, quick-add action, and subtask manager retain the key while retrying an unchanged payload. Internal recurrence inserts retain a generated key and the existing recurrence unique index remains authoritative for occurrence uniqueness.
+
+This is branch-only and is covered by the task-create idempotency SQL and two-session concurrency regression. It does not change RLS or grant SECURITY DEFINER privileges. A task deletion also removes its request key; a separate durable tombstone ledger is not implemented.
