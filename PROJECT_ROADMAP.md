@@ -1,5 +1,20 @@
 ## Organization V1 — latest verified engineering checkpoint (2026-11-20)
 
+The task activity-event consistency audit found that task create, update, status-change, and recurrence-generation paths await `activity_events` inserts but ignore returned Supabase errors. A database rejection can therefore lose a history event after the primary task mutation has committed. A transport rejection can instead surface an error after commit; retries may duplicate events because task events have no idempotency key.
+
+The `activity_events` table is owner-scoped but not an immutable audit log: `entity_id` has no entity FK, the owner policy permits all operations, and there is no idempotency constraint. Reminder delivery has a stronger, separate contract because its notification, event, and delivered marker are written in one RPC transaction.
+
+No code change was made: changing only `updateTaskForUser` would leave other task writers inconsistent, and throwing after commit would create ambiguous retries. The interim rule is that current task mutation events are best-effort/non-atomic and cannot be treated as a complete or exactly-once analytics source. See [Activity-event consistency](docs/architecture/activity-event-consistency.md).
+
+Organization V1 remains **in progress**. The isolated PostgREST harness is prepared but has not been run against a verified restored copy. Complete owner-controlled schema/data/roles backup, successful isolated restore, checklist reconciliation review, and two-owner authenticated PostgREST acceptance remain mandatory. Analytics remains queued and must not assume a complete task event stream.
+
+Starting PR head `736882c5b42945356106efdcf7d2cb4f6b7cadc0` passed [CI #404](https://github.com/mohith-krishnaa/personal-os/actions/runs/44783219198). This is a documentation-only audit; the new documentation commit needs its own CI result.
+
+**Next bounded task:** design a shared transactionally durable and idempotent event-writing boundary for task create, update, status changes, and recurrence generation. Add failure-injection and retry tests before event-backed Analytics.
+---
+
+## Organization V1 — latest verified engineering checkpoint (2026-11-20)
+
 The task update service now has direct service-path regression coverage. Code/test head `44ecc05f9b62a10175f9b7f608c1ff0636b1dbc3` passed [CI #403](https://github.com/mohith-krishnaa/personal-os/actions/runs/44782848704): 17/17 PostgREST safety preflight tests, complete 22-migration PostgreSQL 17 replay with Organization/RLS and hierarchy/concurrency assertions, 132/132 application tests, TypeScript typecheck, production build, and npm install audit with 0 vulnerabilities.
 
 The update logic was extracted into `updateTaskForUser` while the public `updateTask` continues to authenticate and delegates with the authenticated owner ID. Seven tests cover omitted versus explicit-null project/parent links, partial parent reassignment, owner-scoped reads and writes, ACTIVE-project requirements, ARCHIVED-project rejection before mutation, and the explicit update-column allowlist. No migration or production schema change was made.

@@ -1,3 +1,15 @@
+## Activity-event consistency audit
+
+Task create, update, status-change, and recurrence-generation paths currently perform their primary task write and then await an `activity_events` insert without checking the returned Supabase `error`. A returned PostgREST error can be silently ignored after the task mutation commits. A rejected request can surface an error after commit, and a retry can duplicate the event because task events have no idempotency key.
+
+The `activity_events` schema is owner-scoped, but it is not a strict audit log: `entity_id` is polymorphic without a foreign key, the owner policy permits `ALL` operations rather than append-only writes, and no idempotency constraint exists. The reminder delivery RPC is intentionally stronger: notification creation, `REMINDER_DELIVERED`, and `delivered_at` are committed in one transaction.
+
+The README's historical-analysis principle and Analytics roadmap do not define task-event failure semantics. The interim contract is therefore explicit: current task mutation events are best-effort/non-atomic and are not a complete or exactly-once source for analytics. Do not fix only the update path or throw after a committed task write. Before event-backed Analytics, provide one durable, idempotent transaction boundary for task creation, updates, status changes, and recurrence generation.
+
+Audit and next action: [Activity-event consistency ADR](activity-event-consistency.md). No runtime code, migration, RLS policy, or production data changed in this audit.
+
+---
+
 ## Task update service contract
 
 The exported `updateTask` entry point remains the authenticated server boundary: it creates the server Supabase client, calls `auth.getUser()`, rejects missing/error sessions, and delegates to `updateTaskForUser(supabase, userId, id, input)`. The extracted helper rejects an empty owner ID before any database access.

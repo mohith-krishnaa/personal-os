@@ -45,7 +45,7 @@ Behavior modeling, workload prediction, intelligent scheduling, and continuous i
 ## Architecture Principles
 
 - PostgreSQL as the source of truth
-- Activity events preserved for historical analysis
+- Activity events stored for historical analysis; task mutation events are currently best-effort and are not a guaranteed complete audit stream
 - Deterministic business logic for scheduling and constraints
 - AI operates through validated tools rather than direct database access
 - User approval for consequential external or bulk actions
