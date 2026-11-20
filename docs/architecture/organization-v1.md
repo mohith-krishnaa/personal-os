@@ -1,3 +1,19 @@
+## Runtime task/project relationship contract and lookup errors
+
+The application preflight is defense-in-depth; the database triggers and RLS remain authoritative for direct PostgREST calls and races.
+
+- Task creation derives the task owner from `auth.getUser()`, validates any parent and project through owner-scoped lookups, and requires an ACTIVE project for a new assignment.
+- Task updates first read the current task with both its ID and owner ID. Relationship patches distinguish an omitted field (preserve the current link) from explicit `null` (clear it). The write uses an explicit column allowlist and filters by task ID plus owner ID.
+- Subtask server actions authenticate before supplying the owner ID. Subtask create/list operations verify parent ownership; creation also requires same-project consistency and an ACTIVE project before inserting the authenticated owner ID. Child reads are filtered by both owner and parent.
+- Project create/update operations derive the owner from the authenticated session and scope updates by project ID plus owner ID.
+- Client callers render caught `Error.message` values. Lookup helpers must therefore throw an `Error`, not a plain PostgREST error object.
+
+Previously, relationship lookup errors were all collapsed into generic not-found messages. `throwIfUnexpectedLookupError` now preserves the intended privacy behavior for `PGRST116`/no visible row, maps SQLSTATE `42501` to a safe authorization message while retaining its code, and wraps other PostgREST errors as `Error` instances rather than hiding operational failures. Regression coverage is in `src/lib/tasks.test.ts` and `src/lib/subtasks.test.ts`.
+
+[CI #400](https://github.com/mohith-krishnaa/personal-os/actions/runs/44773159878) passed on code/test HEAD `065d114a2047ad0794618e5b43eb570c0f4c05cb`: 17/17 PostgREST safety preflight tests, full 22-migration PostgreSQL 17 replay, Organization/RLS and hierarchy/concurrency checks, 125/125 application tests, typecheck, production build, and 0 npm vulnerabilities. No migration or production database change was made.
+
+---
+
 > **Verified checkpoint — 2026-11-20 (Organization migration dependency and FK-contract audit).** Repository: `mohith-krishnaa/personal-os`; branch: `feature/organization-v1`; code/test HEAD `b91e63bddb1decace36be78b3849dce02133fb9b`; [CI #396](https://github.com/mohith-krishnaa/personal-os/actions/runs/44762846651) passed on that exact HEAD. PR #11 remains open and unmerged; PR #12 remains an open superseded draft.
 
 > Fresh read-only Supabase inspection: project `gujzvkyytxsnervovvrt` is ACTIVE_HEALTHY on PostgreSQL 17.11.0.003 in `ap-southeast-1`. The live migration ledger has exactly eight versions: 20260829182309, 20260830085036, 20260830103327, 20260830114218, 20260830120132, 20260830123420, 20260830141616, and 20260905162251. The branch contains 22 numbered SQL migrations, so 14 remain branch-only. All nine live public tables have RLS enabled and currently report zero rows.
