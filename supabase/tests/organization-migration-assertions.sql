@@ -581,6 +581,49 @@ BEGIN
     RAISE EXCEPTION 'Owner A could not create a subtask under its ACTIVE project with the correct parent link.';
   END IF;
 
+  -- Exercise UPDATE/reassignment while still running as authenticated. The
+  -- alternate project is also owned by Owner A and remains ACTIVE throughout.
+  INSERT INTO public.projects (id, user_id, name)
+  VALUES (
+    'abababab-abab-4aba-8aba-abababababab',
+    auth.uid(),
+    'Owner A alternate ACTIVE project'
+  );
+
+  INSERT INTO public.tasks (id, user_id, project_id, title)
+  VALUES
+    ('40000000-0000-4000-8000-000000000008', auth.uid(), NULL, 'Owner A unassigned task for active assignment'),
+    ('40000000-0000-4000-8000-000000000009', auth.uid(), 'abababab-abab-4aba-8aba-abababababab', 'Owner A task for active reassignment'),
+    ('40000000-0000-4000-8000-000000000010', auth.uid(), 'abababab-abab-4aba-8aba-abababababab', 'Owner A task for completed-project reassignment'),
+    ('40000000-0000-4000-8000-000000000011', auth.uid(), 'abababab-abab-4aba-8aba-abababababab', 'Owner A task for archived-project reassignment'),
+    ('40000000-0000-4000-8000-000000000012', auth.uid(), 'abababab-abab-4aba-8aba-abababababab', 'Owner A task for cross-owner reassignment');
+
+  UPDATE public.tasks
+  SET project_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  WHERE id = '40000000-0000-4000-8000-000000000008';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+
+  IF affected_rows <> 1 OR NOT EXISTS (
+    SELECT 1 FROM public.tasks
+    WHERE id = '40000000-0000-4000-8000-000000000008'
+      AND project_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  ) THEN
+    RAISE EXCEPTION 'Authenticated UPDATE could not assign an unassigned task to an ACTIVE project.';
+  END IF;
+
+  UPDATE public.tasks
+  SET project_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  WHERE id = '40000000-0000-4000-8000-000000000009';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+
+  IF affected_rows <> 1 OR NOT EXISTS (
+    SELECT 1 FROM public.tasks
+    WHERE id = '40000000-0000-4000-8000-000000000009'
+      AND project_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  ) THEN
+    RAISE EXCEPTION 'Authenticated UPDATE could not reassign a task from another owned ACTIVE project.';
+  END IF;
+
   -- An owned ACTIVE project must not allow a foreign owner's parent task.
   BEGIN
     INSERT INTO public.tasks (id, user_id, project_id, parent_task_id, title)
@@ -615,6 +658,27 @@ BEGIN
   END IF;
 
   BEGIN
+    UPDATE public.tasks
+    SET project_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+    WHERE id = '40000000-0000-4000-8000-000000000010';
+    RAISE EXCEPTION 'Authenticated reassignment into a COMPLETED project unexpectedly succeeded.'
+      USING ERRCODE = 'P0001';
+  EXCEPTION WHEN check_violation THEN
+    GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
+    IF error_message <> 'Tasks can only be linked to active projects.' THEN
+      RAISE EXCEPTION 'COMPLETED-project reassignment failed for an unexpected reason: %', error_message;
+    END IF;
+  END;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.tasks
+    WHERE id = '40000000-0000-4000-8000-000000000010'
+      AND project_id = 'abababab-abab-4aba-8aba-abababababab'
+  ) THEN
+    RAISE EXCEPTION 'Rejected COMPLETED-project reassignment changed the task project link.';
+  END IF;
+
+  BEGIN
     INSERT INTO public.tasks (id, user_id, project_id, parent_task_id, title)
     VALUES (
       '40000000-0000-4000-8000-000000000004',
@@ -645,6 +709,45 @@ BEGIN
 
   IF affected_rows <> 1 THEN
     RAISE EXCEPTION 'Owner A could not archive its own completed project in the authenticated fixture.';
+  END IF;
+
+  BEGIN
+    UPDATE public.tasks
+    SET project_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+    WHERE id = '40000000-0000-4000-8000-000000000011';
+    RAISE EXCEPTION 'Authenticated reassignment into an ARCHIVED project unexpectedly succeeded.'
+      USING ERRCODE = 'P0001';
+  EXCEPTION WHEN check_violation THEN
+    GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
+    IF error_message <> 'Tasks can only be linked to active projects.' THEN
+      RAISE EXCEPTION 'ARCHIVED-project reassignment failed for an unexpected reason: %', error_message;
+    END IF;
+  END;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.tasks
+    WHERE id = '40000000-0000-4000-8000-000000000011'
+      AND project_id = 'abababab-abab-4aba-8aba-abababababab'
+  ) THEN
+    RAISE EXCEPTION 'Rejected ARCHIVED-project reassignment changed the task project link.';
+  END IF;
+
+  BEGIN
+    UPDATE public.tasks
+    SET project_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+    WHERE id = '40000000-0000-4000-8000-000000000012';
+    RAISE EXCEPTION 'Authenticated cross-owner project reassignment unexpectedly succeeded.'
+      USING ERRCODE = 'P0001';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.tasks
+    WHERE id = '40000000-0000-4000-8000-000000000012'
+      AND project_id = 'abababab-abab-4aba-8aba-abababababab'
+  ) THEN
+    RAISE EXCEPTION 'Rejected cross-owner reassignment changed the task project link.';
   END IF;
 
   BEGIN
