@@ -17,8 +17,6 @@ Fresh read-only live inspection: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, 8 appli
 The owner-controlled complete schema/data/roles backup, successful isolated restore, restored-copy checklist conflict review, and authenticated two-user PostgREST CRUD/isolation tests remain mandatory. No local checkout is attached, so local working-tree status is unverified.
 
 
-Personal-OS Builder is enabled. Recorded last run `546365dd-9274-8323-bdbb-d8c18357a5e0` is `in_progress` with no completion timestamp; latest stored result `2137c85a-2500-832c-b819-9896e93be753` predates it. This does not prove worker liveness.
-
 **Next repository task:** audit the Progress service and dashboard behavior against nullable legacy goal metrics. Do not advance to Analytics until Organization acceptance is genuinely complete.
 
 ## Legacy checklist compatibility contract — 2026-11-19
