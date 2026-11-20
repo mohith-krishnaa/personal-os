@@ -651,6 +651,10 @@ VALUES
 
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
+
+-- The broad fixture grant above must not undo migration 26's append-only event contract.
+REVOKE ALL PRIVILEGES ON TABLE public.activity_events FROM PUBLIC, anon, authenticated, service_role;
+GRANT SELECT, INSERT ON TABLE public.activity_events TO authenticated, service_role;
 GRANT USAGE ON SCHEMA auth TO authenticated, service_role;
 GRANT SELECT ON auth.users TO authenticated, service_role;
 
