@@ -33,7 +33,7 @@ The task trigger is the only task-event writer. The reminder delivery RPC is the
 - Service-role/Auth-account cleanup intentionally skips per-task DELETE events. No historical backfill, event reader or retention schedule exists.
 - Event counts are database-observed transitions, not direct measurements of intent, effort, or productivity.
 
-CI #445 passed on fail-closed follow-up `fbb3be06e3c21156ce8e4f3d72c408d657af7d45`: 27 migration replay and migration 27 reapplication, 17/17 PostgREST preflight tests, 147/147 application tests, typecheck, production build, and npm audit with 0 vulnerabilities.
+CI #448 passed on final checkpoint HEAD `c179e331f75ba3a490043eb0b90c047a89ca0a3b` (17/17 preflight tests, 27 migrations plus reapplication, 147/147 app tests, typecheck, production build, npm audit 0 vulnerabilities). CI #445 passed on fail-closed follow-up `fbb3be06e3c21156ce8e4f3d72c408d657af7d45`: 27 migration replay and migration 27 reapplication, 17/17 PostgREST preflight tests, 147/147 application tests, typecheck, production build, and npm audit with 0 vulnerabilities.
 
 Read-only preflight query 20 reports these schema and idempotency properties. On the legacy production baseline it correctly reports the task trigger and task-create key absent while the reminder writer, recurrence uniqueness and reminder-notification uniqueness are present.
 

@@ -2,7 +2,7 @@
 
 **Implementation/test commit:** `d05d5a47efd51dca6088ea211f897573b789374d` — [CI #444 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44827879515).  
 **Fail-closed preflight follow-up:** `fbb3be06e3c21156ce8e4f3d72c408d657af7d45` — [CI #445 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44828178553).  
-**Documentation content commit:** `b600b9b18a77d431926c71871f11b05ba31a77ef`; state refresh commit: `d977769deb9c3f5cdb5e3efd1b812a2fce570e12`.
+**Documentation content commit:** `b600b9b18a77d431926c71871f11b05ba31a77ef`; state refresh commit: `d977769deb9c3f5cdb5e3efd1b812a2fce570e12`; final README/count checkpoint: `c179e331f75ba3a490043eb0b90c047a89ca0a3b` — [CI #448 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44828634302).
 
 ## Recovery and repository state
 
@@ -41,6 +41,10 @@ Current trusted event writers and entity contract:
 `entity_id` intentionally has no FK: task deletion events must retain the deleted task's identifier. `entity_type` and `entity_id` are nullable and have no pair CHECK; current trusted writers always populate both. `event_type` is free-form text without a CHECK/catalog, and `metadata` is JSONB without an object-shape CHECK. No generic event idempotency key exists.
 
 Retry protection is domain-specific: per-owner task create request UUID + payload hash; unique recurring occurrence; reminder row-lock/delivered marker + unique notification; no-op task updates do not emit a second event; repeated DELETE affects no row and emits no new event. Service-role/Auth-account cleanup intentionally skips per-task DELETE events. No event reader, backfill, or retention schedule is defined. Event counts are not equivalent to user intent, time spent, or productivity.
+
+## Final checkpoint verification — CI #448
+
+CI #448 passed on `c179e331f75ba3a490043eb0b90c047a89ca0a3b`, the final README/count checkpoint: 17/17 PostgREST safety tests, 27 PostgreSQL 17 migrations with migration 27 reapplication, 147/147 application tests, typecheck, production build, and npm audit with 0 vulnerabilities.
 
 ## CI #445 — fail-closed follow-up
 

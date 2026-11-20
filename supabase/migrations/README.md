@@ -4,6 +4,8 @@ The branch contains **27 migrations**. The last fresh read-only production ledge
 
 CI #444 passed on implementation/test commit `d05d5a47efd51dca6088ea211f897573b789374d`: 27/27 PostgreSQL 17 migrations, migration 27 reapplication, 17/17 PostgREST safety preflight tests, 147/147 application tests, typecheck, production build and npm audit (0 vulnerabilities). Follow-up `fbb3be06e3c21156ce8e4f3d72c408d657af7d45` tightens fail-closed policy-shape checks and passed [CI #445](https://github.com/mohith-krishnaa/personal-os/actions/runs/44828178553).
 
+Final checkpoint HEAD `c179e331f75ba3a490043eb0b90c047a89ca0a3b` passed [CI #448](https://github.com/mohith-krishnaa/personal-os/actions/runs/44828634302): 27 migrations plus migration 27 reapplication, 17/17 preflight tests, 147/147 app tests, typecheck, production build, npm audit 0 vulnerabilities.
+
 Production still has eight applied migrations and has not received migration 27. Owner-controlled complete backup, isolated restore, checklist conflict review and authenticated two-owner PostgREST acceptance remain required. Do not apply production migrations without explicit approval after the backup/restore gate.
 
 ---

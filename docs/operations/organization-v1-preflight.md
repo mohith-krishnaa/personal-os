@@ -2,6 +2,8 @@
 
 The branch contains **27 migrations**; the last read-only production ledger contains **8**, leaving **19 branch-only**. Migration 27 is `20261121000500_trusted_activity_event_writers.sql`. CI #444 passed the implementation/test commit `d05d5a47efd51dca6088ea211f897573b789374d`: 27/27 PostgreSQL migrations, migration 27 reapplication, 17/17 PostgREST safety tests, 147/147 application tests, typecheck, production build and npm audit (0 vulnerabilities). The fail-closed follow-up `fbb3be06e3c21156ce8e4f3d72c408d657af7d45` passed [CI #445](https://github.com/mohith-krishnaa/personal-os/actions/runs/44828178553): 27 migration replay/reapplication, 17/17 preflight tests, 147/147 application tests, typecheck, production build, and npm audit 0 vulnerabilities.
 
+CI #448 also passed on final checkpoint HEAD `c179e331f75ba3a490043eb0b90c047a89ca0a3b`: 17/17 preflight tests, 27 migrations plus migration 27 reapplication, 147/147 app tests, typecheck, production build, and npm audit 0 vulnerabilities.
+
 ## Read-only query contracts
 
 - Query 16: task activity trigger enabled, postgres-owned SECURITY DEFINER, fixed search path; authenticated direct trigger EXECUTE and direct activity-event INSERT are false; service_role trigger EXECUTE remains true; owner SELECT policy present; authenticated INSERT policy absent.
