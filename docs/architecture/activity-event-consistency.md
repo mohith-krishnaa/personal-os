@@ -18,18 +18,24 @@ The application no longer inserts task activity events separately in `src/lib/ta
 
 `setTaskStatusForUser` now retries recurrence generation when a task is already COMPLETED. This repairs the case where the parent completion committed but a later recurrence-occurrence INSERT/event transaction failed. The existing `tasks_recurring_occurrence_unique` index makes a repeated occurrence attempt safe.
 
-## Remaining idempotency and audit limitations
+## Task create request idempotency
 
-This implementation guarantees that each committed task INSERT/meaningful UPDATE has its matching event, or the task statement does not commit. It does **not** yet guarantee one task per user intent:
+Migration `20261121000200_task_create_request_idempotency.sql` adds a non-null `tasks.client_request_id`, a nullable SHA-256 `client_request_hash`, the unique constraint `(user_id, client_request_id)`, hash-format validation, and a SECURITY INVOKER trigger that prevents request identity mutation. Existing task rows receive opaque server-generated UUIDs; non-first-party/internal inserts retain a generated-key default.
 
-- Task and subtask creation do not yet accept a stable client-generated request ID. A client retry after an ambiguous response can create another task row and another truthful `TASK_CREATED` event.
+The first-party task editor, quick-add action, and subtask manager generate one client UUID for an unchanged form payload and retain it after an ambiguous failure. A changed payload receives a new key. The server normalizes the UUID, hashes a canonical representation of the validated create payload, looks up an existing owner/request row before checking mutable project/parent state, then uses Supabase upsert with `ignoreDuplicates` to handle concurrent duplicates. If another request wins the unique key, the server reads the winning row under the same owner scope and compares the stored hash. Same-key/same-payload retries return the existing task; same-key/different-payload reuse is rejected. The request hash and key are not included in create-action return values.
+
+The request key is unique per owner, so two owners may independently use the same UUID. The database trigger makes the stored identity immutable. Internal recurrence occurrence inserts continue to use generated keys; `tasks_recurring_occurrence_unique` remains the recurrence-specific idempotency guard. A task deletion removes the key with the task row, so a very late retry after deletion is not protected by a durable tombstone ledger.
+
+## Remaining event and audit limitations
+
 - UPDATE retries are event-idempotent when the retry is a no-op; meaningful repeated changes are distinct committed mutations.
 - Recurrence occurrence uniqueness prevents a second row/event for the same series occurrence.
-- DELETE is not covered by this trigger. Task deletion/cascade does not currently produce a `TASK_DELETED` event.
+- DELETE is not covered by the activity trigger. Task deletion/cascade does not currently produce a `TASK_DELETED` event.
 - `activity_events` remains owner-scoped but mutable: its owner policy is `FOR ALL`, `entity_id` is polymorphic without an entity FK, and there is no append-only or event-idempotency constraint.
+- Direct API clients that need retry guarantees must supply a stable `client_request_id`; the database default preserves compatibility but creates a new key for each omitted-key insert.
 - No historical event backfill is attempted. Past missing events cannot be reconstructed reliably from the current schema.
 
-Therefore, Analytics must not interpret event counts as counts of user intent, nor infer that an absent event proves no task deletion occurred. Use current task rows as the source of truth until stable create request idempotency, DELETE semantics, and retention/immutability requirements are designed and tested.
+Analytics must not interpret activity counts as counts of user intent, nor infer that an absent event proves no task deletion occurred. Use current task rows as the source of truth until DELETE semantics and event retention/immutability requirements are designed and tested.
 
 ## Verification
 
