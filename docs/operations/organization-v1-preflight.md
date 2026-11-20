@@ -1,3 +1,20 @@
+## Task create request identity — migration 24 (2026-11-21)
+
+Read-only preflight query **17** reports the `tasks.client_request_id` UUID column/default/not-null state, exact per-owner unique key, payload-hash type/check, immutable trigger, SECURITY INVOKER/search-path settings, and EXECUTE grants. Expected results:
+
+- `task_request_id_not_null = true`
+- `task_request_id_is_uuid = true`
+- `task_request_id_default` resolves to `gen_random_uuid()`
+- `task_request_hash_is_text = true`
+- `task_request_unique_per_owner = true`
+- `task_request_hash_format_check = true`
+- `task_request_identity_trigger_enabled = true`
+- `request_trigger_is_security_invoker = true`
+- `request_trigger_search_path_safe = true`
+- authenticated and service_role EXECUTE = true; anon EXECUTE = false
+
+The new branch-only migration is `20261121000200_task_create_request_idempotency.sql`. The migration runner now expects **24 migrations** and runs sequential plus two-session concurrent retry assertions. The latest application tests include client request-state reuse, task/subtask same-request resolution, payload mismatch rejection, and conflict fallback. The migration remains branch-only; the live ledger remains at eight versions and the live `tasks` table still has no request-identity columns. Do not apply it to production before the owner-controlled complete backup and successful isolated restore.
+
 ## Task activity event contract — migration 23 (2026-11-21)
 
 Read-only preflight query **16** reports the task activity trigger, SECURITY INVOKER setting, fixed search path, EXECUTE grants, authenticated activity-event INSERT privilege, and owner RLS policy. Expect one row with:
