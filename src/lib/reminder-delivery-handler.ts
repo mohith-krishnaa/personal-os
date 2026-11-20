@@ -14,7 +14,7 @@ type ReminderDeliveryDependencies = {
 }
 
 export function getReminderWorkerSecret(
-  env: { REMINDER_WORKER_SECRET?: string; CRON_SECRET?: string } = process.env,
+  env: Record<string, string | undefined> = process.env,
 ): string | undefined {
   return env.REMINDER_WORKER_SECRET || env.CRON_SECRET
 }
