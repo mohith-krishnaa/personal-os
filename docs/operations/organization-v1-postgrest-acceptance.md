@@ -14,6 +14,21 @@ Do not run this harness against production or against an unverified copy.
 
 The three isolated-target/restore confirmation environment variables are operator attestations, not cryptographic proof that a backup exists. The script cannot independently verify backup completeness or restore success. The owner remains responsible for those checks.
 
+## Required backup and restore evidence
+
+Complete the [owner-controlled backup and isolated-restore gate](organization-v1-preflight.md#backup-gate--owner-controlled-export-and-isolated-restore) before setting any of the backup/restore confirmation variables.
+
+The owner must retain a private evidence package outside Git containing:
+- roles, schema, data, and the separate supabase_migrations schema/data exports;
+- the managed-schema restore supplement for auth.users.on_auth_user_created and any reviewed custom auth/storage changes;
+- separate Auth data, Storage object bytes/checksums, or Vault root-key handling only if the source inventory requires them;
+- a non-secret manifest with source/target project refs, PostgreSQL and CLI versions, exact eight source migration versions, installed extension versions, per-table row counts, artifact byte sizes, SHA-256 hashes, and restore command exit statuses;
+- isolated-target verification showing the exact eight-version baseline, matching schema/data/roles/extensions, RLS and relationship contracts, the restored auth profile-bootstrap trigger, and a successful read-only checklist conflict report.
+
+The current read-only snapshot (2026-11-20) has nine empty public application tables, zero auth.users, zero Storage buckets/objects, and zero Vault secrets, but it still has a custom auth.users profile-bootstrap trigger and four installed non-plpgsql extensions. Recheck all counts and customizations immediately before export. The default Supabase CLI dump excludes auth/storage and extension-created schemas; a default schema dump alone is not complete.
+
+After the restored base has been verified, the isolated target must show exactly the eight source migrations applied and the 14 branch-only migrations pending. Review the dry-run, apply those 14 migrations only to the isolated target, run the checklist conflict report, and then run the two-owner PostgREST harness. Do not apply migrations to production. The environment variables below are owner attestations, not evidence; set them only after the artifacts and restore checks above have actually been reviewed.
+
 ## Environment
 
 Set these variables in the shell running the harness. Do not put credentials in source control, CI variables, command-line arguments, or the runbook.

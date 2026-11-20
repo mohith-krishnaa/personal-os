@@ -66,6 +66,13 @@
 >
 # Organization V1 — Architecture Contract
 
+## Auth profile bootstrap and restore boundary
+
+The baseline migration 20260829182309_create_personal_os_core.sql creates public.handle_new_user() and the auth.users.on_auth_user_created trigger. The function is SECURITY INVOKER, fixes search_path to public, and inserts the new user's profile into public.profiles. This is part of the core sign-up contract, not an optional platform trigger.
+
+The standard Supabase CLI schema dump excludes the managed auth schema, so the trigger itself is not included in the default public-schema export even though the public function is. When restoring a database into an isolated Supabase project, restore the public function, explicitly recreate the trigger from the exact baseline migration statement, and verify it before creating disposable Auth users. Do not replay the whole baseline migration on top of a restored schema. The other Storage triggers observed in the live project are provider-owned and must not be copied manually.
+
+
 ## Reminder and notification ownership integrity
 
 Migration `20261120000200_enforce_reminder_notification_ownership.sql` adds database-enforced composite relationships without changing the existing owner RLS policies:

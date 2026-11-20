@@ -191,35 +191,114 @@ The other three local-only migrations are:
 
 Do not run migration up or migration repair until the local/remote history has been reviewed using the Supabase CLI and the rollout plan has been approved.
 
-## Backup gate — Free Plan
+## Backup gate — owner-controlled export and isolated restore
 
-The Supabase Dashboard confirms that the Free Plan does not include scheduled project backups. No manual backup has been created by this automation.
+This gate is not satisfied. No complete backup has been produced or restored. A zero-row check is useful inventory only; it is not a backup.
 
-The supported Supabase CLI db dump command runs pg_dump in a container and excludes Supabase-managed schemas such as auth and storage. It does not include table data or custom roles in the default schema dump; those require separate data-only and role-only exports. See the [Supabase CLI db dump reference](https://supabase.com/docs/reference/cli/supabase-db-dump).
+The last recorded Dashboard check says the Free Plan has no scheduled project backups. Recheck the current plan before relying on provider backups. No backup/export action is available through the connected Supabase tools in this run.
 
-On an owner-controlled Windows machine with Docker Desktop and the Supabase CLI installed, authenticate and link the project. Then export roles, schema, and data separately using the linked target explicitly:
+### Fresh source snapshot — 2026-11-20 (read-only)
 
-    supabase login
-    supabase link --project-ref gujzvkyytxsnervovvrt
-    supabase db dump --linked -f backups/personal-os-roles.sql --role-only
-    supabase db dump --linked -f backups/personal-os-schema.sql
-    supabase db dump --linked -f backups/personal-os-data.sql --use-copy --data-only
-    supabase migration list
+- Project: gujzvkyytxsnervovvrt; region ap-southeast-1; ACTIVE_HEALTHY; PostgreSQL 17.11.0.003.
+- Live migration ledger: exactly eight versions: 20260829182309, 20260830085036, 20260830103327, 20260830114218, 20260830120132, 20260830123420, 20260830141616, 20260905162251.
+- Repository branch: 22 numbered migrations; 14 are not present in the live ledger (11 Organization/related, one Progress compatibility, two RLS-performance migrations).
+- All nine public application tables have zero rows: activity_events, goals, notes, notifications, profiles, progress_entries, projects, reminders, tasks.
+- auth.users=0; storage.buckets=0; storage.objects=0; vault.secrets=0.
+- auth.schema_migrations has 84 provider-managed rows; storage.migrations has 81 provider-managed rows; supabase_migrations.schema_migrations has the eight project migration records. Do not treat the auth/storage migration metadata as application data or copy provider-owned migration history into a new project.
+- Installed non-plpgsql extensions: pg_stat_statements 1.11, pgcrypto 1.3, supabase_vault 0.3.1, uuid-ossp 1.1. Verify the same versions are available/enabled on the isolated target before restore.
+- No deployed Edge Functions were listed. There are no auth/storage RLS policies.
+- Twelve non-internal triggers exist across auth/storage. One is a project-owned trigger, auth.users.on_auth_user_created, which calls public.handle_new_user(). The function is SECURITY INVOKER, uses search_path=public, and inserts public.profiles. Its trigger DDL is present in the already-applied baseline migration 20260829182309_create_personal_os_core.sql. The other eleven triggers are Storage platform triggers owned by supabase_storage_admin; do not copy those platform triggers manually.
 
-The official CLI reference documents `db dump` as operating on the linked project by default; `--linked` makes the target explicit. The `--role-only` and `--data-only` exports are required because the default dump contains neither custom roles nor table data. `--use-copy` is included for the data export as recommended by Supabase's platform restore guide.
+### Export from a private workspace
 
-Keep these backup files outside the public repository and protect them as private database artifacts. Do not put database passwords, connection strings, access tokens, or service-role keys in Git or ChatGPT.
+The repository has no supabase/config.toml. Do not assume supabase link will work from the repository root. Use a private temporary workspace outside Git, initialize the CLI there, and keep all dump files outside the repository. The Supabase CLI db dump command runs pg_dump in Docker. Use a PostgreSQL 17 client for verification.
 
-The current exact counts for auth.users and storage.objects are both zero. Recheck before backup. If either becomes non-empty, arrange a separate provider-supported export/restore path for that managed data; the CLI dump does not include those schemas.
+Set SOURCE_DB_URL from the Supabase Dashboard Connect panel in the owner-controlled shell. Prefer the direct connection; use the session pooler if the network cannot reach the direct IPv6 endpoint. Do not put the connection string in shell history, Git, CI logs, or ChatGPT. Disable shell tracing before running commands.
 
-A dump is not accepted as a recovery gate until:
-1. All expected files exist and are non-empty.
-2. Their hashes are recorded in a private location.
-3. The schema/data/role exports are inspected for expected application objects.
-4. A restore is tested against an isolated local database or disposable Supabase project.
-5. The restore is verified before production DDL.
+~~~bash
+mkdir -p "$BACKUP_DIR"
+cd "$BACKUP_DIR"
+supabase init
+umask 077
+supabase --version
+psql --version
 
-The current automation environment has no Docker daemon, pg_dump binary, or database password, so it cannot create or restore this backup itself.
+supabase db dump --remote="$SOURCE_DB_URL" -f roles.sql --role-only
+supabase db dump --remote="$SOURCE_DB_URL" -f schema.sql
+supabase db dump --remote="$SOURCE_DB_URL" -f data.sql --use-copy --data-only -x "storage.buckets_vectors" -x "storage.vector_indexes"
+
+supabase db dump --remote="$SOURCE_DB_URL" -f migration-history-schema.sql --schema supabase_migrations
+supabase db dump --remote="$SOURCE_DB_URL" -f migration-history-data.sql --use-copy --data-only --schema supabase_migrations
+~~~
+
+The current CLI accepts a remote project ref/branch/URL and prints a Target line; inspect that line for the expected source project before accepting each export. The default dump excludes Supabase-managed auth/storage schemas and extension-created schemas, and it does not include data or custom roles unless the corresponding flags are supplied. The separate migration-history export is required to preserve the exact eight-version baseline.
+
+The standard dump does not include Storage object bytes. Current buckets/objects are both zero; if either becomes non-zero before backup, export the object bytes through the Storage API and verify each object's size/checksum separately. Likewise, the current auth.users count is zero; if it becomes non-zero, use Supabase's documented Auth migration procedure or a supported full backup/SQL export path rather than assuming the default dump contains Auth data.
+
+The project has a custom auth.users trigger even though auth.users is empty. The public.handle_new_user() function is in the public schema dump, but the trigger is in the excluded auth schema. After restoring the public schema, explicitly recreate and verify this trigger on the isolated target using the exact statement from 20260829182309_create_personal_os_core.sql:
+
+~~~sql
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+AFTER INSERT ON auth.users
+FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+~~~
+
+Do not replay the entire already-applied core migration just to restore this trigger. Do not copy the eleven Storage platform triggers. If other customizations in auth/storage are found, capture and review them separately with the Supabase CLI diff workflow using the exact eight live migrations as the baseline. The current auth trigger is already in that baseline, so a diff against the same baseline may not emit it.
+
+The installed supabase_vault extension has zero rows in vault.secrets. The root encryption key is not contained in the database dumps. If Vault secrets become non-empty before backup, capture the source root key securely while the source project is active, copy it to the isolated target using the documented Supabase procedure, and verify decryption there. Never put the key in the repository, backup manifest, CI, or chat. Custom LOGIN roles exported in roles.sql may require new passwords to be set manually on the isolated target.
+
+Create a private backup manifest containing only non-secret metadata:
+- source project ref, source region, PostgreSQL version, UTC export time, Supabase CLI version, and PostgreSQL client version;
+- the eight exact live migration versions and the 22-file repository inventory;
+- installed extension names/versions;
+- exact source row counts for all nine public tables, auth.users, storage buckets/objects, and vault.secrets;
+- artifact filenames, byte sizes, SHA-256 hashes, and command exit statuses;
+- any Auth/Storage/Vault/custom-schema supplements and their verification results.
+
+All export commands must exit successfully. Record hashes even when a data-only export contains no row payload because every application table is empty. Do not accept an empty export as proof by itself.
+
+### Restore into a separate isolated project
+
+Create a separate isolated Supabase project; do not use the production project, a production branch, or the connected production restore operation. Match PostgreSQL major version and enable the same installed extensions before restoring. Review Supabase's documented handling for custom roles and platform-owned objects; do not broadly strip ownership or ACL statements to make a restore appear successful.
+
+Use the documented logical restore sequence against TARGET_DB_URL:
+
+~~~bash
+psql \
+  --single-transaction \
+  --variable ON_ERROR_STOP=1 \
+  --file roles.sql \
+  --file schema.sql \
+  --command 'SET session_replication_role = replica' \
+  --file data.sql \
+  --dbname "$TARGET_DB_URL"
+
+psql \
+  --single-transaction \
+  --variable ON_ERROR_STOP=1 \
+  --file migration-history-schema.sql \
+  --file migration-history-data.sql \
+  --dbname "$TARGET_DB_URL"
+~~~
+
+If the target already has migration history, stop and inspect it before importing the source history; never overwrite or repair a conflicting ledger blindly. Restore the auth.users trigger supplement after public.handle_new_user() exists and before creating test users. If any Auth users, Storage objects, Vault secrets, custom policies, or other managed-schema customizations exist at backup time, complete their separately documented restore path and verify them before proceeding.
+
+### Restore verification — mandatory evidence
+
+Do not proceed on a successful psql exit alone. Record and verify all of the following on the isolated target:
+
+1. All artifact hashes match the private manifest; both restore commands exited zero with ON_ERROR_STOP enabled and no ignored errors.
+2. The exact eight source migration versions exist in supabase_migrations.schema_migrations. No branch-only migration is marked applied.
+3. The nine public application tables and all source row counts match. At the 2026-11-20 source snapshot, every public application table, auth.users, storage.buckets, storage.objects, and vault.secrets had zero rows.
+4. The four installed extension versions match.
+5. RLS remains enabled on all nine public application tables; compare policy names, roles, commands, USING/WITH CHECK expressions, grants, foreign keys, triggers, and functions with the read-only preflight output.
+6. auth.users.on_auth_user_created exists and calls the matching public.handle_new_user() definition. Confirm a disposable user created only on the isolated target receives the expected profile row.
+7. Any non-empty Storage export is restored and every object is readable with matching size/checksum. Any Vault data decrypts with the preserved root key.
+8. Save the read-only checklist reconciliation report and review every row against the restored backup. The report classifies missing_task, task_owner_mismatch, missing_canonical, and canonical_id_collision, and exposes owner/task/payload mismatch flags. Zero conflicts or an owner-reviewed exception list is required; do not silently discard conflicts.
+9. After the base restore is verified, confirm the isolated target has exactly the eight baseline migrations applied and the 14 branch-only migrations pending. Review supabase db push --dry-run; apply those 14 migrations only to the isolated target, never production. Then run the checklist conflict report (both checklist tables must exist) and the two-owner PostgREST acceptance harness.
+
+The connected automation environment has no repository checkout, Docker daemon, Supabase CLI, pg_dump, or psql, and no database password. It cannot create or restore these artifacts. No production migration, DDL/DML, RLS change, backup, restore, or merge was performed by this automation.
 
 ## Advisor snapshot
 
