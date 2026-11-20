@@ -1,7 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { listTasksForUser } from './task-queries'
-import { setTaskStatusForUser, updateTaskForUser, type UpdateTaskInput } from './tasks'
+import { createTaskForUser, setTaskStatusForUser, updateTaskForUser, type UpdateTaskInput } from './tasks'
+import { hashClientRequestPayload } from './task-create-idempotency'
 import { assertTaskOrganizationLinks, canCreateTaskInProject, isInactiveProjectAssignmentError, isNewProjectAssignment, resolveTaskOrganizationLinks } from './task-relationships'
 
 test('listTasksForUser scopes reads to the owner and optional project while preserving task ordering', async () => {
@@ -571,4 +572,133 @@ test('updateTaskForUser rejects an ARCHIVED project before mutating task relatio
   assert.equal(calls.some(call => call.action === 'insert'), false)
   assert.deepEqual(originalTask, { project_id: null, parent_task_id: null })
   assert.equal(remainingPlans(), 0)
+})
+
+
+const CREATE_REQUEST_ID = '95000000-0000-4000-8000-000000000099'
+
+function createTaskRequestSupabase(plans: Array<{ action: 'select' | 'upsert'; data: unknown; error?: unknown | null }>) {
+  const calls: Array<{ action: string; columns?: string; filters: Array<[string, string]>; payload?: Record<string, unknown>; options?: unknown }> = []
+  const pending = [...plans]
+  const supabase = {
+    from(table: string) {
+      assert.equal(table, 'tasks')
+      const call = { action: '', filters: [] as Array<[string, string]>, columns: undefined as string | undefined, payload: undefined as Record<string, unknown> | undefined, options: undefined as unknown }
+      calls.push(call)
+      const query = {
+        select(columns: string) {
+          if (!call.action) call.action = 'select'
+          call.columns = columns
+          return query
+        },
+        eq(column: string, value: string) {
+          call.filters.push([column, value])
+          return query
+        },
+        upsert(payload: Record<string, unknown>, options: unknown) {
+          call.action = 'upsert'
+          call.payload = payload
+          call.options = options
+          return query
+        },
+        maybeSingle() {
+          const plan = pending.shift()
+          assert.ok(plan, 'unexpected task request query')
+          assert.equal(plan.action, call.action)
+          return Promise.resolve({ data: plan.data ?? null, error: plan.error ?? null })
+        },
+      }
+      return query
+    },
+  } as any
+  return { supabase, calls, remainingPlans: () => pending.length }
+}
+
+function validTaskCreatePayload() {
+  return {
+    kind: 'TASK',
+    project_id: null,
+    parent_task_id: null,
+    title: 'New task',
+    priority: 'MEDIUM',
+    estimated_minutes: null,
+    due_at: null,
+    scheduled_start: null,
+    scheduled_end: null,
+    recurrence_rule: null,
+    recurrence_until: null,
+  }
+}
+
+test('createTaskForUser writes a stable owner-scoped request key and payload hash', async () => {
+  const requestHash = hashClientRequestPayload(validTaskCreatePayload())
+  const row = {
+    id: 'task-created',
+    user_id: 'owner-1',
+    title: 'New task',
+    client_request_id: CREATE_REQUEST_ID,
+    client_request_hash: requestHash,
+  }
+  const { supabase, calls, remainingPlans } = createTaskRequestSupabase([
+    { action: 'select', data: null },
+    { action: 'upsert', data: row },
+  ])
+
+  const result = await createTaskForUser(supabase, 'owner-1', {
+    title: 'New task',
+    client_request_id: CREATE_REQUEST_ID,
+  })
+
+  assert.equal(result.id, 'task-created')
+  assert.equal('client_request_id' in result, false)
+  assert.equal('client_request_hash' in result, false)
+  assert.deepEqual(calls[0].filters, [['user_id', 'owner-1'], ['client_request_id', CREATE_REQUEST_ID]])
+  assert.equal(calls[1].payload?.client_request_id, CREATE_REQUEST_ID)
+  assert.equal(calls[1].payload?.client_request_hash, requestHash)
+  assert.deepEqual(calls[1].options, { onConflict: 'user_id,client_request_id', ignoreDuplicates: true })
+  assert.equal(remainingPlans(), 0)
+})
+
+test('createTaskForUser resolves a same-payload retry before mutable relationship preflight', async () => {
+  const requestHash = hashClientRequestPayload(validTaskCreatePayload())
+  const row = {
+    id: 'existing-task',
+    user_id: 'owner-1',
+    title: 'New task',
+    client_request_id: CREATE_REQUEST_ID,
+    client_request_hash: requestHash,
+  }
+  const { supabase, calls, remainingPlans } = createTaskRequestSupabase([
+    { action: 'select', data: row },
+  ])
+
+  const result = await createTaskForUser(supabase, 'owner-1', {
+    title: 'New task',
+    client_request_id: CREATE_REQUEST_ID,
+  })
+
+  assert.equal(result.id, 'existing-task')
+  assert.equal(calls.length, 1)
+  assert.equal(remainingPlans(), 0)
+})
+
+test('createTaskForUser rejects request-key reuse with changed task details', async () => {
+  const { supabase, calls } = createTaskRequestSupabase([
+    { action: 'select', data: {
+      id: 'existing-task',
+      user_id: 'owner-1',
+      title: 'Different task',
+      client_request_id: CREATE_REQUEST_ID,
+      client_request_hash: 'f'.repeat(64),
+    } },
+  ])
+
+  await assert.rejects(
+    () => createTaskForUser(supabase, 'owner-1', {
+      title: 'New task',
+      client_request_id: CREATE_REQUEST_ID,
+    }),
+    /already been used with different task details/,
+  )
+  assert.equal(calls.length, 1)
 })
