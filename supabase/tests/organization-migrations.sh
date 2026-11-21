@@ -320,12 +320,72 @@ fi
 
 echo "Duplicate checklist task_id foreign keys were rejected as expected."
 
+echo "Verifying checklist reconciliation migration idempotence for an unchanged source snapshot"
+checklist_snapshot() {
+  psql -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
+SELECT jsonb_build_object(
+  'canonical', COALESCE(
+    (SELECT jsonb_agg(to_jsonb(item) ORDER BY item.id)
+     FROM public.checklist_items AS item),
+    '[]'::jsonb
+  ),
+  'legacy', COALESCE(
+    (SELECT jsonb_agg(to_jsonb(item) ORDER BY item.id)
+     FROM public.task_checklist_items AS item),
+    '[]'::jsonb
+  )
+)::text;
+SQL
+}
+
+checklist_snapshot_before="$(checklist_snapshot)"
+psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261015000200_reconcile_checklist_tables.sql
+checklist_snapshot_after="$(checklist_snapshot)"
+if [[ "$checklist_snapshot_before" != "$checklist_snapshot_after" ]]; then
+  echo "Reapplying checklist reconciliation changed canonical or legacy rows without source changes."
+  exit 1
+fi
+
 echo "Seeding a valid legacy-only write after one-time reconciliation"
 psql -X -v ON_ERROR_STOP=1 -f supabase/tests/organization-migration-seed-post-reconciliation.sql
 
-echo "Executing read-only checklist reconciliation conflict report"
-conflict_report="$(psql -X -v ON_ERROR_STOP=1 -A -t -f supabase/operations/checklist-reconciliation-conflicts.sql)"
-printf '%s\n' "$conflict_report"
+run_checklist_conflict_report() {
+  psql -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
+BEGIN READ ONLY;
+\\i supabase/operations/checklist-reconciliation-conflicts.sql
+ROLLBACK;
+SQL
+}
+
+echo "Executing the read-only checklist reconciliation conflict report twice"
+checklist_snapshot_before_report="$(checklist_snapshot)"
+conflict_report="$(run_checklist_conflict_report)"
+conflict_report_repeat="$(run_checklist_conflict_report)"
+checklist_snapshot_after_report="$(checklist_snapshot)"
+
+if [[ "$conflict_report" != "$conflict_report_repeat" ]]; then
+  echo "Checklist conflict report output changed across identical read-only snapshots."
+  exit 1
+fi
+
+if [[ "$checklist_snapshot_before_report" != "$checklist_snapshot_after_report" ]]; then
+  echo "Checklist conflict report changed canonical or legacy table data."
+  exit 1
+fi
+
+printf '%s\\n' "$conflict_report"
+
+reported_keys="$(printf '%s\\n' "$conflict_report" | cut -d'|' -f1-2)"
+expected_keys="$(printf '%s\\n' \\
+  '30000000-0000-4000-8000-000000000002|task_owner_mismatch' \\
+  '30000000-0000-4000-8000-000000000005|canonical_id_collision' \\
+  '30000000-0000-4000-8000-000000000006|missing_canonical' \\
+  '30000000-0000-4000-8000-000000000007|canonical_id_collision')"
+if [[ "$reported_keys" != "$expected_keys" ]]; then
+  echo "Checklist conflict report classifications or legacy.id ordering changed."
+  printf 'Expected keys:\\n%s\\nActual keys:\\n%s\\n' "$expected_keys" "$reported_keys"
+  exit 1
+fi
 
 if ! grep -Fq '30000000-0000-4000-8000-000000000002|task_owner_mismatch|' <<<"$conflict_report"; then
   echo "Checklist conflict report did not identify the legacy row linked to another owner's task."
@@ -350,12 +410,11 @@ if ! grep -Fq '30000000-0000-4000-8000-000000000006|missing_canonical|' <<<"$con
   exit 1
 fi
 
-reported_conflicts="$(printf '%s\n' "$conflict_report" | sed '/^[[:space:]]*$/d' | wc -l | tr -d ' ')"
+reported_conflicts="$(printf '%s\\n' "$conflict_report" | sed '/^[[:space:]]*$/d' | wc -l | tr -d ' ')"
 if [[ "$reported_conflicts" -ne 4 ]]; then
   echo "Expected exactly four seeded checklist reconciliation conflicts, found $reported_conflicts."
   exit 1
 fi
-
 
 echo "Verifying atomic reminder delivery concurrency"
 bash supabase/tests/reminder-delivery-concurrency.sh
