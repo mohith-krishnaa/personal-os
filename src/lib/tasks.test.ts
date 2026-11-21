@@ -350,7 +350,7 @@ function createUpdateTaskSupabase(plans: UpdateTaskPlan[]) {
         insert(payload: Record<string, unknown>) {
           call.action = 'insert'
           call.payload = payload
-          return Promise.resolve(finish(call))
+          return this
         },
         eq(column: string, value: string) {
           call.filters.push([column, value])
