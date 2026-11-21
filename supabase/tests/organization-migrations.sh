@@ -366,7 +366,7 @@ fi
 echo "Restoring and testing ensure_rls with Supabase's superuser/owner role split"
 preflight_output="$(
   psql -X -v ON_ERROR_STOP=1 -A -t \
-    -c "BEGIN; SET ROLE supabase_admin; ALTER ROLE postgres NOSUPERUSER; SET app.personal_os_restore_target = 'isolated'" \
+    -c "BEGIN; SET ROLE supabase_admin; SET app.personal_os_restore_target = 'isolated'" \
     -f supabase/operations/restore-ensure-rls-event-trigger.sql \
     -f supabase/operations/restore-ensure-rls-event-trigger.sql \
     -f supabase/tests/restore-ensure-rls-event-trigger.sql \

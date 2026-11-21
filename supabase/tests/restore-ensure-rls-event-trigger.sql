@@ -1,7 +1,9 @@
 -- Run ONLY inside the runner's outer transaction on the disposable migration-test database
 -- or a verified isolated restore target. The same-session marker is an attestation,
--- not proof of isolation. The runner first uses a superuser-capable role, then models
--- postgres as a non-superuser function/table owner before running this file.
+-- not proof of isolation. The runner creates the event trigger as supabase_admin and
+-- transfers ownership to postgres, then runs behavior probes as the function/table owner.
+-- CI's bootstrap postgres remains superuser; the live inventory separately verifies that
+-- the source project's postgres role is not superuser.
 DO $isolated_target_gate$
 BEGIN
   IF current_setting('app.personal_os_restore_target', true) IS DISTINCT FROM 'isolated' THEN
