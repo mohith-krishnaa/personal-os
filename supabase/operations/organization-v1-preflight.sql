@@ -629,3 +629,53 @@ SELECT
     SELECT 1 FROM event_columns
     WHERE attname IN ('idempotency_key', 'client_request_id', 'event_request_id')
   ) AS generic_event_idempotency_key_absent;
+
+-- 21. Project-installed ensure_rls event-trigger contract.
+-- This reports the exact source body fingerprint and direct/effective EXECUTE ACL.
+-- exception_handler_swallows_errors is a known source behavior, not a security pass:
+-- a failed inner ALTER TABLE can be logged while the CREATE TABLE command continues.
+WITH target_function AS (
+  SELECT p.*
+  FROM pg_proc p
+  JOIN pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname = 'public'
+    AND p.proname = 'rls_auto_enable'
+    AND p.pronargs = 0
+    AND p.prorettype = 'event_trigger'::regtype
+), target_event_trigger AS (
+  SELECT e.*
+  FROM pg_event_trigger e
+  WHERE e.evtname = 'ensure_rls'
+)
+SELECT
+  'ensure_rls_contract'::text AS contract_name,
+  f.oid IS NOT NULL AS function_present,
+  e.evtname IS NOT NULL AS event_trigger_present,
+  coalesce(e.evtevent = 'ddl_command_end', false) AS event_trigger_ddl_command_end,
+  coalesce(e.evttags = ARRAY['CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO']::text[], false) AS event_trigger_tags_exact,
+  coalesce(e.evtenabled = 'O', false) AS event_trigger_enabled,
+  coalesce(pg_get_userbyid(e.evtowner) = 'postgres', false) AS event_trigger_owner_is_postgres,
+  coalesce(e.evtfoid = f.oid, false) AS event_trigger_uses_expected_function,
+  coalesce(pg_get_userbyid(f.proowner) = 'postgres', false) AS function_owner_is_postgres,
+  coalesce(f.prosecdef, false) AS function_security_definer,
+  coalesce(f.proconfig = ARRAY['search_path=pg_catalog']::text[], false) AS function_search_path_exact,
+  coalesce(md5(f.prosrc) = '99be20677b456ea8d3be47bdd44fb369', false) AS function_source_hash_exact,
+  CASE WHEN f.oid IS NULL THEN false ELSE EXISTS (
+    SELECT 1
+    FROM aclexplode(coalesce(f.proacl, acldefault('f', f.proowner))) acl
+    WHERE acl.grantee = 0
+      AND acl.privilege_type = 'EXECUTE'
+  ) END AS public_execute,
+  coalesce(has_function_privilege('anon', f.oid, 'EXECUTE'), false) AS anon_execute,
+  coalesce(has_function_privilege('authenticated', f.oid, 'EXECUTE'), false) AS authenticated_execute,
+  coalesce(has_function_privilege('service_role', f.oid, 'EXECUTE'), false) AS service_role_execute,
+  coalesce(has_function_privilege('postgres', f.oid, 'EXECUTE'), false) AS postgres_execute,
+  coalesce(
+    position('when others then' in lower(f.prosrc)) > 0
+      AND position('raise log' in lower(f.prosrc)) > 0
+      AND position('raise;' in lower(f.prosrc)) = 0,
+    false
+  ) AS exception_handler_swallows_errors
+FROM (VALUES (1)) AS singleton(dummy)
+LEFT JOIN target_function f ON true
+LEFT JOIN target_event_trigger e ON true;

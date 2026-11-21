@@ -286,8 +286,6 @@ fi
 
 echo "Noncanonical project/task ON UPDATE behavior was rejected as expected."
 
-echo "Executing read-only Organization rollout preflight against the replayed schema"
-psql -X -v ON_ERROR_STOP=1 -f supabase/operations/organization-v1-preflight.sql >/dev/null
 
 echo "Verifying checklist FK assertions reject duplicate task_id foreign keys"
 set +e
@@ -359,3 +357,23 @@ fi
 
 echo "Verifying atomic reminder delivery concurrency"
 bash supabase/tests/reminder-delivery-concurrency.sh
+
+echo "Verifying isolated ensure_rls restore script rejects an unapproved target"
+if psql -X -v ON_ERROR_STOP=1 -f supabase/operations/restore-ensure-rls-event-trigger.sql >/dev/null 2>&1; then
+  echo "ERROR: ensure_rls restore script accepted a missing isolated-target attestation" >&2
+  exit 1
+fi
+psql -X -v ON_ERROR_STOP=1 -c "SET app.personal_os_restore_target = 'isolated'" -f supabase/operations/restore-ensure-rls-event-trigger.sql
+echo "Reapplying ensure_rls restore script to verify idempotence"
+psql -X -v ON_ERROR_STOP=1 -c "SET app.personal_os_restore_target = 'isolated'" -f supabase/operations/restore-ensure-rls-event-trigger.sql
+echo "Verifying ensure_rls event-trigger ACL, scope, and exception behavior"
+psql -X -v ON_ERROR_STOP=1 -c "SET app.personal_os_restore_target = 'isolated'" -f supabase/tests/restore-ensure-rls-event-trigger.sql
+
+echo "Executing read-only Organization rollout preflight after ensure_rls restoration"
+preflight_output="$(psql -X -v ON_ERROR_STOP=1 -A -t -f supabase/operations/organization-v1-preflight.sql)"
+expected_ensure_rls_line='ensure_rls_contract|t|t|t|t|t|t|t|t|t|t|t|f|f|f|t|t|t'
+if ! grep -Fq "$expected_ensure_rls_line" <<<"$preflight_output"; then
+  echo "The read-only preflight did not report the exact ensure_rls source/ACL contract:"
+  printf '%s\n' "$preflight_output"
+  exit 1
+fi
