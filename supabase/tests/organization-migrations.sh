@@ -37,9 +37,13 @@ if [[ "$applied_migrations" -ne "$expected_migrations" ]]; then
 fi
 
 psql -X -v ON_ERROR_STOP=1 -f supabase/tests/organization-migration-assertions.sql
-echo "Verifying isolated Auth trigger restore script"
-psql -X -v ON_ERROR_STOP=1 -f supabase/operations/restore-auth-user-trigger.sql
-psql -X -v ON_ERROR_STOP=1 -f supabase/operations/restore-auth-user-trigger.sql
+echo "Verifying isolated Auth trigger restore script rejects an unapproved target"
+if psql -X -v ON_ERROR_STOP=1 -f supabase/operations/restore-auth-user-trigger.sql >/dev/null 2>&1; then
+  echo "ERROR: Auth trigger restore script accepted a missing isolated-target attestation" >&2
+  exit 1
+fi
+psql -X -v ON_ERROR_STOP=1 -c "SET app.personal_os_restore_target = 'isolated'" -f supabase/operations/restore-auth-user-trigger.sql
+psql -X -v ON_ERROR_STOP=1 -c "SET app.personal_os_restore_target = 'isolated'" -f supabase/operations/restore-auth-user-trigger.sql
 psql -X -v ON_ERROR_STOP=1 -f supabase/tests/restore-auth-user-trigger.sql
 echo "Verifying transactional task activity events"
 psql -X -v ON_ERROR_STOP=1 -f supabase/tests/task-activity-events.sql

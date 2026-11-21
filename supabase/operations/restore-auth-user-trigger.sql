@@ -1,6 +1,16 @@
 -- Apply ONLY to a freshly restored isolated Supabase target.
 -- Standard Supabase CLI dumps exclude the auth schema, so this trigger is restored separately.
 -- public.handle_new_user() must already exist from the public schema dump.
+-- In the same session, first verify the isolated project reference and set:
+--   SET app.personal_os_restore_target = 'isolated';
+DO $isolated_target_gate$
+BEGIN
+  IF current_setting('app.personal_os_restore_target', true) IS DISTINCT FROM 'isolated' THEN
+    RAISE EXCEPTION 'Refusing Auth trigger DDL: verify the project reference and set app.personal_os_restore_target=isolated only on the isolated restore target.';
+  END IF;
+END
+$isolated_target_gate$;
+
 DO $preflight_auth_trigger_restore$
 DECLARE
   function_oid oid;

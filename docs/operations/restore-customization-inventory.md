@@ -101,7 +101,7 @@ The exact Realtime ledger count is 97. A previous table-list result reported 8; 
 
 The first repository migration, `20260829182309_create_personal_os_core.sql`, creates both `public.handle_new_user()` and the Auth trigger. Because the trigger belongs to the excluded `auth` schema, restoring the migration ledger as already applied does not recreate it.
 
-Apply [`supabase/operations/restore-auth-user-trigger.sql`](../../supabase/operations/restore-auth-user-trigger.sql) **only on the isolated target**, after `schema.sql` has restored `public.handle_new_user()` and the Supabase target provides `auth.users`. The script verifies the function owner/security/search-path contract, then drops and recreates only `on_auth_user_created`. It does not create the function or touch production.
+Apply [`supabase/operations/restore-auth-user-trigger.sql`](../../supabase/operations/restore-auth-user-trigger.sql) **only on the isolated target**, after `schema.sql` has restored `public.handle_new_user()` and the Supabase target provides `auth.users`. First verify the target project reference in the Dashboard, then set `app.personal_os_restore_target='isolated'` in the same SQL session. The script refuses to run without that explicit session attestation, verifies the function owner/security/search-path contract, then drops and recreates only `on_auth_user_created`. It does not create the function or touch production.
 
 Afterward run [`supabase/tests/restore-auth-user-trigger.sql`](../../supabase/tests/restore-auth-user-trigger.sql). The migration CI runner also executes the restore script twice on disposable PostgreSQL to verify idempotence.
 
