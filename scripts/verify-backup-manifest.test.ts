@@ -13,6 +13,7 @@ import { join } from 'node:path'
 import test from 'node:test'
 import {
   EXPECTED_SOURCE_PROJECT_REF,
+  REQUIRED_EMPTY_MANAGED_ROW_COUNT_KEYS,
   REQUIRED_EXTENSION_NAMES,
   REQUIRED_ROW_COUNT_KEYS,
   REQUIRED_SOURCE_MIGRATIONS,
@@ -294,6 +295,20 @@ test('rejects incomplete row-count inventory', async t => {
   const result = await verify(fixture)
   assert.equal(result.ok, false)
   assert.match(result.errors.join(' '), /rowCounts/)
+})
+
+test('rejects non-zero data in Supabase-managed schemas omitted by the CLI dump', async t => {
+  const fixture = createFixture()
+  t.after(() => clean(fixture))
+
+  for (const key of REQUIRED_EMPTY_MANAGED_ROW_COUNT_KEYS) {
+    fixture.manifest.source.rowCounts[key] = 1
+    writeManifest(fixture)
+    const result = await verify(fixture)
+    assert.equal(result.ok, false, key + ' must block the CLI logical backup path')
+    assert.match(result.errors.join(' '), /must be zero for the CLI logical backup path/)
+    fixture.manifest.source.rowCounts[key] = 0
+  }
 })
 
 test('rejects a manifest tied to a different Git commit', async t => {
