@@ -424,6 +424,8 @@ Create a private backup manifest containing only non-secret metadata:
 - artifact filenames, byte sizes, SHA-256 hashes, and command exit statuses;
 - any Auth/Storage/Vault/custom-schema supplements and their verification results.
 
+After recording the manifest, run the [offline backup manifest verifier](backup-manifest-verifier.md) from the exact clean Git commit recorded in the manifest. Keep the manifest and all dump files outside the repository. The verifier checks file presence, byte sizes, SHA-256 hashes, command exit statuses/target attestations, the exact eight-version source ledger, and the current repository migration inventory. It does not create a backup, inspect dump completeness, authenticate the CLI Target output, or prove a successful restore.
+
 All export commands must exit successfully. Record hashes even when a data-only export contains no row payload because every application table is empty. Do not accept an empty export as proof by itself.
 
 ### Restore into a separate isolated project

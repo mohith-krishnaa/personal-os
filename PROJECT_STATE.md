@@ -1,3 +1,47 @@
+# Latest verified checkpoint — offline backup manifest verifier (2026-11-21)
+
+**Starting branch HEAD:** \`95c8c9184551a979d3bdd2b3bd9fb03833ceed67\` — CI #466 passed.  
+**Initial implementation commit:** \`d5b01c49fa18c3855a267b945de10c42a5cb4a4d\` — CI #467 failed three new test assertions.  
+**Corrected code/test HEAD:** \`1dbd3ab6e73709ead9ae5d46c1d107d42d3295a4\` — [CI #468 passed on this exact commit](https://github.com/mohith-krishnaa/personal-os/actions/runs/44855630997).  
+**Branch:** \`feature/organization-v1\`. **Repository migrations:** 27. **Fresh live ledger:** 8. **Branch-only:** 19.  
+**PR #11:** open and unmerged. **PR #12:** open superseded draft.
+
+## Continuity recovery and repository inspection
+
+- Personal-OS Builder is enabled. The recorded current run was \`c3ff18fd-8e54-8327-8f9a-3ae2e641d6ac\`, started \`2026-11-21T02:19:40.283657Z\`, and recorded \`in_progress\`. The latest stored result belonged to the prior backup/restore preflight run (\`2d21ded0-8264-8330-9b18-7be327a398ae\`, created \`2026-11-21T01:26:25.418390Z\`); it was not attributed to the current run.
+- The previous task corrected Supabase CLI v3/v4 dump syntax and isolated restore default-ACL preparation. No owner backup or isolated restore artifacts existed.
+- The actual branch started at \`95c8c9184551a979d3bdd2b3bd9fb03833ceed67\`; PR #11 head matched it. PR #12 remains superseded and open. Main was \`2b42dd17796b75dca79434a81d4e1f0cbf0fa043\`.
+- This run freshly read Supabase project metadata and the migration ledger: production project \`gujzvkyytxsnervovvrt\` is ACTIVE_HEALTHY in \`ap-southeast-1\`, PostgreSQL \`17.11.0.003\`; the exact eight applied versions match the preflight baseline. The branch contains 27 numbered SQL migrations.
+- No local repository checkout is attached. Local working-tree cleanliness cannot be independently certified; remote branch commits and file contents were inspected.
+
+## Offline manifest verifier
+
+Added:
+- \`scripts/verify-backup-manifest.ts\`
+- \`scripts/verify-backup-manifest.test.ts\`
+- \`backup:manifest:verify\` npm script; 23 new regression tests are included in \`npm test\`.
+
+The verifier is offline and read-only. It requires the current clean Git HEAD to match \`source.repositoryCommit\`, compares all repository migration filename versions with the manifest, enforces the exact eight-version source ledger, required extension names and 13 row-count keys, validates five export command statuses/target attestations, and hashes the five required dump files. It rejects credentials in the manifest, symlinks, unsafe paths, and manifests/artifacts stored inside the repository. It does not read environment variables, connect to Supabase, inspect SQL dump contents, create exports, or verify a restore.
+
+The private manifest and SQL files must remain outside Git. A successful check proves only recorded metadata and file integrity; it does not prove backup completeness, operator target verification, or successful isolated restoration. Target-line verification and row counts remain owner attestations.
+
+## CI outcomes and correction
+
+- CI #467 on initial code/test commit \`d5b01c4\` failed \`npm test\`: 172/175 passed. Three test-fixture expectation defects were found: the size-mismatch fixture accidentally had the same byte length; the hash-mismatch fixture had a different byte length; and the credential test expected the later schema-key error although credential-value scanning correctly rejected the connection string first.
+- Corrected those fixtures/expectations in \`1dbd3ab6e73709ead9ae5d46c1d107d42d3295a4\`.
+- [CI #468](https://github.com/mohith-krishnaa/personal-os/actions/runs/44855630997) passed on the corrected code/test HEAD: PostgREST preflight 21/21; PostgreSQL 17 migration replay 27/27; task hierarchy concurrency passed; application tests 175/175; TypeScript typecheck passed; production build passed; npm install reported 0 vulnerabilities. The npm install-script advisory for esbuild remains non-failing. No lint script is configured.
+- No migration was added; the migration count remains 27. No production SQL, DDL/DML, migration, RLS change, backup, restore, or PR merge occurred.
+
+## Remaining gates and next action
+
+The owner-controlled schema/data/roles backup and successful isolated restoration remain outstanding. Also outstanding: project-level Auth/Realtime/webhook/secret inventory; extension/Vault root-key/Auth trigger/default-ACL verification; restored-copy checklist conflict disposition; and authenticated two-owner PostgREST acceptance.
+
+Owner action: create the complete private backup using the corrected runbook, create the non-secret manifest, and run the verifier from the exact clean commit. Only after a complete backup is successfully restored and verified in a separate isolated project may the 19 branch-only migrations be replayed there. Production remains read-only.
+
+If owner artifacts remain unavailable, do not retry export. Continue with a separate bounded Organization audit of managed-schema/customization restore requirements; do not start Analytics.
+
+---
+
 # Latest verified checkpoint — Supabase backup/restore preflight corrected (2026-11-21)
 
 **Starting HEAD:** `700fedf12638fe6f1bc6414ed0962d4568442929` (CI #458 passed).

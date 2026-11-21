@@ -1,3 +1,27 @@
+# Latest roadmap checkpoint — offline backup manifest verifier (2026-11-21)
+
+**Branch:** \`feature/organization-v1\`. **Corrected code/test HEAD:** \`1dbd3ab6e73709ead9ae5d46c1d107d42d3295a4\` — [CI #468 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44855630997).  
+**PR #11:** open/unmerged. **PR #12:** open/superseded draft.
+
+## Organization V1
+
+- **Completed in this run:** offline backup-manifest verifier and 23 regression tests. It validates the current clean Git commit, exact eight-version source ledger, current repository migration inventory, required extension names, 13 row-count fields, five successful export command attestations, and five artifact file sizes/SHA-256 hashes.
+- **Safety boundary:** verifier is offline/read-only and rejects credentials, symlinks, unsafe paths, and repository-local backup artifacts. It does not create a backup, prove CLI target output, inspect SQL dump completeness, or verify a restore.
+- **CI:** #467 initially failed three fixture assertions (172/175 passed); corrections were made. CI #468 passed on the corrected code/test HEAD: 21/21 PostgREST preflight, 27/27 PostgreSQL 17 migrations, task hierarchy concurrency, 175/175 application tests, typecheck, production build, and npm install audit 0 vulnerabilities.
+- **Still blocked:** owner-controlled complete backup and successful isolated restore; project-level Auth/Realtime/webhook/secret inventory; extensions/Vault root-key/Auth trigger/default-ACL verification; restored-copy checklist conflict disposition; authenticated two-owner PostgREST acceptance.
+- **Next:** owner creates the private backup and manifest, runs the verifier from the exact clean commit, then restores into a separate isolated project and completes all restore gates. Production remains read-only.
+
+## Roadmap order
+
+- **Organization V1:** in progress; do not mark complete before isolated restore and authenticated acceptance.
+- **Analytics:** queued until Organization acceptance is genuinely verified.
+- **AI Assistant:** queued.
+- **Research Agent:** queued.
+- **Adaptive Scheduling:** queued.
+- **Production hardening:** pending.
+
+---
+
 # Latest roadmap checkpoint — Organization backup/restore preflight (2026-11-21)
 
 **Branch:** `feature/organization-v1`. **Runbook commit:** `1b9c2ca12145226f865d22414f95de6170729e54` — [CI #464 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44849631968).  

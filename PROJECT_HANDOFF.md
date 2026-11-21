@@ -1,3 +1,46 @@
+# Latest handoff — offline backup manifest verifier (2026-11-21)
+
+**Starting HEAD:** \`95c8c9184551a979d3bdd2b3bd9fb03833ceed67\`.  
+**Corrected implementation/test HEAD:** \`1dbd3ab6e73709ead9ae5d46c1d107d42d3295a4\` — [CI #468 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44855630997).  
+**Branch:** \`feature/organization-v1\`. **PR #11:** open/unmerged. **PR #12:** open/superseded draft.
+
+## Recovery and verified state
+
+The latest stored automation result belonged to the prior backup/restore runbook audit, not the current run. The actual branch started at \`95c8c9184551a979d3bdd2b3bd9fb03833ceed67\`. The current production project is ACTIVE_HEALTHY, PostgreSQL 17.11.0.003; a fresh read-only migration listing returned the exact eight source versions documented in preflight. Repository inventory is 27 numbered migrations (19 branch-only).
+
+## New offline verifier
+
+Use:
+
+~~~bash
+npm run backup:manifest:verify -- --manifest "$BACKUP_DIR/manifest.json" --artifacts-dir "$BACKUP_DIR"
+~~~
+
+Run from a clean Git checkout whose HEAD equals \`source.repositoryCommit\`. The manifest and SQL artifacts must be outside the repository. The verifier checks the exact eight source migration versions, all repository migration filenames, required extension names, 13 row-count keys, five command exit statuses/target attestations, and five artifact sizes/SHA-256 digests. It rejects credentials, symlinks, unsafe paths, and repository-local backup paths.
+
+It performs no network/database calls and does not read environment variables. It does not create a backup, parse SQL contents, prove the CLI Target line, or verify restoration. A successful result is not backup completeness or restore evidence. See \`docs/operations/backup-manifest-verifier.md\`.
+
+## Verification
+
+CI #467 failed three new fixture assertions (172/175 passed). The size and hash fixtures had their lengths reversed, and the credential test expected the wrong first validation error. These were corrected in \`1dbd3ab\`.
+
+CI #468 passed on corrected HEAD \`1dbd3ab6e73709ead9ae5d46c1d107d42d3295a4\`:
+- PostgREST preflight 21/21;
+- PostgreSQL 17 migration replay 27/27;
+- task hierarchy concurrency passed;
+- application tests 175/175;
+- typecheck and production build passed;
+- npm install reported 0 vulnerabilities.
+No lint script is configured.
+
+## Next action
+
+Owner must create and restore the complete backup into a separate isolated Supabase project. Run the manifest verifier on the private artifacts, then verify extensions, roles/default ACLs, Auth trigger, Vault decision, exact eight-version ledger, and checklist conflicts. Apply the 19 branch-only migrations only to the isolated target and run the two-owner PostgREST harness there. Do not modify production or merge PR #11.
+
+No local checkout is attached, so local working-tree cleanliness is not certified. No production operation or backup/restore was performed in this run.
+
+---
+
 # Latest handoff — owner backup gate and current Supabase CLI restore procedure (2026-11-21)
 
 **Branch:** `feature/organization-v1`. **Runbook commit:** `1b9c2ca12145226f865d22414f95de6170729e54` — [CI #464 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44849631968).  
