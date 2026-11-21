@@ -180,6 +180,6 @@ There is intentionally no \`restoreStatus\` field in the accepted manifest. Rest
 
 ## Regression coverage
 
-The 25 tests cover valid inventories, missing files, byte-size and SHA-256 mismatches, failed command statuses, target mismatch/attestation, source and repository migration drift, malformed and symlinked migration filenames, unsafe paths, symlinks, repository-local artifact/manifest paths, credential material, incomplete row counts/extensions, commit mismatch, unsupported restore claims, and duplicate artifact paths.
+The 26 tests cover valid inventories, missing files, byte-size and SHA-256 mismatches, failed command statuses, target mismatch/attestation, source and repository migration drift, malformed and symlinked migration filenames, unsafe paths, symlinks, repository-local artifact/manifest paths, credential material, incomplete row counts/extensions, commit mismatch, unsupported restore claims, and duplicate artifact paths.
 
 The tests run as part of \`npm test\`; the CLI is exposed as \`npm run backup:manifest:verify\`.
