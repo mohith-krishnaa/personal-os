@@ -1,3 +1,61 @@
+# Latest verified checkpoint — Supabase postgres-role ensure_rls restore correction (2026-11-21)
+
+**Implementation/test HEAD:** `2443e93dcdaf404c026841558ec4236a7504d703` — [CI #505 passed on this exact HEAD](https://github.com/mohith-krishnaa/personal-os/actions/runs/44872382080). This documentation-only checkpoint follows that code/test commit; verify CI on the final documentation HEAD before treating it as the final branch checkpoint.
+
+## Continuity recovery and repository reconciliation
+
+- Personal-OS Builder is enabled. Recorded last run `86d86403-c940-8320-bd42-59299fa73617` was marked `in_progress`, started at 2026-11-21 05:40:28 UTC, with no completion timestamp. The latest stored result was from run `e978ff07-137c-8329-aa6f-68bbfc8cd2e7`, created at 04:28:36 UTC; it belongs to the preceding run, not the current one.
+- Actual starting branch: `feature/organization-v1`, HEAD `15fa5728227256d64dc89aa24a429caa5a4cca7f`; PR #11 head matched. CI #501 passed on that exact starting HEAD.
+- The state/handoff/roadmap files were stale at the prior `a4703c2/6888031` schema-drift checkpoint. The actual branch already contained the `ensure_rls` restore script and behavior test; this run reviewed and corrected that implementation rather than recreating it.
+- The branch contains 27 numbered SQL migrations. Fresh production ledger inspection found 8 applied versions, so 19 are branch-only. No migration was added.
+
+## Production read-only evidence
+
+Project `gujzvkyytxsnervovvrt` is ACTIVE_HEALTHY on PostgreSQL 17.11.0.003 in `ap-southeast-1`. Fresh catalog inspection returned:
+
+- `session_user=postgres` and `current_user=postgres`.
+- `pg_roles.rolsuper=false` for `postgres`; `supabase_admin` is a separate SUPERUSER identity.
+- `public.rls_auto_enable()` is postgres-owned SECURITY DEFINER with `search_path=pg_catalog`; source fingerprint `99be20677b456ea8d3be47bdd44fb369`.
+- Direct EXECUTE grantees are exactly `{postgres,service_role}`; PUBLIC, anon, and authenticated have no effective EXECUTE; service_role and postgres do.
+- `ensure_rls` is enabled, owned by postgres, fires on `ddl_command_end` for `CREATE TABLE`, `CREATE TABLE AS`, and `SELECT INTO`, and references the expected function.
+
+No production DDL/DML, migration, RLS/role/project-setting change, backup, restore, or PR merge occurred.
+
+## Corrected restore contract
+
+The previous restore script incorrectly required `rolsuper=true` and attempted to transfer event-trigger ownership after creation. That would fail on the actual hosted Supabase role model: the source `postgres` role is not a PostgreSQL superuser.
+
+Supabase documents that its Supautils extension permits the `postgres` role to create and manage event triggers even with `rolsuper=false` ([official Event Triggers guide](https://supabase.com/docs/guides/database/postgres/event-triggers)). The restore script now:
+
+- Requires both `session_user` and `current_user` to equal `postgres`, authenticated directly; it does not accept another SUPERUSER role or a `SET ROLE` substitution.
+- Retains the same-session `app.personal_os_restore_target='isolated'` attestation. This is an attestation, not proof of the target project; the operator must verify the Dashboard project reference.
+- Verifies the existing function owner, SECURITY DEFINER/search-path contract, exact source fingerprint, direct grantees, grant options, and any existing event-trigger definition.
+- Revokes PUBLIC/anon/authenticated EXECUTE, grants service_role, and creates `ensure_rls` only when absent. Because creation is performed by postgres, no ownership-transfer statement is needed.
+- Refuses a conflicting existing trigger rather than replacing it.
+
+The local CI fixture uses a superuser named postgres and does not emulate Supautils' hosted privilege hook. It rejects a separate `supabase_admin` SUPERUSER identity as a negative control. Actual event-trigger creation still must be verified on the restored Supabase target.
+
+Read-only preflight query 21 explicitly reports the PUBLIC EXECUTE ACL; query 22 reports session/current identity and the postgres `rolsuper` value without requiring it to be true.
+
+## Exception-path finding retained, not changed
+
+The source function catches errors from `ALTER TABLE ... ENABLE ROW LEVEL SECURITY`, logs them, and does not re-raise. The isolated behavior test deliberately fault-injects this path and proves that CREATE TABLE can continue with RLS disabled. The test rolls the temporary function replacement back to the reviewed source body. This is a potential fail-open DDL behavior; owner review is required before changing the function. No production function or permission was changed.
+
+## Verification
+
+- CI #502 and #503 failed at the new static test because a broad `rolsuper` regex matched the explanatory `rolsuper=false` comment (181/182 tests passed; typecheck/build were skipped).
+- CI #504 passed, but review found its whitespace matcher was over-escaped and did not assert the intended code pattern. The matcher was corrected in the final test commit.
+- **CI #505 passed on exact implementation/test HEAD `2443e93`:** PostgREST acceptance preflight 21/21; all 27 PostgreSQL 17 migrations replayed; Organization/RLS and task hierarchy assertions passed; isolated `ensure_rls` restore refusal, non-postgres SUPERUSER rejection, idempotent application, ACL, public/non-public behavior, and exception-path assertions passed; application tests 182/182; TypeScript typecheck; production build; npm audit 0 vulnerabilities. No lint script is configured.
+- npm's non-failing `esbuild@0.28.2` install-script review warning remains.
+
+## Remaining gates and next action
+
+Organization V1 remains incomplete. No owner-controlled complete schema/data/roles backup or successful isolated restoration exists. Still required: full backup and restore verification, extension/role/default-ACL/database-setting/Auth-trigger/Vault checks, restored-copy checklist conflict disposition, and authenticated two-owner PostgREST acceptance.
+
+**Next task:** owner-controlled complete backup and isolated restoration. Do not apply the 19 branch-only migrations to production. Apply them only to the verified isolated target after the complete backup is restored. Analytics remains queued.
+
+---
+
 # Latest verified checkpoint — schema-drift classification (2026-11-21)
 
 **Audit base:** `feature/organization-v1` at `a4703c27e619b7de4210b8f8f4066e9f6f98dba7`; PR #11 head matched. CI #488 passed on that exact starting HEAD. CI #488 is not evidence for this audit's new tests or documentation commit; the audit commit requires its own workflow result.

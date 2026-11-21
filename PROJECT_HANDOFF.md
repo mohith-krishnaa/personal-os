@@ -1,3 +1,45 @@
+# Latest handoff — ensure_rls restore role correction (2026-11-21)
+
+## Exact resume point
+
+- Branch: `feature/organization-v1`.
+- Implementation/test HEAD: `2443e93dcdaf404c026841558ec4236a7504d703`; [CI #505 passed on this exact HEAD](https://github.com/mohith-krishnaa/personal-os/actions/runs/44872382080).
+- Starting HEAD: `15fa5728227256d64dc89aa24a429caa5a4cca7f`; CI #501 passed there.
+- PR #11: open, unmerged; PR #12: open superseded draft.
+- Repository migrations: 27. Fresh production ledger: 8 versions, 19 branch-only.
+- The latest automation result was older than the current recorded run; the automation is enabled. An `in_progress` record is not proof of worker liveness.
+
+## Verified production role contract
+
+A fresh read-only query on project `gujzvkyytxsnervovvrt` returned `session_user=current_user=postgres`, while `pg_roles.rolsuper=false` for postgres. The live `ensure_rls` event trigger is enabled, postgres-owned, and references postgres-owned SECURITY DEFINER `public.rls_auto_enable()` with `search_path=pg_catalog`. Direct EXECUTE ACL is exactly postgres/service_role; PUBLIC, anon, and authenticated are denied.
+
+Supabase's Supautils permits the postgres role to create/manage event triggers without SUPERUSER ([official guide](https://supabase.com/docs/guides/database/postgres/event-triggers)). Do not use `rolsuper` as the gate or switch to `supabase_admin`.
+
+## Completed in this checkpoint
+
+1. Corrected `supabase/operations/restore-ensure-rls-event-trigger.sql` to require direct postgres session identity and to create the event trigger as postgres without an ownership-transfer statement.
+2. Corrected the behavior-test gate to require the same session identity.
+3. Added a negative test proving a different SUPERUSER role is rejected; the positive path runs as postgres.
+4. Added read-only preflight query 22 for session/current identity and the postgres superuser flag. Query 21 already asserts the direct PUBLIC EXECUTE ACL.
+5. Updated the offline static tests and the restore-customization runbook.
+6. Preserved the existing source function body and its exception behavior; no production object was changed.
+
+## CI history and exact final evidence
+
+- #502 and #503: static test false positives because the broad `rolsuper` matcher also matched the comment `rolsuper=false`; 181/182 tests passed and typecheck/build were skipped.
+- #504 passed, but its whitespace matcher was found to be over-escaped. It is not the authoritative proof for that matcher.
+- #505 passed on `2443e93`: 21/21 PostgREST preflight, 27/27 migration replay, Organization/RLS and hierarchy assertions, ensure_rls restore/ACL/behavior tests, 182/182 application tests, typecheck, production build, and npm audit with 0 vulnerabilities. No lint script is configured.
+
+## Known limitation
+
+CI uses a local PostgreSQL postgres SUPERUSER. It verifies the direct-role identity gate and SQL behavior but does not emulate Supautils' hosted privilege hook. The restored Supabase target must still prove event-trigger creation under its actual non-superuser postgres role. The source `rls_auto_enable()` exception handler still logs and swallows inner RLS-enable failures; owner review is required before changing it.
+
+## Next task
+
+Owner-controlled complete backup of schema, data, and roles, followed by restoration into a separate isolated Supabase project. Re-run the 45-field backup manifest verifier, verify all managed-data zero gates, extensions, roles/default ACLs/settings, Auth trigger, `ensure_rls`, and `claim_due_reminders`; review checklist conflicts; then run authenticated two-owner PostgREST acceptance. Do not apply production migrations or merge PR #11. Keep Analytics queued.
+
+---
+
 # Latest handoff — schema-drift classification (2026-11-21)
 
 ## Exact resume point

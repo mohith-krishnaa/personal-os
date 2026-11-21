@@ -1,3 +1,23 @@
+# Latest verified roadmap checkpoint — ensure_rls restore role correction (2026-11-21)
+
+## Organization V1 — active, not accepted
+
+The isolated `ensure_rls` restore procedure now matches Supabase's hosted role model. The source project's `postgres` role is not a PostgreSQL SUPERUSER, but Supautils permits it to create/manage event triggers. The restore script requires a direct postgres session, preserves the same-session isolated-target attestation, verifies the exact function body/security/search-path/ACL and event-trigger definition, and creates the event trigger as postgres. It rejects a different SUPERUSER identity rather than treating superuser status as sufficient.
+
+Read-only preflight query 21 checks the PUBLIC EXECUTE ACL; query 22 reports the actual restore session identity and postgres `rolsuper` value. The source ACL is exactly postgres/service_role, with PUBLIC/anon/authenticated denied.
+
+The behavior test verifies public-table RLS enablement, non-public-schema skip, and the source exception path. That path still logs and swallows an inner RLS-enable failure, so CREATE TABLE can continue without RLS; this is documented as a potential fail-open DDL behavior and requires owner review before any change.
+
+**Implementation/test HEAD:** `2443e93dcdaf404c026841558ec4236a7504d703`; [CI #505 passed on this exact HEAD](https://github.com/mohith-krishnaa/personal-os/actions/runs/44872382080). Verification: PostgREST preflight 21/21; PostgreSQL 17 migration replay 27/27; Organization/RLS, hierarchy, ensure_rls restore/idempotence/ACL/exception assertions passed; 182/182 application tests; typecheck; production build; npm audit 0 vulnerabilities. No lint script is configured. CI #502/#503 exposed a false-positive static matcher, and #504's over-escaped matcher was corrected before the authoritative #505 pass.
+
+No migration was added. Repository migration count remains 27; production ledger remains 8 (19 branch-only). Production was queried read-only; no DDL/DML, migration, RLS/role/project-setting change, backup, restore, or merge occurred.
+
+**Acceptance gates remain open:** complete owner-controlled schema/data/roles backup; successful isolated restoration; extension/role/default-ACL/database-setting/Auth-trigger/Vault verification; restored-copy checklist conflict disposition; and authenticated two-owner PostgREST acceptance. CI's local PostgreSQL superuser does not emulate Supautils' hosted event-trigger capability; this must be verified on the restored Supabase target.
+
+Analytics, AI Assistant, Research Agent, Adaptive Scheduling, and production hardening remain queued behind Organization acceptance. Do not start Analytics based on passing disposable CI or empty tables.
+
+---
+
 # Latest verified roadmap checkpoint — 2026-11-21
 
 ## Organization V1 — active, not accepted
