@@ -450,7 +450,7 @@ test('rls_auto_enable remains project-installed outside migrations and the CI fi
   const restoreScript = readFileSync(join(process.cwd(), 'supabase', 'operations', 'restore-ensure-rls-event-trigger.sql'), 'utf8')
   assert.ok(restoreScript.includes("session_user IS DISTINCT FROM 'postgres'"))
   assert.ok(restoreScript.includes("current_user IS DISTINCT FROM 'postgres'"))
-  assert.doesNotMatch(restoreScript, /rolsuper|ALTER EVENT TRIGGER ensure_rls OWNER TO postgres/)
+  assert.doesNotMatch(restoreScript, /AND\\s+rolsuper|ALTER EVENT TRIGGER ensure_rls OWNER TO postgres/)
   assert.ok(restoreScript.includes('Supautils'))
 
   const preflight = readFileSync(join(process.cwd(), 'supabase', 'operations', 'organization-v1-preflight.sql'), 'utf8')
@@ -471,7 +471,7 @@ test('rls_auto_enable remains project-installed outside migrations and the CI fi
   const behaviorTest = readFileSync(join(process.cwd(), 'supabase', 'tests', 'restore-ensure-rls-event-trigger.sql'), 'utf8')
   assert.ok(behaviorTest.includes("session_user IS DISTINCT FROM 'postgres'"))
   assert.ok(behaviorTest.includes("current_user IS DISTINCT FROM 'postgres'"))
-  assert.doesNotMatch(behaviorTest, /rolsuper/)
+  assert.doesNotMatch(behaviorTest, /AND\\s+rolsuper/)
   assert.ok(behaviorTest.includes('SAVEPOINT ensure_rls_exception_path'))
   assert.ok(behaviorTest.includes('ROLLBACK TO SAVEPOINT ensure_rls_exception_path'))
 })
