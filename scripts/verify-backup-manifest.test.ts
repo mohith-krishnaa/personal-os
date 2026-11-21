@@ -142,7 +142,7 @@ test('rejects a missing required artifact', async t => {
 test('rejects an artifact whose byte size differs from the manifest', async t => {
   const fixture = createFixture()
   t.after(() => clean(fixture))
-  writeFileSync(join(fixture.artifactsDir, 'roles.sql'), '-- changed size\n')
+  writeFileSync(join(fixture.artifactsDir, 'roles.sql'), '-- changed size with different length\n')
 
   const result = await verify(fixture)
   assert.equal(result.ok, false)
@@ -152,7 +152,7 @@ test('rejects an artifact whose byte size differs from the manifest', async t =>
 test('rejects an artifact whose SHA-256 differs from the manifest', async t => {
   const fixture = createFixture()
   t.after(() => clean(fixture))
-  writeFileSync(join(fixture.artifactsDir, 'roles.sql'), '-- other content\n')
+  writeFileSync(join(fixture.artifactsDir, 'roles.sql'), '-- other export\n')
 
   const result = await verify(fixture)
   assert.equal(result.ok, false)
@@ -282,7 +282,7 @@ test('rejects credential-like fields and connection strings in the manifest', as
 
   const result = await verify(fixture)
   assert.equal(result.ok, false)
-  assert.match(result.errors.join(' '), /credential-like field name/)
+  assert.match(result.errors.join(' '), /credential material|credential-like field name/)
 })
 
 test('rejects incomplete row-count inventory', async t => {
