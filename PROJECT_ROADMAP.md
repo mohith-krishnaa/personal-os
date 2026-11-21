@@ -1,3 +1,11 @@
+# Latest roadmap addendum — verifier fixture scan (2026-11-21)
+
+The offline backup manifest verifier remains the latest Organization V1 code-side improvement. A test-only follow-up commit \`f4e18514714333fc6cfd5a0916159d905082abef\` rewrites the synthetic connection-string fixture as fragments to avoid a false-positive credential-pattern scan. Runtime behavior and manifest contract are unchanged. CI #471 passed on the preceding HEAD; the final checkpoint must be verified on its own commit. The nine-file credential-pattern scan now returns zero matches.
+
+Organization V1 remains in progress and blocked on owner-controlled complete backup, successful isolated restore, checklist conflict disposition, and authenticated two-owner PostgREST acceptance. Analytics remains queued.
+
+---
+
 # Latest roadmap checkpoint — offline backup manifest verifier (2026-11-21)
 
 Branch: \`feature/organization-v1\`. Corrected code/test HEAD \`1dbd3ab6e73709ead9ae5d46c1d107d42d3295a4\` passed CI #468. Inventory hardening HEAD \`8c925641e7a3b86d3baaa0f439c4bb28c39a88e3\` passed [CI #470](https://github.com/mohith-krishnaa/personal-os/actions/runs/44855941859). PR #11 remains open/unmerged; PR #12 remains an open superseded draft.

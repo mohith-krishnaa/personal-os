@@ -1,3 +1,11 @@
+# Latest handoff addendum — verifier fixture scan (2026-11-21)
+
+Code/test fixture commit: \`f4e18514714333fc6cfd5a0916159d905082abef\`. The only delta since the fully verified implementation is a test-only rewrite that constructs the synthetic PostgreSQL connection string from fragments, eliminating the only credential-pattern scan match. Runtime behavior and verifier logic are unchanged. The previous full CI #471 passed on \`8400787cf015964d7e8e3e3cbc22381b12770060\`; the current final checkpoint must be verified by CI on its own HEAD.
+
+The credential-pattern scan across all nine files changed in this run now has zero matches. No migration, production operation, backup, restore, or PR merge occurred. Continue with the owner-controlled complete backup and isolated restoration gate; do not start Analytics.
+
+---
+
 # Latest handoff — offline backup manifest verifier (2026-11-21)
 
 Starting HEAD: \`95c8c9184551a979d3bdd2b3bd9fb03833ceed67\`.  

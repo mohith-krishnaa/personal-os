@@ -1,3 +1,11 @@
+# Latest checkpoint addendum — credential-safe verifier test fixture (2026-11-21)
+
+**Code/test fixture commit:** \`f4e18514714333fc6cfd5a0916159d905082abef\`. This is a test-only source representation change: the negative credential test now assembles its synthetic PostgreSQL URL from string fragments rather than embedding a credential-shaped URL literal. Runtime behavior, manifest schema, and verifier logic are unchanged. The previous complete workflow, CI #471, passed on the preceding HEAD \`8400787cf015964d7e8e3e3cbc22381b12770060\`; the current final checkpoint commit is subject to its own CI run.
+
+A credential-pattern scan of the nine files changed in this run now returns **zero matches**. The prior single match was the deliberately fake negative-test connection string, not a real credential; the fixture was rewritten to avoid that false positive. The root \`.gitignore\` and offline backup verifier remain as documented below. No migration or production change was made.
+
+---
+
 # Latest verified checkpoint — offline backup manifest verifier (2026-11-21)
 
 **Starting HEAD:** \`95c8c9184551a979d3bdd2b3bd9fb03833ceed67\` (CI #466 passed).  
