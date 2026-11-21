@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "tsx --test src/lib/recurrence.test.ts src/lib/reminders.test.ts src/lib/reminder-delivery-handler.test.ts src/lib/progress.test.ts src/lib/progress-service.test.ts src/lib/project-validation.test.ts src/lib/projects.test.ts src/lib/subtasks.test.ts src/lib/checklists.test.ts src/lib/tasks.test.ts src/lib/client-request-id.test.ts src/lib/task-create-idempotency.test.ts scripts/postgrest-organization-acceptance.test.ts",
+    "test": "tsx --test src/lib/recurrence.test.ts src/lib/reminders.test.ts src/lib/reminder-delivery-handler.test.ts src/lib/progress.test.ts src/lib/progress-service.test.ts src/lib/project-validation.test.ts src/lib/projects.test.ts src/lib/subtasks.test.ts src/lib/checklists.test.ts src/lib/tasks.test.ts src/lib/client-request-id.test.ts src/lib/task-create-idempotency.test.ts scripts/legacy-checklist-runtime-guard.test.ts scripts/postgrest-organization-acceptance.test.ts",
     "typecheck": "tsc --noEmit",
     "acceptance:organization:postgrest": "tsx scripts/postgrest-organization-acceptance.ts",
     "test:acceptance:preflight": "tsx --test scripts/postgrest-organization-acceptance.test.ts"
