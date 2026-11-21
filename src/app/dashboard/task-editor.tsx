@@ -1,16 +1,22 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import type { RecurrenceRule, TaskPriority } from '@/types/task'
 import type { Project } from '@/types/project'
 import { addTaskAction } from './actions'
-import { getClientRequestState, type PendingClientRequest } from '@/lib/client-request-id'
+import {
+  completeClientRequestState,
+  getClientRequestState,
+  getClientRequestStorage,
+  type PendingClientRequest,
+} from '@/lib/client-request-id'
 
 type Frequency = 'NONE' | 'DAILY' | 'WEEKLY' | 'MONTHLY'
 const weekdayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 export default function TaskEditor({ projects = [] }: { projects?: Project[] }) {
   const requestRef = useRef<PendingClientRequest>(null)
+  const requestStorageKey = 'personal-os:task-create:' + useId()
   const [open, setOpen] = useState(false); const [title, setTitle] = useState(''); const [priority, setPriority] = useState<TaskPriority>('MEDIUM'); const [minutes, setMinutes] = useState(''); const [dueAt, setDueAt] = useState(''); const [projectId, setProjectId] = useState(''); const [frequency, setFrequency] = useState<Frequency>('NONE'); const [interval, setInterval] = useState('1'); const [weekdays, setWeekdays] = useState<number[]>([]); const [monthDay, setMonthDay] = useState(''); const [loading, setLoading] = useState(false); const [error, setError] = useState('')
   function toggleWeekday(day: number) { setWeekdays(current => current.includes(day) ? current.filter(value => value !== day) : [...current, day].sort((a, b) => a - b)) }
   function buildRecurrence(): RecurrenceRule | null { if (frequency === 'NONE') return null; const parsedInterval = Number(interval); if (!Number.isInteger(parsedInterval) || parsedInterval < 1) throw new Error('Recurrence interval must be a positive integer.'); if (!dueAt) throw new Error('Recurring tasks need a due date/time.'); if (frequency === 'DAILY') return { frequency: 'DAILY', interval: parsedInterval }; if (frequency === 'MONTHLY') { const day = Number(monthDay || dueAt.slice(8, 10)); return { frequency: 'MONTHLY', interval: parsedInterval, dayOfMonth: day, anchorDayOfMonth: day } } const selected = weekdays.length ? weekdays : [new Date(dueAt).getDay()]; return { frequency: 'WEEKLY', interval: parsedInterval, weekdays: selected, anchorDate: new Date(dueAt).toISOString() } }
@@ -27,13 +33,17 @@ export default function TaskEditor({ projects = [] }: { projects?: Project[] }) 
         project_id: projectId || null,
         recurrence_rule: buildRecurrence(),
       }
-      const request = getClientRequestState(
+      const storage = getClientRequestStorage()
+      const request = await getClientRequestState(
         requestRef.current,
         payload,
         () => globalThis.crypto.randomUUID(),
+        storage,
+        requestStorageKey,
       )
       requestRef.current = request
       await addTaskAction({ ...payload, client_request_id: request.id })
+      completeClientRequestState(request, storage, requestStorageKey)
       requestRef.current = null
       setTitle('')
       setMinutes('')

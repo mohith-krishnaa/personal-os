@@ -1,12 +1,18 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import type { Task } from '@/types/task'
 import { addTaskAction, toggleTaskAction } from './actions'
-import { getClientRequestState, type PendingClientRequest } from '@/lib/client-request-id'
+import {
+  completeClientRequestState,
+  getClientRequestState,
+  getClientRequestStorage,
+  type PendingClientRequest,
+} from '@/lib/client-request-id'
 
 export default function TaskActions({ mode, task }: { mode: 'add' | 'toggle'; task?: Task }) {
   const requestRef = useRef<PendingClientRequest>(null)
+  const requestStorageKey = 'personal-os:task-create:' + useId()
   const [title, setTitle] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -15,16 +21,20 @@ export default function TaskActions({ mode, task }: { mode: 'add' | 'toggle'; ta
     const value = title.trim()
     if (!value || loading) return
     const payload = { title: value }
-    const request = getClientRequestState(
+    const storage = getClientRequestStorage()
+    const request = await getClientRequestState(
       requestRef.current,
       payload,
       () => globalThis.crypto.randomUUID(),
+      storage,
+      requestStorageKey,
     )
     requestRef.current = request
     setLoading(true)
     setError('')
     try {
       await addTaskAction({ ...payload, client_request_id: request.id })
+      completeClientRequestState(request, storage, requestStorageKey)
       requestRef.current = null
       setTitle('')
     } catch (err) {
