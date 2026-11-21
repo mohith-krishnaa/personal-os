@@ -1,3 +1,19 @@
+# Latest verified roadmap checkpoint — fail-closed ensure_rls candidate (2026-11-21)
+
+## Organization V1 — active, not accepted
+
+A separately guarded fail-closed candidate for the project-installed `ensure_rls` event-trigger function is prepared and CI-tested. The production source function still logs and swallows RLS-enable errors; it was not changed. The candidate logs and re-raises, making the originating DDL fail instead of allowing a public table to remain without RLS. It is not a migration, is not approved, and must not be run against production. It requires same-session isolated-target and owner-approval attestations, direct postgres identity, exact function fingerprints, owner/security/search-path, exact ACL, and event-trigger checks.
+
+Implementation/test HEAD: `da37b785571cb97154cdc06f4448aa595a8cfce4`; [CI #510 passed on this exact HEAD](https://github.com/mohith-krishnaa/personal-os/actions/runs/44874851618). Verification included PostgREST preflight, 27-migration PostgreSQL 17 replay, Organization/RLS and task-hierarchy checks, candidate missing-attestation/wrong-role rejection, double application, fail-closed DDL error propagation, savepoint restoration, outer transaction rollback to the original source function/event-trigger baseline, npm tests, typecheck, and production build. No lint script is configured; the CI workflow has no separate npm audit step.
+
+Fresh production read-only inspection returned 8 applied migrations versus 27 repository migrations (19 branch-only), with postgres direct-session identity and `rolsuper=false`; the original `rls_auto_enable()` fingerprint is `99be20677b456ea8d3be47bdd44fb369`, and the reviewed candidate fingerprint is `b95d4b52e100f89abf4b5afa270a4776`. No migration was added and no production DDL/DML, RLS/role/project-setting change, backup, restore, or PR merge occurred.
+
+**Acceptance gates remain open:** complete owner-controlled schema/data/roles backup; successful isolated restoration; extension/role/default-ACL/database-setting/Auth-trigger/Vault/ensure_rls verification; checklist conflict disposition on the restored copy; and authenticated two-owner PostgREST acceptance. The owner has not approved the fail-closed behavior. Analytics, AI Assistant, Research Agent, Adaptive Scheduling, and production hardening remain queued behind Organization acceptance.
+
+**Next task:** obtain an explicit owner decision on the fail-closed candidate. If approved, test/apply it only on the fully restored isolated Supabase target; keep production read-only. Do not start Analytics based on disposable CI alone.
+
+---
+
 # Latest verified roadmap checkpoint — ensure_rls restore role correction (2026-11-21)
 
 ## Organization V1 — active, not accepted
