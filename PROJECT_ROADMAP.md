@@ -5,8 +5,8 @@
 ## Continuity recovery
 
 - Personal-OS Builder is enabled.
-- Recorded current run: 5d41e936-c8f4-8333-9afb-7b1338c9d30c; recorded status in_progress; started 2026-11-21T12:19:03.929357Z.
-- Latest stored result: run ad8ef932-9524-8328-9eac-287ec8149d77, created 2026-11-21T11:22:35.663659Z. It predates the current run start and is the previous completed subtask retry/activity-event checkpoint, not this run's result. The recorded in_progress state was not treated as proof of worker liveness.
+- The recorded current run is marked in_progress, but that state was not treated as proof of worker liveness.
+- The latest stored result predates the recorded current-run start and belongs to the previous completed subtask retry/activity-event checkpoint, not this run.
 - Starting branch feature/organization-v1 was at 6f60e687248fe0020262cb6836d5724c2e101578, matching PR #11. Main is 2b42dd17796b75dca79434a81d4e1f0cbf0fa043.
 - Starting CI #527 passed on the exact starting HEAD. PR #11 remained open and unmerged; PR #12 remained an open superseded draft.
 - Repository migration count remained 27. No migration was added.
