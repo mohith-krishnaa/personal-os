@@ -311,6 +311,16 @@ test('rejects non-zero data in Supabase-managed schemas omitted by the CLI dump'
   }
 })
 
+test('read-only customization inventory covers every required row count', () => {
+  const inventorySql = readFileSync(join(process.cwd(), 'supabase/operations/restore-customization-inventory.sql'), 'utf8')
+  for (const key of REQUIRED_ROW_COUNT_KEYS) {
+    assert.ok(inventorySql.includes("'" + key + "'"), key + ' is missing from the SQL inventory')
+  }
+
+  const executableSql = inventorySql.replace(/^--.*$/gm, '')
+  assert.doesNotMatch(executableSql, /\\b(insert|update|delete|merge|create|alter|drop|truncate|grant|revoke)\\b/i)
+})
+
 test('rejects a manifest tied to a different Git commit', async t => {
   const fixture = createFixture()
   t.after(() => clean(fixture))
