@@ -1,0 +1,80 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Task } from '@/types/task'
+import { canCreateTaskInProject, throwIfUnexpectedLookupError } from './task-relationships'
+import { findExistingTaskRequest, hashClientRequestPayload, insertTaskRequest, normalizeClientRequestId } from './task-create-idempotency'
+
+export type SubtaskInput = {
+  client_request_id: string
+  title: string
+  project_id?: string | null
+  priority?: Task['priority']
+  due_at?: string | null
+  estimated_minutes?: number | null
+}
+
+function assertValidTitle(title: string) {
+  const value = title.trim()
+  if (!value) throw new Error('Subtask title is required.')
+  if (value.length > 240) throw new Error('Subtask title must be 240 characters or fewer.')
+  return value
+}
+
+async function assertParentOwnership(supabase: SupabaseClient, userId: string, parentTaskId: string) {
+  const { data: parent, error } = await supabase.from('tasks').select('id,user_id,project_id').eq('id', parentTaskId).eq('user_id', userId).single()
+  throwIfUnexpectedLookupError(error)
+  if (!parent) throw new Error('Parent task not found.')
+  return parent as Pick<Task, 'id' | 'user_id' | 'project_id'>
+}
+
+async function assertActiveProjectOwnership(supabase: SupabaseClient, userId: string, projectId: string | null | undefined) {
+  if (!projectId) return
+  const { data, error } = await supabase.from('projects').select('id,status').eq('id', projectId).eq('user_id', userId).single()
+  throwIfUnexpectedLookupError(error)
+  if (!data) throw new Error('Project not found.')
+  if (!canCreateTaskInProject(data.status)) throw new Error('Tasks can only be linked to active projects.')
+}
+
+export async function createSubtask(supabase: SupabaseClient, userId: string, parentTaskId: string, input: SubtaskInput) {
+  if (!userId) throw new Error('Unauthorized')
+  if (!parentTaskId) throw new Error('Parent task is required.')
+  const title = assertValidTitle(input.title)
+  if (input.estimated_minutes != null && (!Number.isFinite(input.estimated_minutes) || input.estimated_minutes <= 0)) throw new Error('Estimated minutes must be greater than zero.')
+
+  const requestId = normalizeClientRequestId(input.client_request_id)
+  const priority = input.priority ?? 'MEDIUM'
+  const requestHash = hashClientRequestPayload({
+    kind: 'SUBTASK',
+    parent_task_id: parentTaskId,
+    project_id: input.project_id ?? null,
+    title,
+    priority,
+    due_at: input.due_at ?? null,
+    estimated_minutes: input.estimated_minutes ?? null,
+  })
+
+  const existing = await findExistingTaskRequest(supabase, userId, requestId, requestHash)
+  if (existing) return existing
+
+  const parent = await assertParentOwnership(supabase, userId, parentTaskId)
+  const projectId = input.project_id ?? parent.project_id
+  if (projectId !== parent.project_id) {
+    throw new Error('Subtask must use the same project as its parent.')
+  }
+  await assertActiveProjectOwnership(supabase, userId, projectId)
+
+  return insertTaskRequest(supabase, userId, requestId, requestHash, {
+    parent_task_id: parentTaskId,
+    project_id: projectId,
+    title,
+    priority,
+    due_at: input.due_at ?? null,
+    estimated_minutes: input.estimated_minutes ?? null,
+  })
+}
+
+export async function listSubtasks(supabase: SupabaseClient, userId: string, parentTaskId: string) {
+  await assertParentOwnership(supabase, userId, parentTaskId)
+  const { data, error } = await supabase.from('tasks').select('*').eq('user_id', userId).eq('parent_task_id', parentTaskId).order('created_at', { ascending: true })
+  if (error) throw error
+  return (data ?? []) as Task[]
+}

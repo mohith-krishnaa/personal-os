@@ -11,11 +11,13 @@ type TaskInput = {
   due_at?: string | null
   scheduled_start?: string | null
   scheduled_end?: string | null
+  project_id?: string | null
+  parent_task_id?: string | null
   recurrence_rule?: RecurrenceRule | null
   recurrence_until?: string | null
 }
 
-export async function addTaskAction(input: TaskInput) {
+export async function addTaskAction(input: TaskInput & { client_request_id: string }) {
   const task = await createTask(input)
   revalidatePath('/dashboard')
   return task

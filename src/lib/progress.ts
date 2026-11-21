@@ -1,6 +1,46 @@
-import type { ProgressEntry, Streak } from '@/types/progress'
+import type { Goal, ProgressEntry, Streak } from '@/types/progress'
 
 export type { ProgressEntry, Streak } from '@/types/progress'
+
+export function hasUsableGoalMetrics(goal: Pick<Goal, 'unit' | 'target'>): boolean {
+  if (typeof goal.unit !== 'string' || goal.unit.trim().length === 0 || goal.target == null) return false
+  const target = Number(goal.target)
+  return Number.isFinite(target) && target > 0
+}
+
+export type GoalProgressPresentation =
+  | { kind: 'measurable'; totalLabel: string; percentLabel: string; percent: number }
+  | { kind: 'historical'; totalLabel: string; statusLabel: string }
+
+export function getGoalProgressPresentation(
+  goal: Pick<Goal, 'unit' | 'target'>,
+  total: number,
+  percent: number,
+): GoalProgressPresentation {
+  const unit = typeof goal.unit === 'string' ? goal.unit.trim() : ''
+
+  if (!hasUsableGoalMetrics(goal)) {
+    const missingDetails: string[] = []
+    const target = goal.target == null ? Number.NaN : Number(goal.target)
+    if (!Number.isFinite(target) || target <= 0) missingDetails.push('Target not set')
+    if (!unit) missingDetails.push('Unit unavailable')
+
+    return {
+      kind: 'historical',
+      totalLabel: unit
+        ? `Historical total: ${total} ${unit}`
+        : `Historical total: ${total} (unit unavailable)`,
+      statusLabel: missingDetails.join(' · '),
+    }
+  }
+
+  return {
+    kind: 'measurable',
+    totalLabel: `${total} / ${goal.target} ${unit}`,
+    percentLabel: `${percent}%`,
+    percent,
+  }
+}
 
 export function calculateStreak(entries: Pick<ProgressEntry, 'value' | 'occurred_on'>[], today = new Date()): Streak {
   const days = new Set(entries.map((entry) => entry.occurred_on.slice(0, 10)))

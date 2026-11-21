@@ -1,6 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { nextOccurrence, validateRecurrence } from '@/lib/recurrence'
 import type { RecurrenceRule, Task, TaskPriority, TaskStatus } from '@/types/task'
+import { listTasksForUser } from './task-queries'
+import { assertTaskOrganizationLinks, canCreateTaskInProject, isInactiveProjectAssignmentError, isNewProjectAssignment, resolveTaskOrganizationLinks } from './task-relationships'
+import { findExistingTaskRequest, hashClientRequestPayload, insertTaskRequest, normalizeClientRequestId } from './task-create-idempotency'
 
 export async function getCurrentUser() {
   const supabase = await createClient()
@@ -9,51 +12,164 @@ export async function getCurrentUser() {
   return data.user
 }
 
-export async function listTasks(): Promise<Task[]> {
+export async function listTasks(projectId?: string | null): Promise<Task[]> {
   const supabase = await createClient()
-  const user = await getCurrentUser()
-  if (!user) throw new Error('Unauthorized')
-  const { data, error } = await supabase.from('tasks').select('*').order('due_at', { ascending: true, nullsFirst: false }).order('created_at', { ascending: false })
+  const { data, error } = await supabase.auth.getUser()
   if (error) throw error
-  return (data ?? []) as Task[]
+  if (!data.user) throw new Error('Unauthorized')
+  return listTasksForUser(supabase, data.user.id, projectId)
 }
 
 type RecurrenceInput = { recurrence_rule?: RecurrenceRule | null; recurrence_until?: string | null }
-
 function validateRecurrenceInput(input: RecurrenceInput) {
   if (input.recurrence_rule) validateRecurrence(input.recurrence_rule)
   if (input.recurrence_until && Number.isNaN(Date.parse(input.recurrence_until))) throw new Error('Recurrence end date is invalid.')
 }
 
-export async function createTask(input: { title: string; priority?: TaskPriority; estimated_minutes?: number | null; due_at?: string | null; scheduled_start?: string | null; scheduled_end?: string | null } & RecurrenceInput) {
-  const supabase = await createClient(); const user = await getCurrentUser(); if (!user) throw new Error('Unauthorized')
+export type CreateTaskInput = {
+  title: string
+  priority?: TaskPriority
+  estimated_minutes?: number | null
+  due_at?: string | null
+  scheduled_start?: string | null
+  scheduled_end?: string | null
+  project_id?: string | null
+  parent_task_id?: string | null
+  client_request_id: string
+} & RecurrenceInput
+
+async function ensureRecurringRootLink(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  task: Task,
+) {
+  if (!task.recurrence_rule || task.recurrence_parent_id === task.id) return task
+  const { data: linked, error } = await supabase
+    .from('tasks')
+    .update({ recurrence_parent_id: task.id })
+    .eq('id', task.id)
+    .eq('user_id', userId)
+    .select('*')
+    .single()
+  if (error) throw error
+  return { ...task, recurrence_parent_id: linked.recurrence_parent_id }
+}
+
+export async function createTaskForUser(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  input: CreateTaskInput,
+) {
+  if (!userId) throw new Error('Unauthorized')
+  const title = input.title.trim()
+  if (!title) throw new Error('Task title is required.')
+  if (input.estimated_minutes != null && (!Number.isFinite(input.estimated_minutes) || input.estimated_minutes <= 0)) throw new Error('Estimated minutes must be greater than zero.')
+  if (input.scheduled_start && input.scheduled_end && input.scheduled_end <= input.scheduled_start) throw new Error('Scheduled end must be after scheduled start.')
+  validateRecurrenceInput(input)
+  if (input.recurrence_rule && !input.due_at) throw new Error('Recurring tasks need a due date/time to calculate the next occurrence.')
+
+  const requestId = normalizeClientRequestId(input.client_request_id)
+  const values = {
+    project_id: input.project_id ?? null,
+    parent_task_id: input.parent_task_id ?? null,
+    title,
+    priority: input.priority ?? 'MEDIUM',
+    estimated_minutes: input.estimated_minutes ?? null,
+    due_at: input.due_at ?? null,
+    scheduled_start: input.scheduled_start ?? null,
+    scheduled_end: input.scheduled_end ?? null,
+    recurrence_rule: input.recurrence_rule ?? null,
+    recurrence_until: input.recurrence_until ?? null,
+  }
+  const requestHash = hashClientRequestPayload({ kind: 'TASK', ...values })
+
+  // Resolve a committed retry before checking mutable project/parent state.
+  const existing = await findExistingTaskRequest(supabase, userId, requestId, requestHash)
+  if (existing) return ensureRecurringRootLink(supabase, userId, existing)
+
+  await assertTaskOrganizationLinks(supabase, userId, {
+    projectId: values.project_id,
+    parentTaskId: values.parent_task_id,
+  }, { requireActiveProject: true })
+
+  const task = await insertTaskRequest(supabase, userId, requestId, requestHash, values)
+  return ensureRecurringRootLink(supabase, userId, task)
+}
+
+export async function createTask(input: CreateTaskInput) {
+  const supabase = await createClient()
+  const { data: userData, error: userError } = await supabase.auth.getUser()
+  if (userError) throw userError
+  const user = userData.user
+  if (!user) throw new Error('Unauthorized')
+  return createTaskForUser(supabase, user.id, input)
+}
+
+export type UpdateTaskInput = {
+  title: string
+  priority: TaskPriority
+  estimated_minutes: number | null
+  due_at: string | null
+  scheduled_start: string | null
+  scheduled_end: string | null
+  project_id?: string | null
+  parent_task_id?: string | null
+  recurrence_rule?: RecurrenceRule | null
+  recurrence_until?: string | null
+}
+
+export async function updateTaskForUser(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  id: string,
+  input: UpdateTaskInput,
+) {
+  if (!userId) throw new Error('Unauthorized')
   const title = input.title.trim(); if (!title) throw new Error('Task title is required.')
   if (input.estimated_minutes != null && (!Number.isFinite(input.estimated_minutes) || input.estimated_minutes <= 0)) throw new Error('Estimated minutes must be greater than zero.')
   if (input.scheduled_start && input.scheduled_end && input.scheduled_end <= input.scheduled_start) throw new Error('Scheduled end must be after scheduled start.')
   validateRecurrenceInput(input)
   if (input.recurrence_rule && !input.due_at) throw new Error('Recurring tasks need a due date/time to calculate the next occurrence.')
-  const { data, error } = await supabase.from('tasks').insert({ user_id: user.id, title, priority: input.priority ?? 'MEDIUM', estimated_minutes: input.estimated_minutes ?? null, due_at: input.due_at ?? null, scheduled_start: input.scheduled_start ?? null, scheduled_end: input.scheduled_end ?? null, recurrence_rule: input.recurrence_rule ?? null, recurrence_until: input.recurrence_until ?? null }).select('*').single()
-  if (error) throw error
-  if (input.recurrence_rule) {
-    const { data: linked, error: linkError } = await supabase.from('tasks').update({ recurrence_parent_id: data.id }).eq('id', data.id).eq('user_id', user.id).select('*').single()
-    if (linkError) throw linkError
-    data.recurrence_parent_id = linked.recurrence_parent_id
+  if (input.project_id !== undefined || input.parent_task_id !== undefined) {
+    const { data: currentTask, error: currentTaskError } = await supabase
+      .from('tasks')
+      .select('project_id,parent_task_id')
+      .eq('id', id)
+      .eq('user_id', userId)
+      .single()
+    if (currentTaskError) throw currentTaskError
+    const links = resolveTaskOrganizationLinks(currentTask, input)
+    await assertTaskOrganizationLinks(supabase, userId, { ...links, taskId: id }, {
+      requireActiveProject: isNewProjectAssignment(currentTask.project_id, input.project_id),
+    })
   }
-  await supabase.from('activity_events').insert({ user_id: user.id, event_type: 'TASK_CREATED', entity_type: 'TASK', entity_id: data.id, metadata: { source: 'dashboard', recurring: Boolean(input.recurrence_rule) } })
+  // Build an explicit update allowlist. Server-action arguments are runtime input;
+  // spreading them could let extra properties overwrite protected task columns.
+  const patch: Record<string, unknown> = {
+    title,
+    priority: input.priority,
+    estimated_minutes: input.estimated_minutes,
+    due_at: input.due_at,
+    scheduled_start: input.scheduled_start,
+    scheduled_end: input.scheduled_end,
+    recurrence_rule: input.recurrence_rule ?? null,
+    recurrence_until: input.recurrence_until ?? null,
+    updated_at: new Date().toISOString(),
+  }
+  if (input.project_id !== undefined) patch.project_id = input.project_id
+  if (input.parent_task_id !== undefined) patch.parent_task_id = input.parent_task_id
+  const { data, error } = await supabase.from('tasks').update(patch).eq('id', id).eq('user_id', userId).select('*').single()
+  if (error) throw error
   return data as Task
 }
 
-export async function updateTask(id: string, input: { title: string; priority: TaskPriority; estimated_minutes: number | null; due_at: string | null; scheduled_start: string | null; scheduled_end: string | null } & RecurrenceInput) {
-  const supabase = await createClient(); const user = await getCurrentUser(); if (!user) throw new Error('Unauthorized')
-  const title = input.title.trim(); if (!title) throw new Error('Task title is required.')
-  if (input.estimated_minutes != null && (!Number.isFinite(input.estimated_minutes) || input.estimated_minutes <= 0)) throw new Error('Estimated minutes must be greater than zero.')
-  if (input.scheduled_start && input.scheduled_end && input.scheduled_end <= input.scheduled_start) throw new Error('Scheduled end must be after scheduled start.')
-  validateRecurrenceInput(input)
-  if (input.recurrence_rule && !input.due_at) throw new Error('Recurring tasks need a due date/time to calculate the next occurrence.')
-  const { data, error } = await supabase.from('tasks').update({ ...input, title, updated_at: new Date().toISOString() }).eq('id', id).eq('user_id', user.id).select('*').single()
-  if (error) throw error
-  await supabase.from('activity_events').insert({ user_id: user.id, event_type: 'TASK_UPDATED', entity_type: 'TASK', entity_id: id, metadata: { source: 'dashboard', recurrence_scope: 'occurrence_only' } })
-  return data as Task
+export async function updateTask(id: string, input: UpdateTaskInput) {
+  const supabase = await createClient()
+  const { data: userData, error: userError } = await supabase.auth.getUser()
+  if (userError) throw userError
+  const user = userData.user
+  if (!user) throw new Error('Unauthorized')
+  return updateTaskForUser(supabase, user.id, id, input)
 }
 
 async function getExistingOccurrence(supabase: Awaited<ReturnType<typeof createClient>>, userId: string, parentId: string, dueAt: string) {
@@ -62,44 +178,91 @@ async function getExistingOccurrence(supabase: Awaited<ReturnType<typeof createC
   return data as Task | null
 }
 
-export async function setTaskStatus(id: string, status: TaskStatus) {
-  const supabase = await createClient(); const user = await getCurrentUser(); if (!user) throw new Error('Unauthorized')
-  const { data: task, error: taskError } = await supabase.from('tasks').select('*').eq('id', id).eq('user_id', user.id).single()
+export async function setTaskStatusForUser(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  id: string,
+  status: TaskStatus,
+) {
+  if (!userId) throw new Error('Unauthorized')
+  const { data: task, error: taskError } = await supabase.from('tasks').select('*').eq('id', id).eq('user_id', userId).single()
   if (taskError) throw taskError
+  if (!task) throw new Error('Task not found.')
 
   const now = new Date().toISOString()
-  const updateQuery = supabase.from('tasks').update({ status, completed_at: status === 'COMPLETED' ? now : null, updated_at: now }).eq('id', id).eq('user_id', user.id)
+  const updateQuery = supabase.from('tasks').update({ status, completed_at: status === 'COMPLETED' ? now : null, updated_at: now }).eq('id', id).eq('user_id', userId)
   const guardedQuery = status === 'COMPLETED' ? updateQuery.neq('status', 'COMPLETED') : updateQuery
   const { data, error } = await guardedQuery.select('*').maybeSingle()
   if (error) throw error
 
-  if (!data) {
-    const { data: current, error: currentError } = await supabase.from('tasks').select('*').eq('id', id).eq('user_id', user.id).single()
+  // A repeated COMPLETED request must still retry occurrence generation if the
+  // prior occurrence INSERT rolled back with its activity event.
+  let currentTask = data as Task | null
+  if (!currentTask) {
+    const { data: current, error: currentError } = await supabase.from('tasks').select('*').eq('id', id).eq('user_id', userId).single()
     if (currentError) throw currentError
-    return current as Task
+    currentTask = current as Task
   }
 
-  if (status === 'COMPLETED' && task.recurrence_rule && task.due_at) {
-    const nextDue = nextOccurrence(new Date(task.due_at), task.recurrence_rule as RecurrenceRule)
-    if (!task.recurrence_until || nextDue <= new Date(task.recurrence_until)) {
-      const duration = task.scheduled_start && task.scheduled_end ? new Date(task.scheduled_end).getTime() - new Date(task.scheduled_start).getTime() : null
-      const nextStart = task.scheduled_start ? nextOccurrence(new Date(task.scheduled_start), task.recurrence_rule as RecurrenceRule) : null
-      const nextEnd = nextStart && duration != null ? new Date(nextStart.getTime() + duration).toISOString() : null
-      const nextParentId = task.recurrence_parent_id ?? task.id
-      const { data: occurrence, error: occurrenceError } = await supabase.from('tasks').insert({ user_id: user.id, project_id: task.project_id, parent_task_id: task.parent_task_id, title: task.title, description: task.description, priority: task.priority, estimated_minutes: task.estimated_minutes, due_at: nextDue.toISOString(), scheduled_start: nextStart?.toISOString() ?? null, scheduled_end: nextEnd, recurrence_rule: task.recurrence_rule, recurrence_until: task.recurrence_until, recurrence_parent_id: nextParentId }).select('*').single()
+  if (status === 'COMPLETED' && currentTask.recurrence_rule && currentTask.due_at) {
+    let projectCanReceiveTasks = !currentTask.project_id
+    if (currentTask.project_id) {
+      const { data: project, error: projectError } = await supabase
+        .from('projects')
+        .select('status')
+        .eq('id', currentTask.project_id)
+        .eq('user_id', userId)
+        .maybeSingle()
+      if (projectError) throw projectError
+      projectCanReceiveTasks = canCreateTaskInProject(project?.status)
+    }
 
-      if (occurrenceError) {
-        // The database unique index is the final idempotency boundary. A concurrent
-        // completion may win the insert; in that case reuse the existing occurrence.
-        if (occurrenceError.code !== '23505') throw occurrenceError
-        const existing = await getExistingOccurrence(supabase, user.id, nextParentId, nextDue.toISOString())
-        if (!existing) throw occurrenceError
-      } else {
-        await supabase.from('activity_events').insert({ user_id: user.id, event_type: 'TASK_RECURRENCE_GENERATED', entity_type: 'TASK', entity_id: occurrence.id, metadata: { source_task_id: task.id } })
+    // Archiving/completing a project preserves existing tasks but ends automatic
+    // recurrence creation for that project.
+    if (projectCanReceiveTasks) {
+      const nextDue = nextOccurrence(new Date(currentTask.due_at), currentTask.recurrence_rule as RecurrenceRule)
+      if (!currentTask.recurrence_until || nextDue <= new Date(currentTask.recurrence_until)) {
+        const duration = currentTask.scheduled_start && currentTask.scheduled_end ? new Date(currentTask.scheduled_end).getTime() - new Date(currentTask.scheduled_start).getTime() : null
+        const nextStart = currentTask.scheduled_start ? nextOccurrence(new Date(currentTask.scheduled_start), currentTask.recurrence_rule as RecurrenceRule) : null
+        const nextEnd = nextStart && duration != null ? new Date(nextStart.getTime() + duration).toISOString() : null
+        const nextParentId = currentTask.recurrence_parent_id ?? currentTask.id
+        const { error: occurrenceError } = await supabase.from('tasks').insert({
+          user_id: userId,
+          project_id: currentTask.project_id,
+          parent_task_id: currentTask.parent_task_id,
+          title: currentTask.title,
+          description: currentTask.description,
+          priority: currentTask.priority,
+          estimated_minutes: currentTask.estimated_minutes,
+          due_at: nextDue.toISOString(),
+          scheduled_start: nextStart?.toISOString() ?? null,
+          scheduled_end: nextEnd,
+          recurrence_rule: currentTask.recurrence_rule,
+          recurrence_until: currentTask.recurrence_until,
+          recurrence_parent_id: nextParentId,
+        }).select('*').single()
+        if (occurrenceError) {
+          if (isInactiveProjectAssignmentError(occurrenceError)) {
+            // A concurrent project archive/completion won the race after the read.
+            // The task is already completed; intentionally stop the recurrence.
+          } else if (occurrenceError.code !== '23505') {
+            throw occurrenceError
+          } else {
+            const existing = await getExistingOccurrence(supabase, userId, nextParentId, nextDue.toISOString())
+            if (!existing) throw occurrenceError
+          }
+        }
       }
     }
   }
+  return currentTask
+}
 
-  await supabase.from('activity_events').insert({ user_id: user.id, event_type: status === 'COMPLETED' ? 'TASK_COMPLETED' : 'TASK_STATUS_CHANGED', entity_type: 'TASK', entity_id: id, metadata: { status } })
-  return data as Task
+export async function setTaskStatus(id: string, status: TaskStatus) {
+  const supabase = await createClient()
+  const { data: userData, error: userError } = await supabase.auth.getUser()
+  if (userError) throw userError
+  const user = userData.user
+  if (!user) throw new Error('Unauthorized')
+  return setTaskStatusForUser(supabase, user.id, id, status)
 }
