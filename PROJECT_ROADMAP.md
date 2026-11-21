@@ -1,3 +1,17 @@
+# Latest roadmap checkpoint — 2026-11-21
+
+## Organization V1 — active, not accepted
+
+The managed-schema and project-setting restore audit is now documented. The manual CLI backup verifier requires 45 row-count keys; all 36 Auth/Storage/Vault/Realtime managed/ephemeral data counts must be zero. The read-only inventory snapshot at 2026-11-21 03:23 UTC showed all nine public application tables and all 36 managed/ephemeral tables empty.
+
+The audit also identified the project-owned Auth trigger that must be restored separately, the `ensure_rls` event trigger that must be verified after public schema restore, and an out-of-ledger `claim_due_reminders` function whose live `search_path=public` differs from the branch migration's `pg_catalog, public` contract. No production change was made.
+
+CI #478 passed on `61b33d08f97b04f6776b7cf9f262cdeafddecdf8` with 27 migration replay, Organization/RLS assertions, isolated Auth trigger restore, 177/177 application tests, typecheck, build, and 0 npm vulnerabilities. A later inventory-contract test and error-text clarification were committed after that run; check CI on the actual latest head.
+
+**Acceptance gates still open:** complete owner-controlled schema/data/roles backup, successful isolated restoration, extension/role/default-ACL/setting verification, checklist conflict disposition on the restored copy, and authenticated two-owner PostgREST acceptance. The current organization is Free; the native Restore-to-New-Project feature is paid-plan-only. No production migrations or PR merge are authorized.
+
+Analytics, AI Assistant, Research Agent, Adaptive Scheduling, and production hardening remain queued behind Organization acceptance. Do not start Analytics based on empty tables or passing disposable CI.
+
 # Latest roadmap addendum — verifier fixture scan (2026-11-21)
 
 The offline backup manifest verifier remains the latest Organization V1 code-side improvement. A test-only follow-up commit \`f4e18514714333fc6cfd5a0916159d905082abef\` rewrites the synthetic connection-string fixture as fragments to avoid a false-positive credential-pattern scan. Runtime behavior and manifest contract are unchanged. CI #471 passed on the preceding HEAD; the final checkpoint must be verified on its own commit. The nine-file credential-pattern scan now returns zero matches.

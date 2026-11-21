@@ -1,3 +1,36 @@
+# Latest checkpoint — Supabase-managed restore audit (2026-11-21)
+
+**Checkpoint base HEAD:** `4d13c537a075c8659be4bf0b555b392711b3cf0a` on `feature/organization-v1`. This is the branch HEAD immediately before this three-file checkpoint commit. The PR remains open and unmerged.
+
+## Verified work
+
+- Recovered the current Personal-OS Builder run separately from the older stored result; automation is enabled. The prior completed task was the offline backup-manifest verifier. The actual repository already contained the latest verifier, and the next documented task was the managed-schema/project-settings restore audit.
+- Added `supabase/operations/restore-customization-inventory.sql`, a single read-only JSON inventory query. It was executed against the source project and returned nine empty public application tables and 36 empty Auth/Storage/Vault/Realtime data tables.
+- Added `supabase/operations/restore-auth-user-trigger.sql` and `supabase/tests/restore-auth-user-trigger.sql`. The migration runner executes the restore script twice and verifies the trigger/function contract on disposable PostgreSQL.
+- Expanded `scripts/verify-backup-manifest.ts` to require 45 row-count keys and reject any non-zero value among the 36 managed/ephemeral keys that the manual CLI logical-backup path cannot preserve. Added tests for every zero gate and for inventory SQL coverage/read-only behavior.
+- Added `docs/operations/restore-customization-inventory.md` and updated the backup-manifest and Organization preflight runbooks.
+- No migration was added; repository migration count remains 27. No application feature or production schema was changed.
+
+## Source inventory findings
+
+- Production project `gujzvkyytxsnervovvrt`: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, `ap-southeast-1`; organization plan is Free.
+- Project migration ledger: 8 versions; repository: 27; 19 branch-only.
+- All nine public application tables and all 36 inventoried managed/ephemeral data tables are empty at the 2026-11-21 03:23 UTC snapshot.
+- Provider-owned migration ledgers: Auth 84 rows, Storage 81, Realtime 97; project migration ledger 8. The earlier table-list estimate of 8 for Realtime is superseded by exact `count(*)=97`.
+- Installed non-plpgsql extensions: `pg_stat_statements 1.11`, `pgcrypto 1.3`, `supabase_vault 0.3.1`, `uuid-ossp 1.1`. No non-platform custom schema.
+- No Auth/Storage/Realtime RLS policies; `supabase_realtime` publication has no table members; `pg_cron`, `pg_net`, `wrappers` and foreign servers are absent. Nine login roles are platform roles; no custom LOGIN role was found. No Edge Functions are listed; secret names/values and Dashboard Auth settings were not accessible.
+- `auth.users.on_auth_user_created` calls postgres-owned SECURITY INVOKER `public.handle_new_user()` with `search_path=public`. The public function is in the public dump, but the Auth trigger is in the excluded `auth` schema and must be recreated on the isolated target with the dedicated script.
+- `ensure_rls` event trigger calls postgres-owned SECURITY DEFINER `public.rls_auto_enable()` with `search_path=pg_catalog`; verify it is present after restoring the public schema.
+- Production has `public.claim_due_reminders(integer)` despite the branch migration that defines it not being in the live eight-version ledger. Live metadata: SECURITY DEFINER, postgres owner, service_role-only EXECUTE, `search_path=public`; branch migration `20261120000300_atomic_reminder_delivery.sql` expects `pg_catalog, public`. Treat this as out-of-ledger schema drift. Do not change production.
+
+## Verification and limitations
+
+CI #478 passed on code/test checkpoint `61b33d08f97b04f6776b7cf9f262cdeafddecdf8`: 21/21 PostgREST preflight tests, all 27 migration replay checks and Organization/RLS assertions, isolated Auth trigger restore script twice plus its assertion, 177/177 application tests, typecheck, production build, and npm install audit with 0 vulnerabilities.
+
+After that run, the verifier error text and an additional inventory SQL contract/read-only test were committed through `4d13c537a075c8659be4bf0b555b392711b3cf0a`. CI #478 therefore does **not** verify that later test addition. The workflow for the later branch head must be checked separately; a missing result is not a pass.
+
+No backup or restore was created. No production DDL/DML, migration, RLS change, role change, project setting change, or PR merge occurred. No local checkout is attached, so local working-tree status cannot be certified.
+
 # Latest checkpoint addendum — credential-safe verifier test fixture (2026-11-21)
 
 **Code/test fixture commit:** \`f4e18514714333fc6cfd5a0916159d905082abef\`. This is a test-only source representation change: the negative credential test now assembles its synthetic PostgreSQL URL from string fragments rather than embedding a credential-shaped URL literal. Runtime behavior, manifest schema, and verifier logic are unchanged. The previous complete workflow, CI #471, passed on the preceding HEAD \`8400787cf015964d7e8e3e3cbc22381b12770060\`; the current final checkpoint commit is subject to its own CI run.

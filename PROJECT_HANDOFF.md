@@ -1,3 +1,39 @@
+# Latest handoff — managed-schema restore audit (2026-11-21)
+
+## Exact resume point
+
+- Branch: `feature/organization-v1`
+- Checkpoint base HEAD before this handoff update: `4d13c537a075c8659be4bf0b555b392711b3cf0a`
+- PR #11: open, unmerged. PR #12 remains a superseded open draft.
+- Repository migrations: 27. Production project migration ledger: 8. Do not infer that the production schema equals the eight migrations; out-of-ledger objects were found.
+- No migration was added in this task.
+
+## What changed
+
+1. Added the read-only source inventory query at `supabase/operations/restore-customization-inventory.sql`.
+2. Added isolated-only Auth trigger restoration at `supabase/operations/restore-auth-user-trigger.sql` plus a regression assertion. The migration runner applies it twice on disposable PostgreSQL.
+3. The offline manifest verifier now requires 45 row counts and rejects any non-zero count among 36 managed/ephemeral data tables.
+4. Added `docs/operations/restore-customization-inventory.md`; updated the manifest and Organization preflight runbooks.
+5. The new inventory query ran read-only on production. It did not read secret values or alter the project.
+
+## Critical restore constraints
+
+- The standard Supabase CLI logical dump excludes managed schemas such as `auth`, `storage`, and extension-created schemas. Storage object bytes and project-level settings are separate. The manual CLI path is permitted only while all 36 managed/ephemeral data counts remain zero. Re-run the inventory immediately before export. If any count is non-zero, stop and select a complete supported backup method; do not claim the five dump files are complete.
+- Current organization plan is Free; Supabase Restore-to-New-Project requires a paid plan and physical backups. Do not upgrade/create paid resources without owner decision.
+- No `supabase/config.toml` exists in the repository. For a source schema diff, create a private temporary CLI workspace and copy only the exact eight live migration files. Never diff all 27 branch migrations against the eight-version source baseline.
+- Restore roles and prepare target defaults first; after schema restore, compare source/target `pg_default_acl`, role memberships, role settings, and database settings. Source default ACLs are broad in several schemas; do not leave target defaults revoked if the source dump restores explicit ACLs.
+- Recreate `auth.users.on_auth_user_created` on the isolated target after `public.handle_new_user()` and `auth.users` exist, using the dedicated restore script. Verify `ensure_rls` and `public.rls_auto_enable()` after public schema restore.
+- Source has out-of-ledger `public.claim_due_reminders(integer)`: live `search_path=public`, branch migration expects `pg_catalog, public`. Capture and review it; let the branch migration normalize only on the isolated target.
+- Auth settings, API keys, Edge Function secrets, Storage API settings/objects, Realtime project settings, database webhooks, and read replicas require owner-controlled inventory. No Edge Functions were listed; secret names/values were not accessible. Never place secrets in manifests, CI, or Git.
+
+## CI checkpoint
+
+CI #478: <https://github.com/mohith-krishnaa/personal-os/actions/runs/44860969477> passed on `61b33d08f97b04f6776b7cf9f262cdeafddecdf8`: 27 migration replay, Organization/RLS assertions, Auth trigger restore script idempotence, 177/177 tests, typecheck, build, 0 npm vulnerabilities. The later inventory SQL contract test and error-message clarification were added after that SHA. Verify CI on the actual latest branch head before treating the run as fully verified.
+
+## Next action
+
+Owner-controlled complete backup and isolated restore. If the owner cannot provide the backup/restore, do not retry the unavailable operation. Use the private eight-migration scratch diff workflow to inspect the known `claim_due_reminders` and `ensure_rls` out-of-ledger objects, and complete the Dashboard-only Auth/Secrets/Realtime/Storage settings inventory. Keep production read-only, keep PR #11 unmerged, and keep Analytics queued.
+
 # Latest handoff addendum — verifier fixture scan (2026-11-21)
 
 Code/test fixture commit: \`f4e18514714333fc6cfd5a0916159d905082abef\`. The only delta since the fully verified implementation is a test-only rewrite that constructs the synthetic PostgreSQL connection string from fragments, eliminating the only credential-pattern scan match. Runtime behavior and verifier logic are unchanged. The previous full CI #471 passed on \`8400787cf015964d7e8e3e3cbc22381b12770060\`; the current final checkpoint must be verified by CI on its own HEAD.
