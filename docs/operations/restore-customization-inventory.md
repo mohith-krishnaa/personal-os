@@ -213,9 +213,10 @@ Do not run this candidate against production. Do not add it to the migration cha
 4. Create a separate isolated Supabase target. Do not use production as the target.
 5. Restore roles, prepare target defaults, restore schema/data and project migration history, enable compatible extensions, and compare roles/default ACLs/settings.
 6. Apply the Auth trigger restore script on the isolated target. Then connect directly as the target's `postgres` role, set the same-session isolated marker, run `restore-ensure-rls-event-trigger.sql` twice, and execute its behavior test. Verify the `claim_due_reminders` baseline-to-branch migration transition separately.
-7. Review the checklist conflict report against the restored copy and record owner-approved dispositions.
-8. Run authenticated two-owner PostgREST acceptance against the isolated target.
-9. Only after all evidence is complete may a separate owner review consider production rollout. This runbook does not authorize production DDL, DML, migration, RLS changes, project changes, or PR merge.
+7. If and only if the owner has explicitly approved the fail-closed behavior, set `app.personal_os_fail_closed_rls_approval='owner-approved'` in that same isolated postgres session, run `apply-ensure-rls-fail-closed.sql` twice, and execute `ensure-rls-fail-closed-candidate.sql`. Do not rerun the original `restore-ensure-rls-event-trigger.sql` after this candidate has replaced the function body. If the owner has not approved the behavior, leave the original function unchanged and record the open fail-open risk.
+8. Review the checklist conflict report against the restored copy and record owner-approved dispositions.
+9. Run authenticated two-owner PostgREST acceptance against the isolated target.
+10. Only after all evidence is complete may a separate owner review consider production rollout. This runbook does not authorize production DDL, DML, migration, RLS changes, project changes, or PR merge.
 
 ---
 
