@@ -21,8 +21,13 @@ BEGIN
     RAISE EXCEPTION 'Refusing ensure_rls restoration: verify the target project reference and set app.personal_os_restore_target=isolated only on the isolated target.';
   END IF;
 
-  IF current_user <> 'postgres' THEN
-    RAISE EXCEPTION 'Refusing ensure_rls restoration: execute as postgres on the isolated target.';
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_roles
+    WHERE rolname = current_user
+      AND rolsuper
+  ) THEN
+    RAISE EXCEPTION 'Refusing ensure_rls restoration: execute from a superuser-capable session on the isolated target.';
   END IF;
 
   SELECT
@@ -136,6 +141,7 @@ BEGIN
       WHEN TAG IN ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')
       EXECUTE FUNCTION public.rls_auto_enable()
     $ddl$;
+    EXECUTE 'ALTER EVENT TRIGGER ensure_rls OWNER TO postgres';
   END IF;
 
   SELECT e.evtfoid, e.evtevent, e.evttags, e.evtenabled, e.evtowner

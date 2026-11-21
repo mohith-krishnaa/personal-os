@@ -363,11 +363,11 @@ if psql -X -v ON_ERROR_STOP=1 -f supabase/operations/restore-ensure-rls-event-tr
   echo "ERROR: ensure_rls restore script accepted a missing isolated-target attestation" >&2
   exit 1
 fi
-psql -X -v ON_ERROR_STOP=1 -c "SET app.personal_os_restore_target = 'isolated'" -f supabase/operations/restore-ensure-rls-event-trigger.sql
+psql -X -v ON_ERROR_STOP=1 -c "SET ROLE supabase_admin; SET app.personal_os_restore_target = 'isolated'" -f supabase/operations/restore-ensure-rls-event-trigger.sql
 echo "Reapplying ensure_rls restore script to verify idempotence"
-psql -X -v ON_ERROR_STOP=1 -c "SET app.personal_os_restore_target = 'isolated'" -f supabase/operations/restore-ensure-rls-event-trigger.sql
+psql -X -v ON_ERROR_STOP=1 -c "SET ROLE supabase_admin; SET app.personal_os_restore_target = 'isolated'" -f supabase/operations/restore-ensure-rls-event-trigger.sql
 echo "Verifying ensure_rls event-trigger ACL, scope, and exception behavior"
-psql -X -v ON_ERROR_STOP=1 -c "SET app.personal_os_restore_target = 'isolated'" -f supabase/tests/restore-ensure-rls-event-trigger.sql
+psql -X -v ON_ERROR_STOP=1 -c "SET ROLE supabase_admin; SET app.personal_os_restore_target = 'isolated'" -f supabase/tests/restore-ensure-rls-event-trigger.sql
 
 echo "Executing read-only Organization rollout preflight after ensure_rls restoration"
 preflight_output="$(psql -X -v ON_ERROR_STOP=1 -A -t -f supabase/operations/organization-v1-preflight.sql)"

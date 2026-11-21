@@ -6,11 +6,20 @@ BEGIN
   IF current_setting('app.personal_os_restore_target', true) IS DISTINCT FROM 'isolated' THEN
     RAISE EXCEPTION 'Refusing ensure_rls behavior tests without the same-session isolated-target attestation.';
   END IF;
-  IF current_user <> 'postgres' THEN
-    RAISE EXCEPTION 'Run ensure_rls behavior tests as postgres on the isolated target.';
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_roles
+    WHERE rolname = current_user
+      AND rolsuper
+  ) THEN
+    RAISE EXCEPTION 'Run ensure_rls behavior tests from a superuser-capable session on the isolated target.';
   END IF;
 END
 $isolated_target_gate$;
+
+-- Run behavior probes as the function owner so newly created public tables are owned
+-- by postgres, matching the source project's execution context.
+SET ROLE postgres;
 
 DO $assert_ensure_rls_contract$
 DECLARE
