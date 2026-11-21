@@ -8,7 +8,7 @@ The backup gate remains unsatisfied; no backup or restore was executed. The conn
 
 **Fresh 2026-11-21 source inventory:** ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, eight live project migrations versus 27 repository migrations (19 branch-only); nine public tables are RLS-enabled and empty; no checklist tables; `auth.users`, Storage buckets/objects, and `vault.secrets` are zero; four extension versions; no auth/storage RLS policies; 12 non-internal auth/storage triggers; one project-owned Auth profile trigger; no Edge Functions listed. Project-level Auth/Realtime/webhook/secret settings still require owner inventory.
 
-Final runbook commit `1b9c2ca12145226f865d22414f95de6170729e54` passed [CI #464](https://github.com/mohith-krishnaa/personal-os/actions/runs/44849631968): 21/21 preflight tests, 27/27 migration replay, 152/152 application tests, task hierarchy concurrency, typecheck, build, and npm audit 0 vulnerabilities. The documented shell snippets passed `bash -n`; no backup command was executed.
+Final runbook commit `1b9c2ca12145226f865d22414f95de6170729e54` passed [CI #464](https://github.com/mohith-krishnaa/personal-os/actions/runs/44849631968): 21/21 preflight tests, 27/27 migration replay, 152/152 application tests, task hierarchy concurrency, typecheck, build, and npm install audit summary: 0 vulnerabilities reported. The documented shell snippets passed `bash -n`; no backup command was executed.
 
 ---
 # Latest preflight update — trusted activity-event writers (migration 27, 2026-11-21)

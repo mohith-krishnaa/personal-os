@@ -1,6 +1,7 @@
 # Latest handoff — owner backup gate and current Supabase CLI restore procedure (2026-11-21)
 
-**Branch:** `feature/organization-v1`. **Runbook commit:** `1b9c2ca12145226f865d22414f95de6170729e54` — [CI #464 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44849631968).
+**Branch:** `feature/organization-v1`. **Runbook commit:** `1b9c2ca12145226f865d22414f95de6170729e54` — [CI #464 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44849631968).  
+**Checkpoint docs commit:** `cd4ccb1c3accffec12e719b9b2f497079026ea55` — [CI #465 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44849845193).
 
 ## Recovery
 
@@ -19,7 +20,7 @@
 
 ## Verification and limitations
 
-- Final runbook commit `1b9c2ca` passed CI #464: 21/21 PostgREST preflight tests, 27/27 PostgreSQL 17 migration replay, 152/152 application tests, task hierarchy concurrency, typecheck, production build, npm audit 0 vulnerabilities.
+- Final runbook commit `1b9c2ca` passed CI #464: 21/21 PostgREST preflight tests, 27/27 PostgreSQL 17 migration replay, 152/152 application tests, task hierarchy concurrency, typecheck, production build, npm install audit summary: 0 vulnerabilities reported.
 - `bash -n` passed on the documented shell snippets. Actual Supabase CLI/pg_dump/psql/Docker tools and a local repository checkout are absent in the automation container; no backup or restore was executed.
 - The 2026-11-21 live Supabase inspection was read-only. Nine public tables are RLS-enabled and empty; auth.users, Storage buckets/objects, and Vault secrets are zero; four extension versions and 12 auth/storage triggers were inventoried; no Edge Functions or auth/storage RLS policies were listed.
 - No production DDL/DML, migration, RLS change, backup, restore, or merge was performed. The backup/export action is unavailable through the connected Supabase tools.

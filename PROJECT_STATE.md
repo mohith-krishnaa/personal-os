@@ -9,7 +9,7 @@
 
 - Personal-OS Builder is enabled. At recovery, `last_run.id=2d21ded0-8264-8330-9b18-7be327a398ae` was recorded `in_progress`, started `2026-11-21T01:12:18.900454Z`; `latest_result.run_id=8fb5af3f-96c4-8325-8e43-c41bfa820204` was created `2026-11-21T00:28:15.554687Z`. The result predates the current run and belongs to the completed legacy-checklist audit.
 - The previous stated next action was owner-controlled backup and isolated restoration. The actual branch already contained the activity-event PostgREST acceptance implementation in commits `8b2cf9426cb899817c1e7bb92015b39bab3cac85` and `28885b8b6ebb6415adf4601f2ad4766b6fff7dfb` (CI #450/#451), so that completed task was not duplicated.
-- Starting branch/PR head was `700fedf12638fe6f1bc6414ed0962d4568442929`; CI #458 passed. The branch now points to the runbook checkpoint commit that follows the runbook verification below.
+- Starting branch/PR head was `700fedf12638fe6f1bc6414ed0962d4568442929`; CI #458 passed. The separate checkpoint-document commit is `cd4ccb1c3accffec12e719b9b2f497079026ea55`; CI #465 passed on that exact commit.
 - No local repository checkout exists in this environment. The container has no Docker, Supabase CLI, `pg_dump`, or `psql`; local working-tree cleanliness cannot be certified. Remote branch diffs and commit contents were inspected.
 
 ## Backup/restore runbook audit and correction
@@ -27,7 +27,7 @@
 - CI #461 passed on `484f09aeeb6bd703d9a6d244fb425f9e2686833d`.
 - CI #462 passed on `12885122b8b59293e2f41ebf8d2a40c55f2c9c07`.
 - CI #463 passed on `224b11599004234f19daabf01fc5e3e522008fc5`.
-- Final CI #464 passed on runbook HEAD `1b9c2ca12145226f865d22414f95de6170729e54`: PostgREST preflight 21/21, PostgreSQL 17 migration replay 27/27, task-hierarchy concurrency, application tests 152/152, TypeScript typecheck, production build, and npm audit with 0 vulnerabilities. No lint script is configured. Non-failing warnings include Node's `punycode` deprecation and the local test PostgreSQL `trust` warning; negative migration tests intentionally emit expected error logs.
+- Final CI #464 passed on runbook HEAD `1b9c2ca12145226f865d22414f95de6170729e54`: PostgREST preflight 21/21, PostgreSQL 17 migration replay 27/27, task-hierarchy concurrency, application tests 152/152, TypeScript typecheck, production build, and npm install audit summary: 0 vulnerabilities reported. No lint script is configured. Non-failing warnings include Node's `punycode` deprecation and the local test PostgreSQL `trust` warning; negative migration tests intentionally emit expected error logs.
 - CI validates the application and migration suite; it does not execute the owner backup/restore commands. The backup commands remain unexecuted.
 
 ## Production boundary and remaining blockers

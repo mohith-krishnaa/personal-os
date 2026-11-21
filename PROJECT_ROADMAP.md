@@ -1,6 +1,7 @@
 # Latest roadmap checkpoint — Organization backup/restore preflight (2026-11-21)
 
-**Branch:** `feature/organization-v1`. **Runbook commit:** `1b9c2ca12145226f865d22414f95de6170729e54` — [CI #464 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44849631968).
+**Branch:** `feature/organization-v1`. **Runbook commit:** `1b9c2ca12145226f865d22414f95de6170729e54` — [CI #464 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44849631968).  
+**Checkpoint docs commit:** `cd4ccb1c3accffec12e719b9b2f497079026ea55` — [CI #465 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44849845193).
 
 ## Current milestone status
 
