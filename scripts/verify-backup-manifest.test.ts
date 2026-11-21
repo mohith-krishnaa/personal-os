@@ -440,8 +440,9 @@ test('rls_auto_enable remains a project-installed prerequisite outside the migra
 })
 
 test('claim_due_reminders source baseline and branch atomic replacement are distinct', () => {
-  assert.ok(REQUIRED_SOURCE_MIGRATIONS.includes('20260830123420'))
-  assert.ok(!REQUIRED_SOURCE_MIGRATIONS.includes('20261120000300'))
+  const sourceMigrationVersions: readonly string[] = REQUIRED_SOURCE_MIGRATIONS
+  assert.ok(sourceMigrationVersions.includes('20260830123420'))
+  assert.ok(!sourceMigrationVersions.includes('20261120000300'))
 
   const migrationsDir = join(process.cwd(), 'supabase', 'migrations')
   const sourceBaseline = readFileSync(join(migrationsDir, '20260830123420_atomize_reminder_delivery_claim.sql'), 'utf8')
