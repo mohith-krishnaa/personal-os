@@ -1,3 +1,36 @@
+# Latest handoff — schema-drift classification (2026-11-21)
+
+## Exact resume point
+
+- Branch: `feature/organization-v1`.
+- Audit base HEAD: `a4703c27e619b7de4210b8f8f4066e9f6f98dba7`; CI #488 passed on this exact starting commit.
+- PR #11: open, unmerged, mergeable; its head matched the audit base before this checkpoint. PR #12: open superseded draft.
+- Main: `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`; branch ahead 563, behind 0.
+- Live migration ledger: 8 versions; repository: 27; 19 branch-only.
+
+## Findings that supersede the previous handoff
+
+1. `claim_due_reminders(integer)` is expected baseline state, not out-of-ledger drift. The live definition/config/owner/ACL match applied migration `20260830123420_atomize_reminder_delivery_claim.sql`. The branch-only `20261120000300_atomic_reminder_delivery.sql` is the intended atomic replacement and has not been applied to production.
+2. `ensure_rls` / `public.rls_auto_enable()` is a project-installed optional customization. Supabase's official event-trigger guide describes it as an example to create, not a built-in automatically installed object. No repository migration creates it; the applied migration `20260905162251_restrict_rls_auto_enable_execute.sql` only revokes EXECUTE from anon/authenticated.
+3. The live `rls_auto_enable()` function logs but swallows exceptions from enabling RLS. Supabase's current example re-raises. The live ACL excludes PUBLIC, anon, and authenticated and grants service_role, but the migration itself does not revoke PUBLIC. Treat this as an owner-reviewed restore/security contract, not an automatic fix.
+4. The CI bootstrap's no-op stub does not reproduce the production event trigger. It exists only to replay the privilege migration.
+
+## Work performed
+
+- Fresh read-only project/migration inspection and catalog query for `claim_due_reminders`, `rls_auto_enable`, `ensure_rls`, Auth trigger, ACLs, and function definitions.
+- Scanned all 112 PR file patches; among the 27 migration files, only `20260905162251_restrict_rls_auto_enable_execute.sql` references `rls_auto_enable`, and it contains only the privilege revoke.
+- Added two static regression tests to the existing npm test suite.
+- Corrected the CI fixture comment and current restore/preflight/migration documentation.
+- No migration, runtime behavior, or production object was changed.
+
+## Production safety
+
+No backup or isolated restore exists. Production was queried read-only only. No DDL/DML, migration, RLS, role, project setting, backup, restore, or merge was performed. The connected Supabase tools expose no backup/export action. Edge Function listing returned empty; Dashboard-only Auth/API/SMTP/JWT/Realtime/webhook settings remain owner inventory.
+
+## Next task
+
+If the owner-controlled backup remains unavailable, add a read-only preflight assertion that PUBLIC cannot execute `public.rls_auto_enable()`, then build an isolated-only restore/behavior test for `ensure_rls` that explicitly tests the exception path. Do not add or apply a production migration before complete backup and successful isolated restoration. Analytics remains queued.
+
 # Latest handoff — CI-verified managed-schema restore audit (2026-11-21)
 
 ## Exact resume point

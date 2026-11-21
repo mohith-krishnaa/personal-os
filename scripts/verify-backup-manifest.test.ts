@@ -4,6 +4,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -418,4 +419,41 @@ test('rejects symbolic links in the repository migration inventory', async t => 
   const result = await verify(fixture)
   assert.equal(result.ok, false)
   assert.match(result.errors.join(' '), /Migration SQL entries must be regular files/)
+})
+
+
+test('rls_auto_enable remains a project-installed prerequisite outside the migration chain', () => {
+  const migrationsDir = join(process.cwd(), 'supabase', 'migrations')
+  const migrationFiles = readdirSync(migrationsDir).filter(file => file.endsWith('.sql')).sort()
+  const references = migrationFiles.filter(file =>
+    readFileSync(join(migrationsDir, file), 'utf8').includes('rls_auto_enable'),
+  )
+  assert.deepEqual(references, ['20260905162251_restrict_rls_auto_enable_execute.sql'])
+
+  const restriction = readFileSync(join(migrationsDir, '20260905162251_restrict_rls_auto_enable_execute.sql'), 'utf8')
+  assert.match(restriction.trim(), /^revoke execute on function public\.rls_auto_enable\(\) from anon, authenticated;$/i)
+  assert.doesNotMatch(restriction, /create\s+(?:or\s+replace\s+)?function|create\s+event\s+trigger/i)
+
+  const bootstrap = readFileSync(join(process.cwd(), 'supabase', 'tests', 'organization-migration-bootstrap.sql'), 'utf8')
+  assert.match(bootstrap, /project-installed event-trigger function outside the migration chain/i)
+  assert.match(bootstrap, /no-op fixture supplies only the signature and pre-migration grants/i)
+})
+
+test('claim_due_reminders source baseline and branch atomic replacement are distinct', () => {
+  assert.ok(REQUIRED_SOURCE_MIGRATIONS.includes('20260830123420'))
+  assert.ok(!REQUIRED_SOURCE_MIGRATIONS.includes('20261120000300'))
+
+  const migrationsDir = join(process.cwd(), 'supabase', 'migrations')
+  const sourceBaseline = readFileSync(join(migrationsDir, '20260830123420_atomize_reminder_delivery_claim.sql'), 'utf8')
+  const branchReplacement = readFileSync(join(migrationsDir, '20261120000300_atomic_reminder_delivery.sql'), 'utf8')
+
+  assert.match(sourceBaseline, /set search_path\s*=\s*public/i)
+  assert.match(sourceBaseline, /update public\.reminders/i)
+  assert.match(sourceBaseline, /insert into public\.activity_events/i)
+  assert.doesNotMatch(sourceBaseline, /insert into public\.notifications/i)
+
+  assert.match(branchReplacement, /set search_path\s*=\s*pg_catalog,\s*public/i)
+  assert.match(branchReplacement, /insert into public\.notifications/i)
+  assert.match(branchReplacement, /insert into public\.activity_events/i)
+  assert.match(branchReplacement, /update public\.reminders/i)
 })

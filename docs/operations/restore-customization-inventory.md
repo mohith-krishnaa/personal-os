@@ -90,16 +90,20 @@ The exact Realtime ledger count is 97. A previous table-list result reported 8; 
 
 ## 4. Current source customization findings
 
-### Project-owned database objects
+### Project-installed and migration-owned database objects
 
 | Object | Current source contract | Restore treatment |
 |---|---|---|
 | `auth.users.on_auth_user_created` | AFTER INSERT; calls `public.handle_new_user()` | Auth schema is excluded from standard dump. Recreate with the dedicated script below after the public function and Auth table exist. |
 | `public.handle_new_user()` | Owner `postgres`; SECURITY INVOKER; `search_path=public` | Lives in public schema and should be in `schema.sql`. Do not recreate a second function. |
-| `ensure_rls` event trigger | Calls `public.rls_auto_enable()`; owner `postgres`; function SECURITY DEFINER; `search_path=pg_catalog` | Public-schema object; verify it is present in the schema dump and restored target. |
-| `public.claim_due_reminders(integer)` | Owner `postgres`; SECURITY DEFINER; `search_path=public`; EXECUTE granted to `service_role` only | Present in source although its branch migration is not in the live 8-version ledger. It is schema drift relative to the repository baseline. The branch migration `20261120000300_atomic_reminder_delivery.sql` expects `search_path=pg_catalog, public`; verify it normalizes the isolated target. Do not modify production. |
+| `ensure_rls` event trigger | Enabled `ddl_command_end` trigger owned by `postgres`; calls postgres-owned SECURITY DEFINER `public.rls_auto_enable()` with `search_path=pg_catalog`. Current function ACL contains only `postgres` and `service_role`. | Project-installed optional customization, not a Supabase-managed built-in and not created by this repository's migrations. The only migration reference is the privilege revoke in `20260905162251_restrict_rls_auto_enable_execute.sql`. Inspect the actual dump and verify both function and event trigger on the isolated target; do not assume the database-level trigger is preserved. |
+| `public.claim_due_reminders(integer)` | Owner `postgres`; SECURITY DEFINER; `search_path=public`; EXECUTE granted to `service_role` only | Matches the applied baseline migration `20260830123420_atomize_reminder_delivery_claim.sql`; this is expected source state, not out-of-ledger drift. Branch-only `20261120000300_atomic_reminder_delivery.sql` is the intended atomic replacement and changes `search_path` to `pg_catalog, public`. Apply and verify it only on the isolated target after the complete restore gate. |
 
 The first repository migration, `20260829182309_create_personal_os_core.sql`, creates both `public.handle_new_user()` and the Auth trigger. Because the trigger belongs to the excluded `auth` schema, restoring the migration ledger as already applied does not recreate it.
+
+The `ensure_rls`/ `rls_auto_enable()` pair is different: Supabase documents this as an optional event-trigger pattern, not an automatically installed platform object ([official guide](https://supabase.com/docs/guides/database/postgres/event-triggers)). The repository contains no migration that creates it. The applied migration `20260905162251_restrict_rls_auto_enable_execute.sql` only revokes EXECUTE from `anon` and `authenticated`; it does not revoke PUBLIC. The live ACL currently has no PUBLIC grant and grants EXECUTE only to `postgres` and `service_role`, so that exact ACL must be verified after restore.
+
+The live `rls_auto_enable()` body catches errors from `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` and writes `RAISE LOG` without re-raising. Supabase's current example re-raises the exception. The source behavior can therefore allow table creation to continue after an RLS-enable failure; inspect logs and require an owner decision before changing or codifying this behavior. The event trigger enables RLS only for future public-table creation commands and does not create policies or retroactively repair existing tables.
 
 Apply [`supabase/operations/restore-auth-user-trigger.sql`](../../supabase/operations/restore-auth-user-trigger.sql) **only on the isolated target**, after `schema.sql` has restored `public.handle_new_user()` and the Supabase target provides `auth.users`. First verify the target project reference in the Dashboard, then set `app.personal_os_restore_target='isolated'` in the same SQL session. The script refuses to run without that explicit session attestation, verifies the function owner/security/search-path contract, then drops and recreates only `on_auth_user_created`. It does not create the function or touch production.
 
@@ -155,7 +159,7 @@ done
 (cd "$DIFF_WORKDIR" && supabase db diff --remote="$SOURCE_DB_URL" --use-pg-delta > "$BACKUP_DIR/source-schema-diff.sql")
 ```
 
-This uses the exact eight-version source baseline and avoids mixing in the 19 branch-only migrations. It requires Docker for the CLI shadow database. Review the diff manually; it is drift evidence, not a backup artifact and not an apply script. Do not apply the output wholesale. The Auth trigger is already present in the first source migration, so the diff may not emit it even though the default dump excludes the Auth schema.
+This uses the exact eight-version source baseline and avoids mixing in the 19 branch-only migrations. It requires Docker for the CLI shadow database. Review the diff manually; it is drift evidence, not a backup artifact and not an apply script. Do not apply the output wholesale. The Auth trigger is already present in the first source migration, so the diff may not emit it even though the default dump excludes the Auth schema. Separately inspect the dump for the project-installed `rls_auto_enable()` function and `ensure_rls` event trigger; verify both on the isolated target rather than assuming a database-level event trigger was captured.
 
 ## 6. Project-level settings checklist
 
@@ -176,7 +180,7 @@ The database inventory cannot recover or attest these Dashboard/API settings. Th
 3. Build the manifest with all 45 row-count keys. Run the offline verifier; it must pass with all 36 managed data counts equal to zero.
 4. Create a separate isolated Supabase target. Do not use production as the target.
 5. Restore roles, prepare target defaults, restore schema/data and project migration history, enable compatible extensions, and compare roles/default ACLs/settings.
-6. Apply the Auth trigger restore script on the isolated target and verify `ensure_rls` plus the `claim_due_reminders` migration contract.
+6. Apply the Auth trigger restore script on the isolated target; verify the project-installed `ensure_rls` event trigger, function body, PUBLIC/role ACLs, and the `claim_due_reminders` baseline-to-branch migration transition.
 7. Review the checklist conflict report against the restored copy and record owner-approved dispositions.
 8. Run authenticated two-owner PostgREST acceptance against the isolated target.
 9. Only after all evidence is complete may a separate owner review consider production rollout. This runbook does not authorize production DDL, DML, migration, RLS changes, project changes, or PR merge.

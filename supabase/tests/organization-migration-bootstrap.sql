@@ -34,9 +34,9 @@ $function$;
 GRANT USAGE ON SCHEMA auth TO anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION auth.uid() TO PUBLIC;
 
--- Supabase installs this event-trigger function outside the migration chain.
--- The fixture provides its signature and pre-migration grants so the recorded
--- privilege-restriction migration can be replayed faithfully.
+-- The source project has a project-installed event-trigger function outside the migration chain.
+-- This no-op fixture supplies only the signature and pre-migration grants needed by the
+-- privilege-restriction migration; it does not emulate the source function or event trigger.
 CREATE OR REPLACE FUNCTION public.rls_auto_enable()
 RETURNS event_trigger
 LANGUAGE plpgsql

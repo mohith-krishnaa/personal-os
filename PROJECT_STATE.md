@@ -1,3 +1,27 @@
+# Latest verified checkpoint — schema-drift classification (2026-11-21)
+
+**Audit base:** `feature/organization-v1` at `a4703c27e619b7de4210b8f8f4066e9f6f98dba7`; PR #11 head matched. CI #488 passed on that exact starting HEAD. CI #488 is not evidence for this audit's new tests or documentation commit; the audit commit requires its own workflow result.
+
+## Corrected source-vs-branch classification
+
+- Fresh read-only Supabase inspection: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, `ap-southeast-1`. Live migration ledger: 8 versions; repository: 27 migrations; 19 branch-only.
+- `public.claim_due_reminders(integer)` is **not out-of-ledger drift**. Its live body, SECURITY DEFINER setting, `search_path=public`, postgres owner, and service_role-only ACL match applied baseline migration `20260830123420_atomize_reminder_delivery_claim.sql`. Branch-only `20261120000300_atomic_reminder_delivery.sql` is the intended atomic replacement and is absent from the live ledger.
+- `ensure_rls` / `public.rls_auto_enable()` is a project-installed optional event-trigger customization, not a Supabase-managed built-in. No repository migration creates it; `20260905162251_restrict_rls_auto_enable_execute.sql` only revokes EXECUTE from anon/authenticated. The live ACL also excludes PUBLIC, but that part is not enforced by the migration.
+- The live `rls_auto_enable()` function catches RLS-enable errors and logs without re-raising, unlike Supabase's current documented example. This is a potential fail-open DDL behavior requiring owner review before any change.
+- The disposable migration bootstrap uses a no-op function stub; it verifies privilege-migration replay, not production event-trigger behavior.
+
+## Changes in this checkpoint
+
+Added static regression coverage for the migration boundary and the baseline-to-branch reminder function transition. Corrected the bootstrap comment and current restore/preflight/migration documentation. No migration or runtime application code was changed.
+
+## Safety and remaining gates
+
+No owner-controlled backup or isolated restore exists. No production DDL/DML, migration, RLS/role/project-setting change, backup, restore, or PR merge occurred. Dashboard Auth/API/SMTP/JWT/Realtime/webhook settings and secret names remain owner-controlled inventory items. A fresh Supabase Edge Function listing returned no functions.
+
+The next code-side task, if owner backup remains unavailable, is to extend read-only preflight with an explicit PUBLIC ACL assertion and build an isolated-only verification/restore test for the `ensure_rls` customization. Do not change production. Keep Analytics queued behind Organization acceptance.
+
+---
+
 # Latest verified checkpoint — managed-schema restore audit (2026-11-21)
 
 **Implementation/test HEAD:** `293068da23e1f47b3c6b26b10fd21852bd1449e3` on `feature/organization-v1`. This exact commit passed CI #487: <https://github.com/mohith-krishnaa/personal-os/actions/runs/44861473748>.

@@ -2,6 +2,20 @@
 
 ## Organization V1 — active, not accepted
 
+The latest audit corrected two restore classifications:
+- `claim_due_reminders(integer)` matches the applied eight-migration baseline. Branch-only `20261120000300_atomic_reminder_delivery.sql` is the pending atomic replacement, not out-of-ledger drift.
+- `ensure_rls` / `rls_auto_enable()` is a project-installed optional event-trigger customization, not a Supabase-managed built-in or a repository-created object. The current function logs and swallows RLS-enable exceptions; the migration chain only revokes anon/authenticated EXECUTE and does not enforce the currently absent PUBLIC grant.
+
+Two static regression tests protect these boundaries. The disposable bootstrap is explicitly documented as a no-op stub, not a production behavior simulation. No migration or production change was made. CI on this audit commit is pending; starting HEAD `a4703c2` had CI #488 pass.
+
+Organization acceptance remains blocked by complete owner-controlled backup, successful isolated restoration, managed/project settings verification, checklist conflict disposition, and authenticated two-owner PostgREST acceptance. Analytics, AI Assistant, Research Agent, Adaptive Scheduling, and production hardening remain queued.
+
+---
+
+# Latest verified roadmap checkpoint — 2026-11-21
+
+## Organization V1 — active, not accepted
+
 Managed-schema/project-level restore audit is implemented and CI-verified. The offline manifest verifier requires 45 row-count keys; all 36 Auth/Storage/Vault/Realtime managed/ephemeral data counts must be zero for the manual CLI logical-backup path. The source snapshot at 2026-11-21 03:23 UTC showed nine public application tables and all 36 managed/ephemeral tables empty.
 
 The isolated Auth trigger restore script requires explicit same-session `app.personal_os_restore_target='isolated'` attestation. The public `ensure_rls` event trigger and `public.rls_auto_enable()` must be verified after schema restore. The out-of-ledger `public.claim_due_reminders(integer)` function has live `search_path=public`, while the branch migration expects `pg_catalog, public`.

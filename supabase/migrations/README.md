@@ -1,5 +1,13 @@
 # Current migration inventory — 2026-11-21
 
+## Restore prerequisite classification
+
+- `public.rls_auto_enable()` and event trigger `ensure_rls` are a project-installed optional customization, not a Supabase-managed built-in. Supabase's [event-trigger guide](https://supabase.com/docs/guides/database/postgres/event-triggers) presents automatic RLS enablement as an example to create. No repository migration creates this function or event trigger.
+- The only migration reference is `20260905162251_restrict_rls_auto_enable_execute.sql`, which revokes EXECUTE from `anon` and `authenticated`. The disposable bootstrap uses a no-op stub only to replay that privilege migration; it is not a behavior test of the production function.
+- The live function's ACL currently excludes PUBLIC, anon, and authenticated and allows service_role. The migration itself does not revoke PUBLIC, so the isolated restore/preflight must verify that ACL explicitly.
+- `claim_due_reminders(integer)` is not out-of-ledger drift: its live implementation matches the applied baseline migration `20260830123420_atomize_reminder_delivery_claim.sql`. Branch-only migration `20261120000300_atomic_reminder_delivery.sql` is the intended atomic replacement and is not in the live eight-version ledger.
+
+
 The branch contains **27 migrations**. The last fresh read-only production ledger contains **8 applied versions**, leaving **19 branch-only migrations**. Migration 27 is `20261121000500_trusted_activity_event_writers.sql`; it moves the task activity trigger to a postgres-owned SECURITY DEFINER writer, removes authenticated direct activity-event INSERT, and retains service_role as the trusted server-side writer.
 
 CI #444 passed on implementation/test commit `d05d5a47efd51dca6088ea211f897573b789374d`: 27/27 PostgreSQL 17 migrations, migration 27 reapplication, 17/17 PostgREST safety preflight tests, 147/147 application tests, typecheck, production build and npm audit (0 vulnerabilities). Follow-up `fbb3be06e3c21156ce8e4f3d72c408d657af7d45` tightens fail-closed policy-shape checks and passed [CI #445](https://github.com/mohith-krishnaa/personal-os/actions/runs/44828178553).
@@ -176,7 +184,7 @@ The trigger also prevents moving a parent task to a different owner or project w
 
 ## Full migration-chain verification
 
-CI now replays every numbered SQL migration in a disposable PostgreSQL 17 database. The fixture bootstraps the Supabase roles, `auth.users`, `auth.uid()`, and the platform-managed `rls_auto_enable()` function, then replays all 20 migrations: the eight live-ledger migrations, nine Organization migrations, one Progress metrics compatibility repair, and two RLS policy/performance migrations.
+CI now replays every numbered SQL migration in a disposable PostgreSQL 17 database. The fixture bootstraps the Supabase roles, `auth.users`, `auth.uid()`, and a no-op stub for the project-installed `rls_auto_enable()` prerequisite (not its production behavior), then replays all 20 migrations: the eight live-ledger migrations, nine Organization migrations, one Progress metrics compatibility repair, and two RLS policy/performance migrations.
 
 The replay seeds legacy `projects.title` and `task_checklist_items` rows before the compatibility/reconciliation migrations. It verifies that canonical reconciliation copies only same-owner task rows, malformed canonical and legacy checklist rows attached to another owner's task are hidden by SELECT RLS, the project title/name dual-write remains available, and authenticated Owner A/Owner B sessions cannot read or mutate one another's Organization records. The assertion script verifies the exact 13-policy Organization matrix across projects, tasks, and both checklist tables, including authenticated roles, command scopes, owner predicates, and task-owner link checks. It also verifies the ten optimized reminder/notification/progress policies preserve their authenticated role, command, owner predicate, and progress-to-goal ownership check; the canonical `goals_owner` policy must remain initplan-safe.
 
