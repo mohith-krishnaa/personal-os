@@ -1,3 +1,12 @@
+# Latest resume note — CI coverage for isolated-target guard (2026-11-21)
+
+- Branch: `feature/organization-v1`
+- Latest pre-follow-up HEAD: `fe918c9c165adda10d66cf73b5fccd66156d4949`
+- CI #482 passed on prior head `ce77eef14abed0fe6fc37fc42f2401ff47e277b4`: 21/21 PostgREST preflight, 27 migration replay and Organization/RLS checks, 178/178 app tests, typecheck, build, 0 npm vulnerabilities.
+- CI #482 does not cover the later session-GUC safety gate added to `restore-auth-user-trigger.sql`. A static regression test is being added for the guard, while the migration runner also exercises the missing-attestation refusal and two successful idempotent runs.
+- Keep production read-only. No backup/restore, migration, DDL/DML, RLS change, or PR merge occurred.
+- Next: verify the CI run on the actual final head; then resume owner-controlled backup/isolated restore. If blocked, inspect the known out-of-ledger `claim_due_reminders` and `ensure_rls` drift with the eight-migration scratch diff, without touching production.
+
 # Latest handoff — managed-schema restore and isolated-target guard (2026-11-21)
 
 ## Exact resume point

@@ -1,3 +1,9 @@
+# Latest CI follow-up — isolated-target restore guard (2026-11-21)
+
+The current branch HEAD before this documentation update was `fe918c9c165adda10d66cf73b5fccd66156d4949`. CI #482 passed on `ce77eef14abed0fe6fc37fc42f2401ff47e277b4` with 21/21 PostgREST preflight tests, 27 migration replay/Organization-RLS checks, 178/178 application tests, typecheck, production build, and 0 npm vulnerabilities. CI #482 did not include the later session-GUC guard in `restore-auth-user-trigger.sql` or the negative guard test added afterward. The latest head must be checked for a new workflow result; do not treat #482 as verification of `fe918c9`.
+
+The Auth trigger restore script now refuses DDL unless the same session explicitly sets `app.personal_os_restore_target='isolated'`. The migration runner tests refusal without the setting and idempotent restoration with it. Production remains read-only; no backup or restore was performed.
+
 # Latest checkpoint — managed-schema restore and isolated-target guard (2026-11-21)
 
 **Pre-checkpoint branch HEAD:** `876b6ec92cd8e7c4ae89950d391aba0590b3fbf1` on `feature/organization-v1`. PR #11 is open and unmerged.

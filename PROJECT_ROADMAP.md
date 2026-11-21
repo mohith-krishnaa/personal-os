@@ -1,3 +1,11 @@
+# Latest CI follow-up — 2026-11-21
+
+The isolated Auth trigger restore script now requires an explicit same-session `app.personal_os_restore_target='isolated'` attestation. The disposable migration runner verifies that the script refuses to run without the attestation and can be applied twice when the target is explicitly marked isolated.
+
+CI #482 passed on `ce77eef14abed0fe6fc37fc42f2401ff47e277b4` with 21/21 PostgREST preflight, 27 migration replay/Organization-RLS checks, 178/178 application tests, typecheck, build, and 0 npm vulnerabilities. It predates the session-GUC guard; verify CI on the latest branch head before counting the guard as accepted.
+
+Organization V1 remains in progress. Backup, isolated restoration, settings/ACL verification, checklist conflict disposition, and authenticated two-owner PostgREST acceptance remain open. Analytics and all later milestones remain queued.
+
 # Latest roadmap checkpoint — 2026-11-21
 
 ## Organization V1 — active, not accepted
