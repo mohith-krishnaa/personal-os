@@ -345,17 +345,18 @@ This gate is not satisfied. No complete backup has been produced or restored. A 
 
 The last recorded Dashboard check says the Free Plan has no scheduled project backups. Recheck the current plan before relying on provider backups. No backup/export action is available through the connected Supabase tools in this run.
 
-### Fresh source snapshot — 2026-11-20 (read-only)
+### Fresh source snapshot — 2026-11-21 (read-only)
 
 - Project: gujzvkyytxsnervovvrt; region ap-southeast-1; ACTIVE_HEALTHY; PostgreSQL 17.11.0.003.
-- Live migration ledger: exactly eight versions: 20260829182309, 20260830085036, 20260830103327, 20260830114218, 20260830120132, 20260830123420, 20260830141616, 20260905162251.
-- Repository branch: 22 numbered migrations; 14 are not present in the live ledger (11 Organization/related, one Progress compatibility, two RLS-performance migrations).
-- All nine public application tables have zero rows: activity_events, goals, notes, notifications, profiles, progress_entries, projects, reminders, tasks.
+- Live project migration ledger: exactly eight versions: 20260829182309, 20260830085036, 20260830103327, 20260830114218, 20260830120132, 20260830123420, 20260830141616, 20260905162251.
+- Repository branch at verified HEAD: 27 numbered migrations; 19 are not present in the live ledger. The repository migration runner expects and replays all 27.
+- All nine public application tables are present, RLS-enabled, and currently contain zero rows: activity_events, goals, notes, notifications, profiles, progress_entries, projects, reminders, tasks. The transitional checklist tables are absent from this source baseline.
 - auth.users=0; storage.buckets=0; storage.objects=0; vault.secrets=0.
-- auth.schema_migrations has 84 provider-managed rows; storage.migrations has 81 provider-managed rows; supabase_migrations.schema_migrations has the eight project migration records. Do not treat the auth/storage migration metadata as application data or copy provider-owned migration history into a new project.
+- auth.schema_migrations has 84 provider-managed rows; storage.migrations has 81 provider-managed rows; the project migration ledger reports eight project versions. Do not treat auth/storage migration metadata as application data or copy provider-owned migration history into a new project.
 - Installed non-plpgsql extensions: pg_stat_statements 1.11, pgcrypto 1.3, supabase_vault 0.3.1, uuid-ossp 1.1. Verify the same versions are available/enabled on the isolated target before restore.
-- No deployed Edge Functions were listed. There are no auth/storage RLS policies.
-- Twelve non-internal triggers exist across auth/storage. One is a project-owned trigger, auth.users.on_auth_user_created, which calls public.handle_new_user(). The function is SECURITY INVOKER, uses search_path=public, and inserts public.profiles. Its trigger DDL is present in the already-applied baseline migration 20260829182309_create_personal_os_core.sql. The other eleven triggers are Storage platform triggers owned by supabase_storage_admin; do not copy those platform triggers manually.
+- No auth/storage RLS policies were returned by the catalog query.
+- Twelve non-internal triggers exist across auth/storage: one auth trigger and eleven Storage platform triggers. The project-owned auth.users.on_auth_user_created trigger calls public.handle_new_user(); its function is owned by postgres, is SECURITY INVOKER, and has search_path=public. The auth.users table is owned by supabase_auth_admin. The eleven Storage trigger functions/tables are owned by supabase_storage_admin; do not copy those platform triggers manually.
+- Edge Function inventory and project-level Auth/Realtime/webhook/secret settings were not refreshed in this run; inventory them immediately before backup.
 
 ### Export from a private workspace
 
@@ -404,7 +405,7 @@ Also inventory project-level configuration that SQL dumps do not contain: Auth p
 
 Create a private backup manifest containing only non-secret metadata:
 - source project ref, source region, PostgreSQL version, UTC export time, Supabase CLI version, and PostgreSQL client version;
-- the eight exact live migration versions and the 22-file repository inventory;
+- the eight exact live migration versions and the 27-file repository inventory;
 - installed extension names/versions;
 - exact source row counts for all nine public tables, auth.users, storage buckets/objects, and vault.secrets;
 - artifact filenames, byte sizes, SHA-256 hashes, and command exit statuses;
@@ -468,7 +469,7 @@ Do not proceed on a successful psql exit alone. Record and verify all of the fol
 
 1. All artifact hashes match the private manifest; both restore commands exited zero with ON_ERROR_STOP enabled and no ignored errors.
 2. The exact eight source migration versions exist in supabase_migrations.schema_migrations. No branch-only migration is marked applied.
-3. The nine public application tables and all source row counts match. At the 2026-11-20 source snapshot, every public application table, auth.users, storage.buckets, storage.objects, and vault.secrets had zero rows.
+3. The nine public application tables and all source row counts match. At the 2026-11-21 source snapshot, all nine public application tables, auth.users, storage.buckets, storage.objects, and vault.secrets had zero rows.
 4. The four installed extension versions match.
 5. RLS remains enabled on all nine public application tables; compare policy names, roles, commands, USING/WITH CHECK expressions, grants, foreign keys, triggers, and functions with the read-only preflight output.
 6. auth.users.on_auth_user_created exists and calls the matching public.handle_new_user() definition. Confirm a disposable user created only on the isolated target receives the expected profile row.
