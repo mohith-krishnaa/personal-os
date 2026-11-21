@@ -6,6 +6,14 @@ Task creation uses a client-generated UUID scoped by the authenticated owner. Th
 
 The task activity-event trigger runs in the same database transaction as task insertion. A duplicate request that loses the unique-key race does not insert another task and therefore does not emit another `TASK_CREATED` event. The migration replay assertions cover owner-scoped uniqueness, immutable request identity, duplicate suppression, and exactly one creation event.
 
+## Subtask-specific retry and event contract
+
+Subtasks are rows in `public.tasks`. Their server-computed fingerprint includes `kind: SUBTASK`, the parent task ID, the requested project ID (null when omitted), the normalized title, priority, due time, and estimated minutes. The owner-scoped request key therefore cannot be replayed against a different parent or as a top-level task without a hash mismatch.
+
+For a same-owner, same-request, same-payload retry, `createSubtask` returns the existing row before rechecking mutable parent/project state. New requests still verify parent ownership and require the subtask project to match the parent's project. The unique `(user_id, client_request_id)` constraint and `ON CONFLICT DO NOTHING` path arbitrate concurrent inserts; only the winning INSERT fires the task activity trigger.
+
+A non-recurring subtask has `recurrence_parent_id IS NULL`, so its INSERT emits one `TASK_CREATED` event. The trigger writes that event in the same PostgreSQL statement transaction. A duplicate request that loses the unique-key race does not execute another INSERT trigger and cannot emit a second creation event. The migration replay tests now cover sequential duplicate subtask requests, parent binding, and a two-session concurrent subtask race with exactly one retained creation event.
+
 ## Browser retry continuity
 
 The dashboard quick-add, full task editor, and subtask editor keep pending request IDs in component memory and tab-scoped `sessionStorage`. Each component derives its storage key from React `useId()`, so independent form instances do not share pending IDs.
