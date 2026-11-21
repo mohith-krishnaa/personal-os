@@ -1,3 +1,28 @@
+# Latest preflight addendum — Supabase-managed schema and project customization audit (2026-11-21)
+
+Fresh read-only inventory was executed at 2026-11-21 03:23 UTC against the source project. The exact SQL result, not the earlier table-list estimate, is authoritative:
+
+- Project: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, region `ap-southeast-1`; the owning organization plan is Free.
+- Project migration ledger: 8 versions; repository: 27 migrations; 19 are branch-only.
+- All nine public application tables are empty.
+- All **36** inventoried Auth, Storage, Vault, and Realtime data tables are empty. The CLI manifest verifier now requires these 36 counts to be zero.
+- Provider-managed migration ledgers have 84 Auth, 81 Storage, and **97 Realtime** rows; the project migration ledger has 8. Do not restore provider-managed ledgers into the new project. The earlier table-list estimate of 8 for Realtime was not an exact count.
+- Installed non-plpgsql extensions: `pg_stat_statements 1.11`, `pgcrypto 1.3`, `supabase_vault 0.3.1`, and `uuid-ossp 1.1`. No non-platform custom schema was found.
+- No Auth/Storage/Realtime RLS policies were returned. The `supabase_realtime` publication exists but contains no tables. `pg_cron`, `pg_net`, and `wrappers` are not installed; no foreign servers were found.
+- Nine login roles are platform roles; no custom LOGIN role was found. Role memberships, role settings, database settings, and default ACLs are captured by the new inventory query. Source default ACLs are broad in several schemas: restore must reproduce the source ACLs after target-default preparation, not leave all target defaults revoked.
+- The project-owned Auth trigger is `auth.users.on_auth_user_created` and calls postgres-owned, SECURITY INVOKER `public.handle_new_user()` with `search_path=public`. The default CLI dump excludes `auth`; the trigger is therefore restored separately on the isolated target using `supabase/operations/restore-auth-user-trigger.sql`.
+- The project-owned `ensure_rls` event trigger calls postgres-owned SECURITY DEFINER `public.rls_auto_enable()` with `search_path=pg_catalog`. The function/event trigger live in `public` and should be present in the schema dump; verify them after restore.
+- An out-of-ledger `public.claim_due_reminders(integer)` function exists in production. It is postgres-owned, SECURITY DEFINER, executable by `service_role` only, but its live `search_path=public` differs from branch migration `20261120000300_atomic_reminder_delivery.sql`, which expects `pg_catalog, public`. Do not change production. Capture the current object in the schema dump, review the source-schema diff, and verify the branch migration normalizes it on the isolated target.
+- Supabase reports no Edge Functions. Secret values/names, Auth provider/SMTP/JWT configuration, API keys, Realtime project settings, webhooks, and other Dashboard-only configuration are not exposed by the connected read-only inventory and require owner-controlled review.
+
+The new read-only SQL inventory is [`restore-customization-inventory.sql`](../../supabase/operations/restore-customization-inventory.sql). The detailed manual checklist and scratch-workspace diff procedure are in [`restore-customization-inventory.md`](restore-customization-inventory.md). The branch has no `supabase/config.toml`; do not add one as part of this audit. Use a private temporary CLI workspace containing only the exact eight source migrations when generating a source-schema diff. Never diff all 27 branch migrations against the eight-version source baseline.
+
+The standard CLI logical backup is acceptable for this project only while all 36 managed data counts remain zero and the custom Auth trigger and project-level settings are separately accounted for. If any managed data count becomes non-zero, stop and choose a complete supported backup path; do not treat `db dump` as complete. Supabase's native Restore-to-New-Project flow is paid-plan-only and requires physical backups; the current organization is Free.
+
+No backup or restore was created or executed. No production DDL/DML, migration, RLS modification, or project setting was changed.
+
+---
+
 # Latest preflight update — backup/restore CLI v3/v4 and target default ACLs (2026-11-21)
 
 The backup gate remains unsatisfied; no backup or restore was executed. The connected Supabase tools have no backup/export action, and the automation container has no Supabase CLI, Docker, `pg_dump`, or `psql`.
