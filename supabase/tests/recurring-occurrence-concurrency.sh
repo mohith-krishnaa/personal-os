@@ -104,7 +104,7 @@ SET LOCAL request.jwt.claim.sub = '$owner_id';
 UPDATE public.tasks
 SET status = 'COMPLETED', completed_at = now(), updated_at = now()
 WHERE id = '$root_id' AND user_id = auth.uid() AND status <> 'COMPLETED';
-DO \\$retry\\$
+DO \$retry\$
 DECLARE
   v_constraint text;
   v_existing_id uuid;
@@ -139,7 +139,7 @@ BEGIN
     RAISE EXCEPTION 'The retry did not resolve to the committed winning occurrence.';
   END IF;
 END;
-\\$retry\\$;
+\$retry\$;
 SELECT id::text
 FROM public.tasks
 WHERE user_id = auth.uid()
@@ -158,7 +158,7 @@ if ! grep -Fq "$winner_id" "$tmpdir/retry.out"; then
 fi
 
 psql -X -v ON_ERROR_STOP=1 <<SQL
-DO \\$verify\\$
+DO \$verify\$
 DECLARE
   v_owner uuid := '$owner_id';
   v_root uuid := '$root_id';
@@ -200,7 +200,7 @@ BEGIN
     RAISE EXCEPTION 'Concurrent occurrence creation must emit exactly one source-linked TASK_RECURRENCE_GENERATED event.';
   END IF;
 END;
-\\$verify\\$;
+\$verify\$;
 SQL
 
 echo "Concurrent recurring completion, occurrence uniqueness, and event accounting passed."
