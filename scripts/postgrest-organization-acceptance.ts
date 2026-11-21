@@ -40,20 +40,38 @@ function assertPublicKey(key: string) {
   }
 
   const parts = key.split('.')
-  if (parts.length !== 3) {
-    throw new Error('The configured Supabase API key must be a Supabase publishable key or a legacy anon JWT key.')
+  const isBase64UrlSegment = (segment: string) =>
+    /^[A-Za-z0-9_-]+$/.test(segment) && segment.length % 4 !== 1
+
+  if (parts.length !== 3 || parts.some((part) => !isBase64UrlSegment(part))) {
+    throw new Error('The configured Supabase API key must be a structurally valid three-part legacy anon JWT or an sb_publishable_ key.')
   }
 
-  let payload: { role?: unknown }
-  try {
-    payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8')) as { role?: unknown }
-  } catch {
-    throw new Error('The configured Supabase API key is not a valid public JWT key.')
+  const decodeJsonObject = (segment: string, label: string): Record<string, unknown> => {
+    let value: unknown
+    try {
+      value = JSON.parse(Buffer.from(segment, 'base64url').toString('utf8'))
+    } catch {
+      throw new Error('The configured Supabase JWT ' + label + ' is not valid base64url JSON.')
+    }
+
+    if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+      throw new Error('The configured Supabase JWT ' + label + ' must be a JSON object.')
+    }
+    return value as Record<string, unknown>
   }
 
+  const header = decodeJsonObject(parts[0], 'header')
+  if (header.alg !== 'HS256' || (header.typ !== undefined && header.typ !== 'JWT')) {
+    throw new Error('The configured Supabase legacy JWT header must use HS256 and, when present, typ=JWT.')
+  }
+
+  const payload = decodeJsonObject(parts[1], 'payload')
   if (payload.role !== 'anon') {
     throw new Error('The configured Supabase JWT key is not an anon key. Only legacy anon JWTs or sb_publishable_ keys are allowed.')
   }
+
+  // This is structural classification only. The Supabase Auth/PostgREST server verifies the signature.
 }
 
 function normalizeOrigin(value: string) {

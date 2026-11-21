@@ -19,6 +19,11 @@ const validEnvironment = (): Record<string, string | undefined> => ({
   PERSONAL_OS_ACCEPTANCE_OWNER_B_PASSWORD: 'owner-b-test-password',
 })
 
+function legacyJwtKey(payload: Record<string, unknown>, header: Record<string, unknown> = { alg: 'HS256', typ: 'JWT' }, signature = 'AA') {
+  const encode = (value: Record<string, unknown>) => Buffer.from(JSON.stringify(value)).toString('base64url')
+  return encode(header) + '.' + encode(payload) + '.' + signature
+}
+
 test('requires an explicit execution flag before any network operation', () => {
   assert.throws(
     () => loadAcceptanceConfig(validEnvironment(), []),
@@ -75,10 +80,42 @@ test('rejects a conflicting application Supabase URL', () => {
   assert.throws(() => loadAcceptanceConfig(env, ['--execute']), /different project/)
 })
 
+test('accepts a structurally valid legacy anon JWT key', () => {
+  const env = validEnvironment()
+  const key = legacyJwtKey({ role: 'anon' })
+  env.PERSONAL_OS_ACCEPTANCE_ANON_KEY = key
+  const config = loadAcceptanceConfig(env, ['--execute'])
+  assert.equal(config.anonKey, key)
+})
+
+test('rejects a legacy JWT with a malformed header', () => {
+  const env = validEnvironment()
+  const payload = Buffer.from(JSON.stringify({ role: 'anon' })).toString('base64url')
+  env.PERSONAL_OS_ACCEPTANCE_ANON_KEY = 'bm90LWpzb24.' + payload + '.AA'
+  assert.throws(() => loadAcceptanceConfig(env, ['--execute']), /header is not valid base64url JSON/)
+})
+
+test('rejects a legacy JWT with an unsupported algorithm or token type', () => {
+  const env = validEnvironment()
+  env.PERSONAL_OS_ACCEPTANCE_ANON_KEY = legacyJwtKey({ role: 'anon' }, { alg: 'none', typ: 'JWT' })
+  assert.throws(() => loadAcceptanceConfig(env, ['--execute']), /header must use HS256/)
+
+  env.PERSONAL_OS_ACCEPTANCE_ANON_KEY = legacyJwtKey({ role: 'anon' }, { alg: 'HS256', typ: 'NOT-JWT' })
+  assert.throws(() => loadAcceptanceConfig(env, ['--execute']), /header must use HS256/)
+})
+
+test('rejects a legacy JWT with an empty or malformed signature segment', () => {
+  const env = validEnvironment()
+  env.PERSONAL_OS_ACCEPTANCE_ANON_KEY = legacyJwtKey({ role: 'anon' }, undefined, '')
+  assert.throws(() => loadAcceptanceConfig(env, ['--execute']), /structurally valid three-part/)
+
+  env.PERSONAL_OS_ACCEPTANCE_ANON_KEY = legacyJwtKey({ role: 'anon' }, undefined, 'AA!')
+  assert.throws(() => loadAcceptanceConfig(env, ['--execute']), /structurally valid three-part/)
+})
+
 test('rejects a service-role JWT even when supplied through the anon-key variable', () => {
   const env = validEnvironment()
-  const payload = Buffer.from(JSON.stringify({ role: 'service_role' })).toString('base64url')
-  env.PERSONAL_OS_ACCEPTANCE_ANON_KEY = 'header.' + payload + '.signature'
+  env.PERSONAL_OS_ACCEPTANCE_ANON_KEY = legacyJwtKey({ role: 'service_role' })
   assert.throws(() => loadAcceptanceConfig(env, ['--execute']), /not an anon key/)
 })
 
