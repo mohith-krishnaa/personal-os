@@ -321,6 +321,18 @@ test('read-only customization inventory covers every required row count', () => 
   assert.doesNotMatch(executableSql, /\\b(insert|update|delete|merge|create|alter|drop|truncate|grant|revoke)\\b/i)
 })
 
+test('Auth trigger restore requires explicit isolated-target attestation', () => {
+  const restoreSql = readFileSync(join(process.cwd(), 'supabase/operations/restore-auth-user-trigger.sql'), 'utf8')
+  const executableRestoreSql = restoreSql.replace(/^--.*$/gm, '')
+  assert.ok(executableRestoreSql.includes("current_setting('app.personal_os_restore_target', true)"))
+  assert.ok(executableRestoreSql.includes("IS DISTINCT FROM 'isolated'"))
+  assert.doesNotMatch(executableRestoreSql, /SET app\\.personal_os_restore_target/i)
+
+  const migrationRunner = readFileSync(join(process.cwd(), 'supabase/tests/organization-migrations.sh'), 'utf8')
+  assert.ok(migrationRunner.includes('if psql -X -v ON_ERROR_STOP=1 -f supabase/operations/restore-auth-user-trigger.sql'))
+  assert.ok(migrationRunner.includes("SET app.personal_os_restore_target = 'isolated'"))
+})
+
 test('rejects a manifest tied to a different Git commit', async t => {
   const fixture = createFixture()
   t.after(() => clean(fixture))
