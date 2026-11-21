@@ -356,7 +356,7 @@ The last recorded Dashboard check says the Free Plan has no scheduled project ba
 - Installed non-plpgsql extensions: pg_stat_statements 1.11, pgcrypto 1.3, supabase_vault 0.3.1, uuid-ossp 1.1. Verify the same versions are available/enabled on the isolated target before restore.
 - No auth/storage RLS policies were returned by the catalog query.
 - Twelve non-internal triggers exist across auth/storage: one auth trigger and eleven Storage platform triggers. The project-owned auth.users.on_auth_user_created trigger calls public.handle_new_user(); its function is owned by postgres, is SECURITY INVOKER, and has search_path=public. The auth.users table is owned by supabase_auth_admin. The eleven Storage trigger functions/tables are owned by supabase_storage_admin; do not copy those platform triggers manually.
-- Edge Function inventory and project-level Auth/Realtime/webhook/secret settings were not refreshed in this run; inventory them immediately before backup.
+- No Edge Functions are currently listed (rechecked 2026-11-21). Project-level Auth/Realtime/webhook/secret settings were not refreshed in this run; inventory them immediately before backup.
 
 ### Export from a private workspace
 
@@ -422,7 +422,7 @@ Create a separate isolated Supabase project; do not use the production project, 
 Restore the custom-role export first so every source owner role exists before privilege preparation. This is still only the isolated target:
 
 ~~~bash
-psql "$TARGET_DB_URL" --single-transaction --variable ON_ERROR_STOP=1 --file roles.sql
+psql "$TARGET_DB_URL" --single-transaction --variable ON_ERROR_STOP=1 --file roles.sql --dbname "$TARGET_DB_URL"
 ~~~
 
 The Supabase CLI restore documentation warns that a new project's default privileges can grant broad access to restored tables. Before restoring schema objects, connect as `postgres` and revoke the target's default table grants to `anon` and `authenticated` for the role that owns the restored public objects:
