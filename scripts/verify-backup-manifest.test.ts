@@ -422,7 +422,7 @@ test('rejects symbolic links in the repository migration inventory', async t => 
 })
 
 
-test('rls_auto_enable remains a project-installed prerequisite outside the migration chain', () => {
+test('rls_auto_enable remains project-installed outside migrations and the CI fixture mirrors its source body', () => {
   const migrationsDir = join(process.cwd(), 'supabase', 'migrations')
   const migrationFiles = readdirSync(migrationsDir).filter(file => file.endsWith('.sql')).sort()
   const references = migrationFiles.filter(file =>
@@ -431,14 +431,17 @@ test('rls_auto_enable remains a project-installed prerequisite outside the migra
   assert.deepEqual(references, ['20260905162251_restrict_rls_auto_enable_execute.sql'])
 
   const restriction = readFileSync(join(migrationsDir, '20260905162251_restrict_rls_auto_enable_execute.sql'), 'utf8')
-  assert.match(restriction.trim(), /^revoke execute on function public\.rls_auto_enable\(\) from anon, authenticated;$/i)
-  assert.doesNotMatch(restriction, /create\s+(?:or\s+replace\s+)?function|create\s+event\s+trigger/i)
+  assert.match(restriction.trim(), /^revoke execute on function public\\.rls_auto_enable\\(\\) from anon, authenticated;$/i)
+  assert.doesNotMatch(restriction, /create\\s+(?:or\\s+replace\\s+)?function|create\\s+event\\s+trigger/i)
 
   const bootstrap = readFileSync(join(process.cwd(), 'supabase', 'tests', 'organization-migration-bootstrap.sql'), 'utf8')
   assert.match(bootstrap, /project-installed event-trigger function outside the migration chain/i)
-  assert.match(bootstrap, /no-op fixture supplies only the signature and pre-migration grants/i)
+  assert.match(bootstrap, /source-shaped fixture matches the reviewed production body/i)
+  assert.match(bootstrap, /RETURNS event_trigger/i)
+  assert.match(bootstrap, /pg_event_trigger_ddl_commands\\(\\)/i)
+  assert.match(bootstrap, /WHEN OTHERS THEN[\\s\\S]*RAISE LOG/i)
+  assert.doesNotMatch(bootstrap, /no-op fixture/i)
 })
-
 test('claim_due_reminders source baseline and branch atomic replacement are distinct', () => {
   const sourceMigrationVersions: readonly string[] = REQUIRED_SOURCE_MIGRATIONS
   assert.ok(sourceMigrationVersions.includes('20260830123420'))
