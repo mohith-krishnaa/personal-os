@@ -368,18 +368,22 @@ mkdir -p "$BACKUP_DIR"
 cd "$BACKUP_DIR"
 supabase init
 umask 077
+read -rsp "Source DB URL: " SOURCE_DB_URL
+printf '\n'
+test -n "$SOURCE_DB_URL" || { echo "SOURCE_DB_URL is required." >&2; exit 1; }
 supabase --version
 psql --version
 
-supabase db dump --remote="$SOURCE_DB_URL" -f roles.sql --role-only
-supabase db dump --remote="$SOURCE_DB_URL" -f schema.sql
-supabase db dump --remote="$SOURCE_DB_URL" -f data.sql --use-copy --data-only -x "storage.buckets_vectors" -x "storage.vector_indexes"
+supabase db dump --db-url "$SOURCE_DB_URL" -f roles.sql --role-only
+supabase db dump --db-url "$SOURCE_DB_URL" -f schema.sql
+supabase db dump --db-url "$SOURCE_DB_URL" -f data.sql --use-copy --data-only -x "storage.buckets_vectors" -x "storage.vector_indexes"
 
-supabase db dump --remote="$SOURCE_DB_URL" -f migration-history-schema.sql --schema supabase_migrations
-supabase db dump --remote="$SOURCE_DB_URL" -f migration-history-data.sql --use-copy --data-only --schema supabase_migrations
+supabase db dump --db-url "$SOURCE_DB_URL" -f migration-history-schema.sql --schema supabase_migrations
+supabase db dump --db-url "$SOURCE_DB_URL" -f migration-history-data.sql --use-copy --data-only --schema supabase_migrations
+unset SOURCE_DB_URL
 ~~~
 
-The current CLI accepts a remote project ref/branch/URL and prints a Target line; inspect that line for the expected source project before accepting each export. The default dump excludes Supabase-managed auth/storage schemas and extension-created schemas, and it does not include data or custom roles unless the corresponding flags are supplied. The separate migration-history export is required to preserve the exact eight-version baseline.
+Use the documented `--db-url` option for the owner-supplied connection string; `--remote` is not a `supabase db dump` flag. The official platform backup guide uses `--db-url` for hosted-project exports. Before each export, compare the connection details with the Dashboard Connect panel and verify they identify source project `gujzvkyytxsnervovvrt`; do not rely on a CLI `Target` line being printed. See the [Supabase CLI db dump reference](https://supabase.com/docs/reference/cli/supabase-db-dump) and [Backup and Restore using the CLI](https://supabase.com/docs/guides/platform/migrating-within-supabase/backup-restore). The default dump excludes Supabase-managed auth/storage schemas and extension-created schemas, and it does not include data or custom roles unless the corresponding flags are supplied. The separate migration-history export is required to preserve the exact eight-version baseline.
 
 The standard dump does not include Storage object bytes. Current buckets/objects are both zero; if either becomes non-zero before backup, export the object bytes through the Storage API and verify each object's size/checksum separately. Likewise, the current auth.users count is zero; if it becomes non-zero, use Supabase's documented Auth migration procedure or a supported full backup/SQL export path rather than assuming the default dump contains Auth data.
 
@@ -411,6 +415,30 @@ All export commands must exit successfully. Record hashes even when a data-only 
 ### Restore into a separate isolated project
 
 Create a separate isolated Supabase project; do not use the production project, a production branch, or the connected production restore operation. Match PostgreSQL major version and enable the same installed extensions before restoring. Review Supabase's documented handling for custom roles and platform-owned objects; do not broadly strip ownership or ACL statements to make a restore appear successful.
+
+### Target default-privilege preparation
+
+The Supabase CLI restore documentation warns that a new project's default privileges can grant broad access to restored tables. Before restoring schema objects, connect to the isolated target as `postgres` (or the exact role that will own the restored objects) and revoke the target's default table grants to `anon` and `authenticated`:
+
+~~~bash
+psql "$TARGET_DB_URL" --set ON_ERROR_STOP=1 \
+  --command 'ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES FROM anon, authenticated;'
+~~~
+
+This changes default privileges for the current role only. If the restore assigns public objects to other owner roles, inspect and reconcile each owner's default ACL separately; do not broadly strip source ACLs. The command is run only on the new isolated target, never on production. See the [CLI dump privilege-migration note](https://supabase.com/docs/reference/cli/supabase-db-dump#note-on-privilege-migration).
+
+After restore, capture the target's public-table default ACLs and compare them with the source manifest and intended owner roles:
+
+~~~sql
+select
+  defaclrole::regrole as owner_role,
+  defaclobjtype as object_type,
+  defaclacl as default_acl
+from pg_default_acl
+where defaclnamespace = 'public'::regnamespace
+  and defaclobjtype = 'r'
+order by defaclrole::regrole::text;
+~~~
 
 Use the documented logical restore sequence against TARGET_DB_URL:
 
