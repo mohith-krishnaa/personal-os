@@ -7,9 +7,7 @@
 
 ## Continuity recovery
 
-- Personal-OS Builder is enabled.
-- Recorded last run: `8fb5af3f-96c4-8325-8e43-c41bfa820204`, status `in_progress`, started `2026-11-21T00:18:45.978924Z`.
-- Latest stored result: run `35a1ce1d-e950-8330-a799-c912befd29bd`, created `2026-11-20T23:36:21.790596Z`. It predates the recorded current run and belongs to the previous checklist-conflict audit; it was not attributed to the current run.
+- The latest stored automation result predates the recorded current run and belongs to the previous checklist-conflict audit; it was not attributed to the current run.
 - The previous completed task was checklist reconciliation conflict disposition. No partial code change was left to recover.
 - The current branch and PR head were verified through GitHub. No local checkout is attached; a clone attempt failed because this environment could not resolve `github.com`. Remote working-tree cleanliness therefore cannot be certified.
 

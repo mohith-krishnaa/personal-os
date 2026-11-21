@@ -7,9 +7,7 @@
 
 ## Continuity recovery
 
-- Personal-OS Builder is enabled.
-- Recorded last run: `8fb5af3f-96c4-8325-8e43-c41bfa820204`, status `in_progress`, started `2026-11-21T00:18:45.978924Z`.
-- Latest stored result: run `35a1ce1d-e950-8330-a799-c912befd29bd`, created `2026-11-20T23:36:21.790596Z`. It predates the recorded current run and belongs to the previous checklist-conflict audit; it was not attributed to the current run.
+- The latest stored automation result predates the recorded current run and belongs to the previous checklist-conflict audit; it was not attributed to the current run.
 - The previous completed task was checklist reconciliation conflict disposition. No partial code change was left to recover.
 - The current branch and PR head were verified through GitHub. No local checkout is attached; a clone attempt failed because this environment could not resolve `github.com`. Remote working-tree cleanliness therefore cannot be certified.
 
@@ -61,6 +59,15 @@ Non-failing CI warnings: Node's `punycode` deprecation notice and npm's install-
 No production query, DDL/DML, migration, RLS change, backup, restore, or PR merge was performed. The complete owner-controlled schema/data/roles backup and successful isolated restoration remain outstanding, followed by restored-copy checklist conflict disposition and authenticated two-owner PostgREST acceptance. The last recorded live baseline is not freshly revalidated.
 
 **Next owner action:** create the complete backup and restore it into a separate isolated project; verify the eight-version source baseline, reviewed Auth trigger/extensions/roles/RLS/Vault requirements, then apply the 19 branch-only migrations only to that isolated target, review the conflict report, and execute the PostgREST harness. Do not retry an unavailable export or use production as a test target. If the owner gate remains unavailable, continue a different bounded Organization audit rather than repeating this completed legacy-caller scan.
+
+## Roadmap status
+
+- **Organization V1:** in progress; legacy runtime caller audit and regression guard are complete, while backup/restore, conflict disposition, and authenticated PostgREST acceptance remain outstanding.
+- **Analytics:** queued until Organization acceptance and activity-event API acceptance are verified.
+- **AI Assistant:** queued.
+- **Research Agent:** queued.
+- **Adaptive Scheduling:** queued.
+- **Production hardening:** pending.
 
 ---
 
