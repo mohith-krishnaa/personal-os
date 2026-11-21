@@ -1,8 +1,10 @@
 -- Apply ONLY to a freshly restored isolated Supabase target.
 -- public.rls_auto_enable() must already exist from the public schema dump.
 -- This script never creates or replaces the function body.
--- Verify the target project reference in the Dashboard, then set in this same session:
+-- Run from a provider-supported superuser-capable session, verify the target project
+-- reference in the Dashboard, then set in this same session:
 --   SET app.personal_os_restore_target = 'isolated';
+-- A newly created event trigger is transferred to owner postgres after creation.
 DO $restore_ensure_rls$
 DECLARE
   function_oid oid;

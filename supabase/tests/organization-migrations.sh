@@ -363,14 +363,16 @@ if psql -X -v ON_ERROR_STOP=1 -f supabase/operations/restore-ensure-rls-event-tr
   echo "ERROR: ensure_rls restore script accepted a missing isolated-target attestation" >&2
   exit 1
 fi
-psql -X -v ON_ERROR_STOP=1 -c "SET ROLE supabase_admin; SET app.personal_os_restore_target = 'isolated'" -f supabase/operations/restore-ensure-rls-event-trigger.sql
-echo "Reapplying ensure_rls restore script to verify idempotence"
-psql -X -v ON_ERROR_STOP=1 -c "SET ROLE supabase_admin; SET app.personal_os_restore_target = 'isolated'" -f supabase/operations/restore-ensure-rls-event-trigger.sql
-echo "Verifying ensure_rls event-trigger ACL, scope, and exception behavior"
-psql -X -v ON_ERROR_STOP=1 -c "SET ROLE supabase_admin; SET app.personal_os_restore_target = 'isolated'" -f supabase/tests/restore-ensure-rls-event-trigger.sql
-
-echo "Executing read-only Organization rollout preflight after ensure_rls restoration"
-preflight_output="$(psql -X -v ON_ERROR_STOP=1 -A -t -f supabase/operations/organization-v1-preflight.sql)"
+echo "Restoring and testing ensure_rls with Supabase's superuser/owner role split"
+preflight_output="$(
+  psql -X -v ON_ERROR_STOP=1 -A -t \
+    -c "BEGIN; SET ROLE supabase_admin; ALTER ROLE postgres NOSUPERUSER; SET app.personal_os_restore_target = 'isolated'" \
+    -f supabase/operations/restore-ensure-rls-event-trigger.sql \
+    -f supabase/operations/restore-ensure-rls-event-trigger.sql \
+    -f supabase/tests/restore-ensure-rls-event-trigger.sql \
+    -f supabase/operations/organization-v1-preflight.sql \
+    -c "ROLLBACK"
+)
 expected_ensure_rls_line='ensure_rls_contract|t|t|t|t|t|t|t|t|t|t|t|f|f|f|t|t|t'
 if ! grep -Fq "$expected_ensure_rls_line" <<<"$preflight_output"; then
   echo "The read-only preflight did not report the exact ensure_rls source/ACL contract:"

@@ -1,6 +1,7 @@
--- Run ONLY on the disposable migration-test database or a verified isolated restore target.
--- The same-session marker is an attestation, not proof of isolation:
---   SET app.personal_os_restore_target = 'isolated';
+-- Run ONLY inside the runner's outer transaction on the disposable migration-test database
+-- or a verified isolated restore target. The same-session marker is an attestation,
+-- not proof of isolation. The runner first uses a superuser-capable role, then models
+-- postgres as a non-superuser function/table owner before running this file.
 DO $isolated_target_gate$
 BEGIN
   IF current_setting('app.personal_os_restore_target', true) IS DISTINCT FROM 'isolated' THEN
@@ -125,7 +126,7 @@ DROP SCHEMA personal_os_ensure_rls_nonpublic_probe;
 
 -- Fault-inject the inner RLS-enable operation inside a transaction. The test-only
 -- branch is rolled back, so the reviewed source function is restored exactly.
-BEGIN;
+SAVEPOINT ensure_rls_exception_path;
 
 CREATE OR REPLACE FUNCTION public.rls_auto_enable()
 RETURNS event_trigger
@@ -178,7 +179,8 @@ BEGIN
 END
 $assert_swallowed_failure$;
 
-ROLLBACK;
+ROLLBACK TO SAVEPOINT ensure_rls_exception_path;
+RELEASE SAVEPOINT ensure_rls_exception_path;
 
 -- The rollback must restore the reviewed function and leave the event trigger active.
 DO $assert_source_function_restored$
