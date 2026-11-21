@@ -1,3 +1,20 @@
+# Latest verified roadmap checkpoint — subtask retry and activity-event idempotency (2026-11-21)
+
+## Organization V1 — active, not accepted
+
+The subtask creation path is now explicitly covered for idempotent retries and activity-event accounting. The server fingerprint binds a request to `kind: SUBTASK`, parent task ID, requested project ID, normalized title, priority, due time and estimated minutes. Same-owner/same-payload retries return the existing subtask; reuse with a different parent is rejected. New requests still perform owner-scoped parent/project checks.
+
+The trusted task trigger records one `TASK_CREATED` event for a non-recurring subtask in the same statement transaction. Sequential and two-session concurrent duplicate-subtask tests now verify that only one child row and one event are created.
+
+Implementation/test HEAD: `0e9bd766acd6e0a25758de808d3f76ce8301c458`; [CI #526 passed on this exact HEAD](https://github.com/mohith-krishnaa/personal-os/actions/runs/44898421863). Verification: 33/33 PostgREST preflight tests; all 27 repository migrations replayed with Organization/RLS assertions, subtask retry/event checks, and migration reapplication; task-hierarchy concurrency; 201/201 application tests; typecheck; production build; npm install audit 0 vulnerabilities. No lint script is configured.
+
+No migration, production schema, RLS policy, production data or project setting changed. No production query was performed; the last recorded live ledger remains 8 applied migrations versus 27 repository migrations (19 branch-only), not refreshed in this run.
+
+**Organization V1 acceptance gates remain open:** complete owner-controlled schema/data/roles backup; successful isolated restoration; extension/role/default-ACL/database-setting/Auth-trigger/Vault/`ensure_rls`/reminder-function verification; checklist conflict disposition; authenticated two-owner PostgREST acceptance; and the separate owner decision on fail-closed `ensure_rls`. Analytics, AI Assistant, Research Agent, Adaptive Scheduling and production hardening remain queued behind Organization acceptance.
+
+**Next task:** owner-controlled complete backup and isolated restoration. Verify the manifest, restore to a separate isolated Supabase project, then perform the customization, migration, checklist and authenticated two-owner acceptance sequence. Do not start Analytics based on CI alone.
+---
+
 # Latest verified roadmap checkpoint — tab-scoped task-create retry continuity (2026-11-21)
 
 ## Organization V1 — active, not accepted
