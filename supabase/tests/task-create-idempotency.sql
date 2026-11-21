@@ -10,11 +10,17 @@ DECLARE
   first_task_id uuid := '92000000-0000-4000-8000-000000000001';
   duplicate_task_id uuid := '92000000-0000-4000-8000-000000000002';
   owner_b_task_id uuid := '92000000-0000-4000-8000-000000000003';
+  subtask_parent_id uuid := '92000000-0000-4000-8000-000000000005';
+  subtask_id uuid := '92000000-0000-4000-8000-000000000006';
+  duplicate_subtask_id uuid := '92000000-0000-4000-8000-000000000007';
+  subtask_request_id uuid := '92000000-0000-4000-8000-000000000096';
   request_hash text := repeat('a', 64);
+  subtask_hash text := repeat('c', 64);
   affected_rows integer;
   actual_id uuid;
   actual_title text;
   actual_hash text;
+  actual_parent_id uuid;
   error_constraint text;
 BEGIN
   IF current_user <> 'authenticated' OR auth.uid() <> '11111111-1111-4111-8111-111111111111'::uuid THEN
@@ -51,6 +57,55 @@ BEGIN
   IF (SELECT count(*) FROM public.activity_events
       WHERE user_id = auth.uid() AND entity_id = first_task_id AND event_type = 'TASK_CREATED') <> 1 THEN
     RAISE EXCEPTION 'A duplicate request created an extra TASK_CREATED event.';
+  END IF;
+
+  -- Subtasks share the tasks table and request-key constraint, but their parent
+  -- relationship is part of the server-computed request fingerprint.
+  INSERT INTO public.tasks (id, user_id, title)
+  VALUES (subtask_parent_id, auth.uid(), 'Subtask parent');
+
+  INSERT INTO public.tasks (
+    id, user_id, parent_task_id, title, client_request_id, client_request_hash
+  )
+  VALUES (
+    subtask_id, auth.uid(), subtask_parent_id, 'Child task', subtask_request_id, subtask_hash
+  )
+  ON CONFLICT (user_id, client_request_id) DO NOTHING;
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 1 THEN
+    RAISE EXCEPTION 'The first subtask request must create exactly one child row.';
+  END IF;
+
+  INSERT INTO public.tasks (
+    id, user_id, parent_task_id, title, client_request_id, client_request_hash
+  )
+  VALUES (
+    duplicate_subtask_id, auth.uid(), subtask_parent_id, 'Child task', subtask_request_id, subtask_hash
+  )
+  ON CONFLICT (user_id, client_request_id) DO NOTHING;
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 0 THEN
+    RAISE EXCEPTION 'A same-owner duplicate subtask request created another child row.';
+  END IF;
+
+  SELECT id, parent_task_id, client_request_hash
+  INTO actual_id, actual_parent_id, actual_hash
+  FROM public.tasks
+  WHERE user_id = auth.uid() AND client_request_id = subtask_request_id;
+
+  IF actual_id <> subtask_id
+     OR actual_parent_id <> subtask_parent_id
+     OR actual_hash <> subtask_hash THEN
+    RAISE EXCEPTION 'A duplicate subtask request changed the original child or its parent binding.';
+  END IF;
+
+  IF (SELECT count(*) FROM public.activity_events
+      WHERE user_id = auth.uid() AND entity_id = subtask_id AND event_type = 'TASK_CREATED') <> 1
+     OR EXISTS (
+       SELECT 1 FROM public.activity_events
+       WHERE user_id = auth.uid() AND entity_id = duplicate_subtask_id AND event_type = 'TASK_CREATED'
+     ) THEN
+    RAISE EXCEPTION 'A duplicate subtask request must emit exactly one TASK_CREATED event for the winning child.';
   END IF;
 
   error_constraint := NULL;
