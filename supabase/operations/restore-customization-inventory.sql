@@ -75,7 +75,8 @@ public_functions AS (
   SELECT n.nspname AS schema_name, p.proname AS function_name,
          pg_get_function_identity_arguments(p.oid) AS arguments,
          pg_get_userbyid(p.proowner) AS owner, p.prosecdef AS security_definer,
-         p.proconfig AS settings, p.proacl::text AS acl
+         p.proconfig AS settings, p.proacl::text AS acl,
+         md5(p.prosrc) AS source_md5
   FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
   WHERE n.nspname='public' AND p.prokind IN ('f','p')
 ),
@@ -96,7 +97,7 @@ managed_policies AS (
   FROM pg_policies WHERE schemaname IN ('auth','storage','realtime')
 ),
 event_triggers AS (
-  SELECT e.evtname, e.evtevent, e.evtenabled,
+  SELECT e.evtname, e.evtevent, e.evttags, e.evtenabled,
          pg_get_userbyid(e.evtowner) AS owner, n.nspname AS function_schema,
          p.proname AS function_name, p.prosecdef AS security_definer, p.proconfig AS function_settings
   FROM pg_event_trigger e JOIN pg_proc p ON p.oid=e.evtfoid

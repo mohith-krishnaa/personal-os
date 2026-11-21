@@ -446,6 +446,17 @@ test('rls_auto_enable remains project-installed outside migrations and the CI fi
   assert.ok(bootstrap.includes('RAISE LOG'))
   assert.doesNotMatch(bootstrap, /no-op fixture/i)
 })
+
+test('restore customization inventory records event-trigger tags and function fingerprints without exposing bodies', () => {
+  const inventory = readFileSync(
+    join(process.cwd(), 'supabase', 'operations', 'restore-customization-inventory.sql'),
+    'utf8',
+  )
+  assert.ok(inventory.includes('e.evttags'))
+  assert.ok(inventory.includes('md5(p.prosrc) AS source_md5'))
+  assert.ok(!inventory.includes('p.prosrc AS source_body'))
+})
+
 test('claim_due_reminders source baseline and branch atomic replacement are distinct', () => {
   const sourceMigrationVersions: readonly string[] = REQUIRED_SOURCE_MIGRATIONS
   assert.ok(sourceMigrationVersions.includes('20260830123420'))
