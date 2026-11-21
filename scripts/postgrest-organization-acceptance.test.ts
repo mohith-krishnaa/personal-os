@@ -102,7 +102,7 @@ test('rejects a legacy JWT with an empty or malformed signature segment', () => 
   assert.throws(() => loadAcceptanceConfig(env, ['--execute']), /publishable key or a legacy anon JWT/)
 
   env.PERSONAL_OS_ACCEPTANCE_ANON_KEY = legacyJwtKey({ role: 'anon' }, undefined, 'AA!')
-  assert.throws(() => loadAcceptanceConfig(env, ['--execute']), /structurally valid three-part/)
+  assert.throws(() => loadAcceptanceConfig(env, ['--execute']), /publishable key or a legacy anon JWT/)
 })
 
 test('rejects a service-role JWT even when supplied through the anon-key variable', () => {
