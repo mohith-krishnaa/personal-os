@@ -1,3 +1,53 @@
+# Latest handoff — tab-scoped task-create retry continuity (2026-11-21)
+
+## Exact resume point
+
+- Branch: `feature/organization-v1`.
+- Implementation/test HEAD: `5e8152f41a3760c2f0a74430e3e1ba5d1a6b846b`; [CI #524 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44894326887).
+- Starting HEAD: `d10ae221a66d5dcf61a639763bf8c8ba61c9193e`; [CI #522 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44889701706).
+- PR #11 is open and unmerged; PR #12 is an open superseded draft.
+- Repository migrations: 27. No migration was added.
+- No local checkout is attached; remote branch/diff and CI were inspected, but local working-tree cleanliness is not independently certified.
+
+## Completed
+
+The quick-add, full task editor, and subtask editor now persist pending request identity across component remounts and page reloads in the same tab. The shared helper uses a SHA-256 payload fingerprint and stores only that digest, the UUID, and pending/completed state in sessionStorage. Separate React useId-based keys prevent independent forms from sharing IDs. Successful submissions mark their entry complete; different pending payloads remain isolated. Storage/Web Crypto failures fall back to in-memory behavior.
+
+The first implementation commit `1caccb2e823311b6d53f6d3631bde9a0f3ddc26f` failed CI #523 at typecheck because the subtask manager remained a synchronous caller. Its 199 application tests, 33 preflight tests, migration replay and hierarchy checks passed; typecheck failed and build was skipped. The subtask manager was updated in `5e8152f41a3760c2f0a74430e3e1ba5d1a6b846b`; CI #524 then passed on that exact commit.
+
+## Verification
+
+CI #524:
+- 33/33 PostgREST acceptance preflight tests.
+- 27 repository migrations replayed with Organization/RLS assertions; reapplication checks passed.
+- Task hierarchy concurrency checks passed.
+- 199/199 application tests.
+- TypeScript typecheck passed.
+- Production build passed.
+- npm install audit: 0 vulnerabilities.
+- No lint script is configured.
+
+The stored fingerprint is not encryption or authentication and may be guessable for low-entropy payloads. Pending state is tab-scoped, not cross-tab or cross-device. No raw task text, API keys, or credentials are stored by this helper.
+
+## Production and rollout boundary
+
+No production Supabase query or mutation occurred in this task. The last recorded live baseline remains 8 applied migrations versus 27 repository migrations (19 branch-only), not refreshed here. Do not apply migrations, alter RLS/roles, deploy the fail-closed `ensure_rls` candidate, or merge PR #11.
+
+Still required:
+1. Owner-controlled complete schema/data/roles backup.
+2. Offline manifest verification and successful restoration into a separate isolated Supabase project.
+3. Extensions, roles/memberships, default ACLs, database settings, Vault, Auth trigger, `ensure_rls`, and reminder-function verification.
+4. Checklist conflict disposition on the restored copy.
+5. Apply the 19 branch-only migrations only to the isolated target.
+6. Authenticated two-owner PostgREST acceptance.
+7. Separate explicit owner decision on fail-closed `ensure_rls` behavior.
+
+## Next action
+
+Owner-controlled complete backup and isolated restoration. If owner artifacts remain unavailable, audit the subtask creation/activity-event retry path as the next bounded Organization task. Do not start Analytics until Organization acceptance gates are verified.
+
+---
+
 # Latest handoff — marker-based PostgREST partial-failure cleanup (2026-11-21)
 
 ## Exact resume point

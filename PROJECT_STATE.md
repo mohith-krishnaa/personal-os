@@ -1,3 +1,61 @@
+# Latest verified checkpoint — tab-scoped task-create retry continuity (2026-11-21)
+
+**Implementation/test HEAD:** `5e8152f41a3760c2f0a74430e3e1ba5d1a6b846b` — [CI #524 passed on this exact commit](https://github.com/mohith-krishnaa/personal-os/actions/runs/44894326887).  
+**Starting HEAD:** `d10ae221a66d5dcf61a639763bf8c8ba61c9193e` — [CI #522 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44889701706).
+
+## Continuity and repository recovery
+
+- Personal-OS Builder is enabled.
+- At recovery, the recorded run was `c203f32f-9e14-8331-abdb-f8ffa19bbe07`, scheduled for `2026-11-21T10:16:06Z`, started at `2026-11-21T10:19:48.991922Z`, and recorded `in_progress`.
+- The latest stored result was run `a109f338-9738-8324-98ce-1d0889928263`, created at `2026-11-21T09:30:04.751496Z`. Its creation time predates the recorded run start, so it was treated as the previous completed PostgREST cleanup checkpoint, not as the current run's result. The `in_progress` record was not treated as proof of worker liveness.
+- Starting branch `feature/organization-v1` was at `d10ae221a66d5dcf61a639763bf8c8ba61c9193e`, matching PR #11. Main was `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`; the branch was 601 commits ahead and 0 behind at the starting checkpoint.
+- PR #11 was open and unmerged; PR #12 remained an open superseded draft.
+- Repository migration count remained 27. No migration was added.
+- No local checkout is attached; local working-tree cleanliness cannot be independently certified.
+
+## Bounded issue and correction
+
+The task and subtask creation forms held the pending client request UUID only in a React ref. If the database committed an insert but the response was lost and the component/page was remounted or reloaded, the next submission generated a new UUID and could create a duplicate task/subtask.
+
+The helper now:
+- computes a SHA-256 fingerprint of the serialized payload using Web Crypto;
+- stores only the fingerprint, request UUID, and pending/completed state in tab-scoped `sessionStorage` (never the task title or raw payload);
+- uses React `useId()` to isolate independent form instances;
+- restores a pending UUID after a remount/reload for the same payload;
+- preserves separate pending IDs for different payloads;
+- marks a request completed after the server action succeeds, so a later intentional identical task gets a new UUID;
+- falls back to in-memory behavior if session storage or Web Crypto is unavailable.
+
+Applied to the quick-add component, full task editor, and subtask editor. The server-side owner-scoped unique constraint and payload-hash validation remain the authoritative idempotency boundary. The stored digest is not encryption or authentication and may be guessable for low-entropy payloads.
+
+## CI evidence and correction history
+
+The first implementation commit `1caccb2e823311b6d53f6d3631bde9a0f3ddc26f` triggered CI #523. Application tests passed 199/199, PostgREST preflight passed 33/33, and migration replay/task-hierarchy checks passed, but TypeScript typecheck failed because `subtask-manager.tsx` was a remaining synchronous caller of the helper. The production build was skipped. This failure was inspected and not suppressed.
+
+The subtask form was converted to the same async persistence flow in commit `5e8152f41a3760c2f0a74430e3e1ba5d1a6b846b`. CI #524 passed on that exact implementation/test commit:
+- PostgREST acceptance preflight: 33/33 passed.
+- PostgreSQL 17 migration replay and Organization/RLS assertions: passed; the migration script replayed the repository's 27 migrations and reapplication checks.
+- Task hierarchy concurrency checks: passed.
+- Application tests: 199/199 passed.
+- TypeScript typecheck: passed.
+- Production build: passed.
+- npm install audit: 0 vulnerabilities.
+- No lint script is configured.
+
+The build emitted the existing Next.js no-build-cache notice and npm emitted the esbuild install-script advisory; neither failed CI.
+
+## Production and acceptance boundary
+
+No production Supabase query or mutation was performed. The last recorded live baseline remains 8 applied migrations versus 27 repository migrations (19 branch-only), not refreshed in this task. No production DDL/DML, migration, RLS/role/project-setting change, backup, restore, or PR merge occurred.
+
+Organization V1 remains incomplete. Still required: owner-controlled complete schema/data/roles backup; successful isolated restoration; extension, roles/memberships, default ACL, database settings, Vault, Auth trigger, `ensure_rls`, and reminder-function verification; restored-copy checklist conflict disposition; authenticated two-owner PostgREST acceptance; and the separate owner decision on the fail-closed `ensure_rls` candidate.
+
+## Next action
+
+Owner-controlled complete backup and isolated restoration remain the primary gate. If owner artifacts remain unavailable, continue a different bounded Organization audit, beginning with the subtask creation/activity-event retry path. Do not start Analytics based on passing CI alone.
+
+---
+
 # Latest verified checkpoint — PostgREST acceptance partial-failure cleanup (2026-11-21)
 
 **Implementation/test HEAD:** 0d86584084a2f186da19ed0124b5ed08eddb1e5d — [CI #521 passed on this exact commit](https://github.com/mohith-krishnaa/personal-os/actions/runs/44889487367).  

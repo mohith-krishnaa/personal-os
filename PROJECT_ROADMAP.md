@@ -1,3 +1,21 @@
+# Latest verified roadmap checkpoint — tab-scoped task-create retry continuity (2026-11-21)
+
+## Organization V1 — active, not accepted
+
+The quick-add, full task editor, and subtask editor now retain pending request UUIDs across component remounts/page reloads in the same browser tab. The shared helper persists only a SHA-256 payload fingerprint, request UUID, and pending/completed state in sessionStorage; independent form instances use React useId-based keys. Successful requests are marked complete, while separate pending payloads remain recoverable. If storage or Web Crypto is unavailable, the code falls back to in-memory retry state.
+
+Implementation/test HEAD: `5e8152f41a3760c2f0a74430e3e1ba5d1a6b846b`; [CI #524 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44894326887). Verification: 33/33 PostgREST preflight tests, repository migration replay with Organization/RLS assertions, task-hierarchy concurrency checks, 199/199 application tests, typecheck, production build, and npm install audit with 0 vulnerabilities. No lint script is configured. CI #523 exposed a missed synchronous subtask-manager caller; that typecheck failure was corrected before the authoritative #524 pass.
+
+No migration, database schema, RLS policy, production data, or production project setting changed. The last recorded live ledger remains 8 applied migrations versus 27 repository migrations (19 branch-only); it was not refreshed in this task.
+
+The stored SHA-256 fingerprint is not encryption or authentication and may be guessable for low-entropy payloads. Pending state is tab-scoped, not cross-tab or cross-device. The browser does not store task text, API keys, or credentials.
+
+**Organization V1 acceptance gates remain open:** complete owner-controlled schema/data/roles backup; successful isolated restoration; extension/role/default-ACL/database-setting/Auth-trigger/Vault/`ensure_rls`/reminder-function verification; checklist conflict disposition; and authenticated two-owner PostgREST acceptance. The fail-closed `ensure_rls` candidate still requires explicit owner approval and isolated-target testing. Analytics, AI Assistant, Research Agent, Adaptive Scheduling, and production hardening remain queued behind Organization acceptance.
+
+**Next task:** owner-controlled complete backup and isolated restoration. If owner artifacts remain unavailable, perform a distinct bounded audit of the subtask creation/activity-event retry path. Do not start Analytics based on passing CI alone.
+
+---
+
 # Latest verified roadmap checkpoint — PostgREST acceptance partial-failure cleanup (2026-11-21)
 
 ## Organization V1 — active, not accepted
