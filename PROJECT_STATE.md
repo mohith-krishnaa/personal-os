@@ -1,3 +1,66 @@
+# Latest verified checkpoint — isolated fail-closed ensure_rls candidate (2026-11-21)
+
+**Implementation/test HEAD:** `da37b785571cb97154cdc06f4448aa595a8cfce4` — [CI #510 passed on this exact HEAD](https://github.com/mohith-krishnaa/personal-os/actions/runs/44874851618).
+
+## Continuity recovery and repository reconciliation
+
+- Personal-OS Builder is enabled.
+- Recorded current run: `dd63b7dd-7f48-832b-a29b-1d8b56de35d6`, status `in_progress`, started at `2026-11-21T06:12:35.570864Z`.
+- Latest stored result: run `86d86403-c940-8320-bd42-59299fa73617`, created at `2026-11-21T05:50:14.386440Z`, completed at `2026-11-21T05:50:17.171158Z`. It belongs to the previous run, not the current recorded run. The in-progress record is not evidence of worker liveness.
+- Actual starting branch HEAD: `13efdd68e9df8688aa533cae9117dffd79ffc5dd`; PR #11 head matched. CI #506 passed on that starting HEAD.
+- Current branch: `feature/organization-v1`; current implementation/test HEAD: `da37b785571cb97154cdc06f4448aa595a8cfce4`.
+- PR #11 remains open and unmerged; PR #12 remains an open superseded draft. Main is `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`; the feature branch is 587 commits ahead and 0 behind at this checkpoint.
+- The repository has 27 numbered SQL migrations. Fresh read-only production migration inspection returned 8 applied versions, so 19 are branch-only. No migration was added in this task.
+
+## Fresh production read-only evidence
+
+Project `gujzvkyytxsnervovvrt` is ACTIVE_HEALTHY on PostgreSQL 17.11.0.003 in `ap-southeast-1`. A fresh catalog query returned:
+
+- `session_user=current_user='postgres'`; `pg_roles.rolsuper=false` for postgres.
+- Live migration ledger: the exact eight versions ending at `20260905162251`.
+- `public.rls_auto_enable()`: postgres-owned SECURITY DEFINER, `search_path=pg_catalog`, source `md5(prosrc)=99be20677b456ea8d3be47bdd44fb369`.
+- Direct EXECUTE grantees: exactly postgres and service_role; PUBLIC, anon, and authenticated have no effective EXECUTE.
+- `ensure_rls`: enabled postgres-owned `ddl_command_end` event trigger for `CREATE TABLE`, `CREATE TABLE AS`, and `SELECT INTO`.
+
+No production DDL/DML, migration, RLS/role/project-setting change, backup, restore, or PR merge occurred.
+
+## Isolated fail-closed candidate prepared — not approved or deployed
+
+The source function catches an error from `ALTER TABLE ... ENABLE ROW LEVEL SECURITY`, logs it, and swallows it. The existing isolated behavior test demonstrates that this can let CREATE TABLE finish with RLS disabled. The source behavior was not changed.
+
+Added `supabase/operations/apply-ensure-rls-fail-closed.sql`, a separate candidate (not a migration). It requires same-session attestations:
+
+- `app.personal_os_restore_target='isolated'`
+- `app.personal_os_fail_closed_rls_approval='owner-approved'`
+
+It also requires a direct postgres session, the exact original or candidate function fingerprint, postgres ownership, SECURITY DEFINER, fixed search path, the exact postgres/service_role-only EXECUTE ACL, and the existing enabled postgres-owned event trigger. It changes only the function body: after logging an RLS-enable error it executes `RAISE;`, causing the originating DDL statement to roll back. Candidate fingerprint: `b95d4b52e100f89abf4b5afa270a4776`. The second GUC is an operator attestation, not proof of approval. No owner approval has been granted in this run; the candidate was not executed against production or any live Supabase project.
+
+Added `supabase/tests/ensure-rls-fail-closed-candidate.sql` and extended `supabase/tests/organization-migrations.sh` to verify:
+- Missing isolated-target marker is rejected.
+- Missing owner-approval marker is rejected.
+- A non-postgres SUPERUSER identity is rejected.
+- The candidate can be applied twice (idempotent exact-source/candidate handling).
+- Successful public-table creation still enables RLS.
+- A test-only injected error is re-raised by the candidate-style exception handler and aborts CREATE TABLE; no table remains.
+- A savepoint restores the exact candidate function after fault injection.
+- The outer test transaction rolls back to the original source function and leaves no `ensure_rls` event trigger in the disposable baseline.
+
+Updated `docs/operations/restore-customization-inventory.md` with the candidate's risk, explicit owner decision requirement, isolated-only execution order, and test limitations.
+
+## CI evidence
+
+- CI #509 passed on intermediate implementation/test HEAD `e03d64483fa00841a5665c57380f89953adddc5c`; the new candidate tests, 27-migration replay, application tests, typecheck, and build passed.
+- **CI #510 passed on final implementation/test HEAD `da37b785571cb97154cdc06f4448aa595a8cfce4`**: isolated PostgREST preflight, 27-migration replay and Organization/RLS assertions, task-hierarchy concurrency, candidate rejection/idempotence/fail-closed behavior/rollback-isolation tests, `npm test`, TypeScript typecheck, and production build all passed.
+- No lint script is configured. The CI workflow does not contain a separate npm audit step.
+
+## Remaining gates and next action
+
+Organization V1 remains incomplete. Still required: complete owner-controlled schema/data/roles backup; successful restoration into a separate isolated Supabase project; extension, role, default-ACL, database-setting, Auth-trigger, Vault and `ensure_rls` verification; checklist conflict disposition on the restored copy; and authenticated two-owner PostgREST acceptance.
+
+**Next task:** obtain an explicit owner decision on whether the fail-closed `ensure_rls` behavior is desired. If approved, run the candidate only on the fully restored isolated target using the documented attestation and verify the result there. Do not run it against production. Production migration approval remains separate and is not granted. Analytics stays queued.
+
+---
+
 # Latest verified checkpoint — Supabase postgres-role ensure_rls restore correction (2026-11-21)
 
 **Implementation/test HEAD:** `2443e93dcdaf404c026841558ec4236a7504d703` — [CI #505 passed on this exact HEAD](https://github.com/mohith-krishnaa/personal-os/actions/runs/44872382080). This documentation-only checkpoint follows that code/test commit; verify CI on the final documentation HEAD before treating it as the final branch checkpoint.
