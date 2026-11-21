@@ -1,3 +1,43 @@
+# Latest handoff — fail-closed ensure_rls candidate prepared (2026-11-21)
+
+## Exact resume point
+
+- Branch: `feature/organization-v1`.
+- Implementation/test HEAD: `da37b785571cb97154cdc06f4448aa595a8cfce4`; [CI #510 passed on this exact HEAD](https://github.com/mohith-krishnaa/personal-os/actions/runs/44874851618).
+- Starting HEAD: `13efdd68e9df8688aa533cae9117dffd79ffc5dd`; CI #506 passed there.
+- PR #11: open, unmerged; PR #12: open superseded draft.
+- Main: `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`; branch ahead 587, behind 0.
+- Repository migrations: 27. Fresh production ledger: 8 versions, 19 branch-only.
+- Personal-OS Builder is enabled. The current recorded run is `dd63b7dd-7f48-832b-a29b-1d8b56de35d6` (in_progress, started 06:12:35.570864Z); the latest stored result `86d86403-c940-8320-bd42-59299fa73617` was created 05:50:14.386440Z and belongs to the preceding run.
+
+## Production source contract — read-only
+
+Project `gujzvkyytxsnervovvrt` is ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, `ap-southeast-1`. Live migration ledger contains exactly eight versions ending `20260905162251`. The current session is directly postgres while `rolsuper=false`. `public.rls_auto_enable()` is postgres-owned SECURITY DEFINER with `search_path=pg_catalog`, original source fingerprint `99be20677b456ea8d3be47bdd44fb369`, and direct EXECUTE grantees exactly postgres/service_role. `ensure_rls` is enabled and postgres-owned with the expected DDL tags.
+
+## Work completed in this checkpoint
+
+1. Added `supabase/operations/apply-ensure-rls-fail-closed.sql`. It is a candidate script, not a migration. It requires same-session isolated-target and explicit owner-approval attestations, direct postgres login, the exact reviewed source/candidate function fingerprint, owner/security/search-path, exact ACL, and exact enabled event-trigger contract.
+2. The only behavior change is that an RLS-enable error is logged and re-raised. This makes the originating CREATE TABLE/CREATE TABLE AS/SELECT INTO fail rather than leave a public table without RLS.
+3. Added `supabase/tests/ensure-rls-fail-closed-candidate.sql`. It verifies successful RLS enablement, error propagation and DDL rollback with a test-only fault injector, savepoint restoration, and candidate fingerprint/ACL/event-trigger assertions.
+4. Extended `supabase/tests/organization-migrations.sh` with missing-target, missing-approval, wrong-role, double-apply and post-rollback baseline checks.
+5. Updated `docs/operations/restore-customization-inventory.md` with the owner decision and isolated-only procedure.
+
+Candidate `pg_proc.prosrc` fingerprint: `b95d4b52e100f89abf4b5afa270a4776`. Original source fingerprint: `99be20677b456ea8d3be47bdd44fb369`. The candidate script is idempotent for exactly those two fingerprints and refuses unknown function bodies or ACL/event-trigger drift. Run the normal `restore-ensure-rls-event-trigger.sql` first; if the candidate is approved and applied, do not rerun the original restore script afterward because that script intentionally requires the original source fingerprint.
+
+The `app.personal_os_fail_closed_rls_approval='owner-approved'` GUC is an operator attestation, not proof of approval. **No owner approval was granted in this run.** The candidate was tested only in the disposable PostgreSQL CI transaction and was not applied to production or a live isolated Supabase project.
+
+## CI evidence
+
+- CI #509 passed on intermediate HEAD `e03d64483fa00841a5665c57380f89953adddc5c`.
+- CI #510 passed on final implementation/test HEAD `da37b785571cb97154cdc06f4448aa595a8cfce4`: PostgREST preflight, 27-migration replay, Organization/RLS and hierarchy checks, fail-closed candidate gates/idempotence/exception propagation/rollback isolation, npm tests, typecheck, and production build.
+- No lint script is configured; the workflow has no separate npm audit step.
+
+## Next action
+
+Obtain an explicit owner decision on the fail-closed behavior. If approved, apply the candidate only after complete owner-controlled backup and successful isolated restoration, using the two same-session GUC attestations and direct postgres login. Verify the actual Supautils event-trigger capability on that isolated Supabase target. Keep the production project read-only. Independently complete checklist conflict disposition and authenticated two-owner PostgREST acceptance. Do not apply the 19 branch-only migrations to production or merge PR #11. Keep Analytics queued.
+
+---
+
 # Latest handoff — ensure_rls restore role correction (2026-11-21)
 
 ## Exact resume point
