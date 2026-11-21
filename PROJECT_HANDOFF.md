@@ -1,3 +1,53 @@
+# Latest handoff — subtask retry and activity-event idempotency (2026-11-21)
+
+## Exact resume point
+
+- Implementation/test HEAD: `0e9bd766acd6e0a25758de808d3f76ce8301c458`; [CI #526 passed on this exact HEAD](https://github.com/mohith-krishnaa/personal-os/actions/runs/44898421863).
+- Starting HEAD: `73e5f7798461d5e4129949bd665721ef182be930`; CI #525 passed on that prior checkpoint.
+- Branch: `feature/organization-v1`; main: `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`.
+- PR #11 is open, unmerged and mergeable; PR #12 is an open superseded draft.
+- Repository migrations: 27. No migration was added.
+- No local checkout is attached; remote branch/diff and CI were inspected, but local working-tree cleanliness is not independently certified.
+
+## Completed
+
+Audited `src/lib/subtasks.ts`, its server action, the subtask manager, the shared task-create idempotency helper, activity-event migrations, and the migration replay tests.
+
+The server computes a payload fingerprint scoped to `kind: SUBTASK`, parent ID, requested project ID, normalized title, priority, due time and estimated minutes. It first looks up the request by authenticated owner and request UUID. Same-payload retries return the existing row before mutable parent/project preflight; different payload or parent reuse is rejected by the stored hash. New requests verify parent ownership and same-project relationships before the unique-key upsert.
+
+The trusted task trigger emits `TASK_CREATED` for a non-recurring subtask and writes the event transactionally with the task INSERT. `ON CONFLICT DO NOTHING` means the losing duplicate does not run a second AFTER INSERT trigger.
+
+Added two `subtasks.test.ts` tests for existing-row retry resolution and different-parent rejection. Extended `task-create-idempotency.sql` to create a parent and subtask, replay the same request key, and assert the original parent binding plus exactly one creation event. Converted `task-create-idempotency-concurrency.sh` to run two authenticated concurrent subtask requests under the same parent and assert one row/event. Updated the task-create idempotency architecture document.
+
+## Verification
+
+CI #526 on `0e9bd766acd6e0a25758de808d3f76ce8301c458`:
+- PostgREST preflight: 33/33.
+- PostgreSQL 17 migration replay: all 27 migrations passed, including sequential subtask duplicate/event checks, concurrent subtask retry and migration reapplication.
+- Task hierarchy concurrency: passed.
+- Application tests: 201/201.
+- TypeScript typecheck: passed.
+- Production build: passed.
+- npm install audit: 0 vulnerabilities.
+- No lint script is configured.
+
+No production query or mutation was performed. The last recorded live migration baseline (8 applied vs 27 in the repository) was not refreshed in this run.
+
+## Remaining acceptance gates
+
+1. Owner-controlled complete schema/data/roles backup.
+2. Offline manifest verification and successful restoration into a separate isolated Supabase project.
+3. Extensions, roles/memberships, default ACLs, database settings, Vault, Auth trigger, `ensure_rls`, and reminder-function verification.
+4. Checklist conflict disposition on the restored copy.
+5. Apply the 19 branch-only migrations only to the isolated target.
+6. Authenticated two-owner PostgREST acceptance.
+7. Separate explicit owner decision on fail-closed `ensure_rls` behavior.
+
+## Next action
+
+Owner-controlled complete backup and isolated restoration. Do not repeat the subtask retry audit, apply branch-only migrations to production, deploy the fail-closed candidate, or merge PR #11.
+---
+
 # Latest handoff — tab-scoped task-create retry continuity (2026-11-21)
 
 ## Exact resume point
