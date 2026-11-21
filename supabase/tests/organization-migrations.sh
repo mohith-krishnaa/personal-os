@@ -358,6 +358,14 @@ SQL
 }
 
 echo "Executing the read-only checklist reconciliation conflict report twice"
+run_checklist_conflict_report() {
+  psql -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
+BEGIN READ ONLY;
+\i supabase/operations/checklist-reconciliation-conflicts.sql
+ROLLBACK;
+SQL
+}
+
 checklist_snapshot_before_report="$(checklist_snapshot)"
 conflict_report="$(run_checklist_conflict_report)"
 conflict_report_repeat="$(run_checklist_conflict_report)"
@@ -373,17 +381,17 @@ if [[ "$checklist_snapshot_before_report" != "$checklist_snapshot_after_report" 
   exit 1
 fi
 
-printf '%s\\n' "$conflict_report"
+printf '%s\n' "$conflict_report"
 
-reported_keys="$(printf '%s\\n' "$conflict_report" | cut -d'|' -f1-2)"
-expected_keys="$(printf '%s\\n' \\
-  '30000000-0000-4000-8000-000000000002|task_owner_mismatch' \\
-  '30000000-0000-4000-8000-000000000005|canonical_id_collision' \\
-  '30000000-0000-4000-8000-000000000006|missing_canonical' \\
+reported_keys="$(printf '%s\n' "$conflict_report" | cut -d'|' -f1-2)"
+expected_keys="$(printf '%s\n' \
+  '30000000-0000-4000-8000-000000000002|task_owner_mismatch' \
+  '30000000-0000-4000-8000-000000000005|canonical_id_collision' \
+  '30000000-0000-4000-8000-000000000006|missing_canonical' \
   '30000000-0000-4000-8000-000000000007|canonical_id_collision')"
 if [[ "$reported_keys" != "$expected_keys" ]]; then
   echo "Checklist conflict report classifications or legacy.id ordering changed."
-  printf 'Expected keys:\\n%s\\nActual keys:\\n%s\\n' "$expected_keys" "$reported_keys"
+  printf 'Expected keys:\n%s\nActual keys:\n%s\n' "$expected_keys" "$reported_keys"
   exit 1
 fi
 
@@ -410,7 +418,7 @@ if ! grep -Fq '30000000-0000-4000-8000-000000000006|missing_canonical|' <<<"$con
   exit 1
 fi
 
-reported_conflicts="$(printf '%s\\n' "$conflict_report" | sed '/^[[:space:]]*$/d' | wc -l | tr -d ' ')"
+reported_conflicts="$(printf '%s\n' "$conflict_report" | sed '/^[[:space:]]*$/d' | wc -l | tr -d ' ')"
 if [[ "$reported_conflicts" -ne 4 ]]; then
   echo "Expected exactly four seeded checklist reconciliation conflicts, found $reported_conflicts."
   exit 1
