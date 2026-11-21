@@ -363,10 +363,25 @@ if psql -X -v ON_ERROR_STOP=1 -f supabase/operations/restore-ensure-rls-event-tr
   echo "ERROR: ensure_rls restore script accepted a missing isolated-target attestation" >&2
   exit 1
 fi
-echo "Restoring and testing ensure_rls with Supabase's superuser/owner role split"
+echo "Verifying ensure_rls restore rejects a superuser role other than postgres"
+set +e
+wrong_superuser_output="$(
+  psql -X -v ON_ERROR_STOP=1 -A -t 2>&1 \
+    -c "BEGIN; SET ROLE supabase_admin; SET app.personal_os_restore_target = 'isolated'" \
+    -f supabase/operations/restore-ensure-rls-event-trigger.sql
+)"
+wrong_superuser_status=$?
+set -e
+if [[ "$wrong_superuser_status" -eq 0 ]] || ! grep -Fq 'connect directly as the Supabase postgres role' <<<"$wrong_superuser_output"; then
+  echo "ERROR: ensure_rls restore accepted a non-postgres SUPERUSER identity or failed for an unexpected reason:" >&2
+  printf '%s\\n' "$wrong_superuser_output" >&2
+  exit 1
+fi
+
+echo "Restoring and testing ensure_rls as the Supabase postgres role"
 preflight_output="$(
   psql -X -v ON_ERROR_STOP=1 -A -t \
-    -c "BEGIN; SET ROLE supabase_admin; SET app.personal_os_restore_target = 'isolated'" \
+    -c "BEGIN; SET ROLE postgres; SET app.personal_os_restore_target = 'isolated'" \
     -f supabase/operations/restore-ensure-rls-event-trigger.sql \
     -f supabase/operations/restore-ensure-rls-event-trigger.sql \
     -f supabase/tests/restore-ensure-rls-event-trigger.sql \

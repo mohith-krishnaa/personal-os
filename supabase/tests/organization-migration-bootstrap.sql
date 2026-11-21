@@ -9,6 +9,8 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
     EXECUTE 'CREATE ROLE service_role NOLOGIN BYPASSRLS';
   END IF;
+  -- Test-only superuser identity used as a negative control: the restore script must
+  -- require the Supabase postgres role, not accept an arbitrary SUPERUSER role.
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'supabase_admin') THEN
     EXECUTE 'CREATE ROLE supabase_admin NOLOGIN SUPERUSER';
   END IF;

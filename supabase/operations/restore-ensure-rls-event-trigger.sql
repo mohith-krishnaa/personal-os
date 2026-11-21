@@ -1,10 +1,12 @@
 -- Apply ONLY to a freshly restored isolated Supabase target.
 -- public.rls_auto_enable() must already exist from the public schema dump.
 -- This script never creates or replaces the function body.
--- Run from a provider-supported superuser-capable session, verify the target project
--- reference in the Dashboard, then set in this same session:
+-- Run while authenticated directly as the Supabase `postgres` role. Supautils
+-- permits this role to create/manage event triggers even when rolsuper=false.
+-- Verify the target project reference in the Dashboard, then set in this same
+-- session:
 --   SET app.personal_os_restore_target = 'isolated';
--- A newly created event trigger is transferred to owner postgres after creation.
+-- The event trigger is created by postgres and is therefore owned by postgres.
 DO $restore_ensure_rls$
 DECLARE
   function_oid oid;
@@ -23,13 +25,9 @@ BEGIN
     RAISE EXCEPTION 'Refusing ensure_rls restoration: verify the target project reference and set app.personal_os_restore_target=isolated only on the isolated target.';
   END IF;
 
-  IF NOT EXISTS (
-    SELECT 1
-    FROM pg_roles
-    WHERE rolname = current_user
-      AND rolsuper
-  ) THEN
-    RAISE EXCEPTION 'Refusing ensure_rls restoration: execute from a superuser-capable session on the isolated target.';
+  IF session_user IS DISTINCT FROM 'postgres'
+     OR current_user IS DISTINCT FROM 'postgres' THEN
+    RAISE EXCEPTION 'Refusing ensure_rls restoration: connect directly as the Supabase postgres role; do not rely on SUPERUSER or SET ROLE from another login.';
   END IF;
 
   SELECT
@@ -143,7 +141,6 @@ BEGIN
       WHEN TAG IN ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')
       EXECUTE FUNCTION public.rls_auto_enable()
     $ddl$;
-    EXECUTE 'ALTER EVENT TRIGGER ensure_rls OWNER TO postgres';
   END IF;
 
   SELECT e.evtfoid, e.evtevent, e.evttags, e.evtenabled, e.evtowner

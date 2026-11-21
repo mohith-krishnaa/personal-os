@@ -1,28 +1,22 @@
 -- Run ONLY inside the runner's outer transaction on the disposable migration-test database
 -- or a verified isolated restore target. The same-session marker is an attestation,
--- not proof of isolation. The runner creates the event trigger as supabase_admin and
--- transfers ownership to postgres, then runs behavior probes as the function/table owner.
--- CI's bootstrap postgres remains superuser; the live inventory separately verifies that
--- the source project's postgres role is not superuser.
+-- not proof of isolation. Connect directly as the Supabase postgres role: Supautils
+-- permits event-trigger management for postgres even though rolsuper=false. The local
+-- CI postgres role is a superuser, so CI validates the identity gate and SQL contract,
+-- but does not emulate Supautils' hosted privilege hook.
 DO $isolated_target_gate$
 BEGIN
   IF current_setting('app.personal_os_restore_target', true) IS DISTINCT FROM 'isolated' THEN
     RAISE EXCEPTION 'Refusing ensure_rls behavior tests without the same-session isolated-target attestation.';
   END IF;
-  IF NOT EXISTS (
-    SELECT 1
-    FROM pg_roles
-    WHERE rolname = current_user
-      AND rolsuper
-  ) THEN
-    RAISE EXCEPTION 'Run ensure_rls behavior tests from a superuser-capable session on the isolated target.';
+  IF session_user IS DISTINCT FROM 'postgres'
+     OR current_user IS DISTINCT FROM 'postgres' THEN
+    RAISE EXCEPTION 'Run ensure_rls behavior tests from a session authenticated and running as the Supabase postgres role.';
   END IF;
 END
 $isolated_target_gate$;
 
--- Run behavior probes as the function owner so newly created public tables are owned
--- by postgres, matching the source project's execution context.
-SET ROLE postgres;
+-- The authenticated session is already running as postgres, the function/table owner.
 
 DO $assert_ensure_rls_contract$
 DECLARE
