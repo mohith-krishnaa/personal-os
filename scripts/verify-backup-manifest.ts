@@ -154,7 +154,8 @@ function readRepositoryMigrationVersions(migrationsDir: string): string[] {
   const versions: string[] = []
 
   for (const entry of entries) {
-    if (!entry.isFile() || !entry.name.endsWith('.sql')) continue
+    if (!entry.name.endsWith('.sql')) continue
+    if (!entry.isFile()) fail('Migration SQL entries must be regular files: ' + entry.name)
     const match = entry.name.match(/^(\d{14})_[a-z0-9_]+\.sql$/)
     if (!match) fail('Migration filename does not match the required 14-digit format: ' + entry.name)
     versions.push(match[1])

@@ -370,3 +370,15 @@ test('rejects duplicate artifact paths', async t => {
   assert.equal(result.ok, false)
   assert.match(result.errors.join(' '), /wrong export command|duplicate path/)
 })
+
+
+test('rejects symbolic links in the repository migration inventory', async t => {
+  const fixture = createFixture()
+  t.after(() => clean(fixture))
+  const target = join(fixture.migrationsDir, repositoryVersions[0] + '_fixture.sql')
+  symlinkSync(target, join(fixture.migrationsDir, '20261122000000_linked.sql'))
+
+  const result = await verify(fixture)
+  assert.equal(result.ok, false)
+  assert.match(result.errors.join(' '), /Migration SQL entries must be regular files/)
+})
