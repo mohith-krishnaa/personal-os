@@ -15,7 +15,7 @@ The report joins each legacy row to its task by the task primary key and to the 
 
 ## Reconciliation migration repeatability
 
-`20261015000200_reconcile_checklist_tables.sql` copies only legacy rows whose task belongs to the same owner and uses `ON CONFLICT (id) DO NOTHING`. With an unchanged source snapshot, reapplying it must leave both tables byte-for-byte equivalent at the row-value level. The Organization migration test runner captures ordered JSONB snapshots of both tables, reapplies the migration, and requires the snapshots to match.
+`20261015000200_reconcile_checklist_tables.sql` copies only legacy rows whose task belongs to the same owner and uses `ON CONFLICT (id) DO NOTHING`. With an unchanged source snapshot, reapplying it must leave both tables' ordered JSONB row snapshots identical. The Organization migration test runner captures ordered JSONB snapshots of both tables, reapplies the migration, and requires the snapshots to match.
 
 This is not an ongoing synchronization mechanism. A valid legacy row inserted after the original reconciliation is newly eligible if the migration is manually rerun later; rerunning the migration can therefore copy that new row into the canonical table. Do not use migration reapplication as an automatic catch-up job. The report identifies such rows as `missing_canonical` so an owner can review and disposition them.
 

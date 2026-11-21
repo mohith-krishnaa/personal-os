@@ -1,3 +1,56 @@
+# Latest verified checkpoint — checklist reconciliation report determinism and repeatability (2026-11-21)
+
+**Implementation/test HEAD:** `bc7aded35e8451e544f262bc64b7780aa4bf530a` — [CI #539 passed on this exact commit](https://github.com/mohith-krishnaa/personal-os/actions/runs/44908479254).  
+**Starting HEAD:** `8ab5f8d15e893a678f9ba10acc60706ffdc67eaa` — [CI #536 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44904330395).
+
+## Continuity and repository recovery
+
+- Personal-OS Builder is enabled. The recorded current run was marked `in_progress`, but that status was not treated as proof of worker liveness.
+- The latest stored result was created before the current run started and belonged to the preceding recurring-task concurrency checkpoint, not this run.
+- Starting branch `feature/organization-v1` was at `8ab5f8d15e893a678f9ba10acc60706ffdc67eaa`, matching PR #11. Main remained `2b42dd17796b75dca79434a81d4e1f0cbf0fa043).
+- PR #11 was open and unmerged; PR #12 remained an open superseded draft.
+- Repository migration count remained 27. No migration was added.
+- No local checkout is attached, so local working-tree cleanliness cannot be independently certified.
+
+## Checklist reconciliation audit
+
+Inspected `supabase/operations/checklist-reconciliation-conflicts.sql`, the one-time reconciliation migration, its legacy/post-reconciliation fixtures, the migration assertions, the migration runner, the preflight, and the existing runbook references.
+
+- The report is read-only, joins legacy rows to tasks and canonical rows by unique IDs, applies the documented classification priority, and orders output by `legacy.id`.
+- The runner now executes the report twice inside separate `BEGIN READ ONLY` transactions against the same fixture snapshot and requires byte-identical output.
+- It snapshots all row values from both checklist tables before and after report execution and requires no data change.
+- It asserts the exact four seeded conflict IDs and classifications in ascending legacy-ID order, including the cross-owner/task collision, payload-only collision values/flags, and post-reconciliation `missing_canonical` row.
+- The runner reapplies `20261015000200_reconcile_checklist_tables.sql` against an unchanged source snapshot and compares ordered JSONB snapshots of both tables before and after. The unchanged snapshot must remain identical.
+- Important limitation: this is repeatability for an unchanged source snapshot, not a live synchronization mechanism. If a new valid legacy row is written after the original migration, manually rerunning the migration can copy that newly eligible row. The report flags it for owner review; migration reapplication is not an automatic catch-up process.
+
+Added `docs/operations/checklist-reconciliation-report.md` and extended the disposable PostgreSQL runner. The implementation/test commit changes exactly two files: the runner and the new operations document. No application runtime code, production schema, RLS, or data changed.
+
+## CI evidence
+
+- CI #537 failed in the migration step because an over-escaped psql include was parsed as an invalid command. The log showed `invalid command \\`; the escaping was corrected.
+- CI #538 passed on an intermediate revision that still contained a redundant helper definition.
+- The redundant definition was removed. CI #539 passed on final implementation/test HEAD `bc7aded`.
+- PostgREST acceptance preflight: 33/33 passed.
+- PostgreSQL 17 migration replay: 27/27 passed. Checklist migration repeatability, read-only report execution, identical repeated output, row-snapshot preservation, exact classification/order assertions, Organization/RLS checks, and existing concurrency checks passed.
+- Task hierarchy concurrency: passed.
+- Application tests: 203/203 passed.
+- TypeScript typecheck: passed.
+- Production build: passed.
+- npm install reported 0 vulnerabilities. Existing Node `punycode` deprecation and npm install-script allowlist warnings remain non-failing.
+- No lint script is configured.
+
+## Production and acceptance boundary
+
+No production Supabase query or mutation occurred. The last recorded live baseline remains 8 applied migration versions versus 27 repository migrations (19 branch-only); it was not refreshed in this run. No owner-controlled backup or successful isolated restore was supplied or verified. No production DDL/DML, migration, RLS/role/project-setting change, backup, restore, or PR merge occurred.
+
+Organization V1 remains incomplete. Still required: complete owner-controlled schema/data/roles backup; offline manifest verification; successful isolated restoration; extension, role/membership, default-ACL, database-setting, Vault, Auth-trigger, `ensure_rls`, and reminder-function verification; restored-copy checklist conflict disposition; application of the 19 branch-only migrations only to the isolated target; authenticated two-owner PostgREST acceptance; and the separate owner decision on the fail-closed `ensure_rls` candidate. Analytics remains queued.
+
+## Next action
+
+Owner-controlled complete backup and isolated restoration remain the primary gate. Verify the manifest, restore into a separate isolated Supabase project, then run customization, migration, checklist conflict disposition, and authenticated two-owner PostgREST acceptance there. Do not apply branch-only migrations to production, deploy the fail-closed candidate, or merge PR #11.
+
+---
+
 # Latest verified checkpoint — recurring occurrence concurrency and event idempotency (2026-11-21)
 
 **Implementation/test HEAD:** f8d373116444bfa8886fe253ed4d4b0a5a82806a — [CI #533 passed on this exact commit](https://github.com/mohith-krishnaa/personal-os/actions/runs/44903880721).
