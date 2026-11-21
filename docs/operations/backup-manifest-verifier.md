@@ -1,3 +1,17 @@
+# Latest managed-schema safety gate — 2026-11-21
+
+The manifest contract now requires **45 exact row-count keys**: nine public application tables plus 36 Supabase-managed/ephemeral data tables. All 36 managed counts must be exactly zero for the standard Supabase CLI logical-backup path. The verifier rejects any non-zero count because the standard CLI dump excludes managed schemas such as `auth`, `storage`, and extension-created schemas; Storage object bytes are also outside a database dump. This is a hard gate, not a warning.
+
+If any of the 36 counts becomes non-zero, stop. Do not call the five CLI dump files a complete backup. Use a supported full backup/restore method or obtain an owner-reviewed, independently tested export path that preserves the affected managed data and settings. The current organization is on the Free plan; Supabase's “Restore to a new project” flow is paid-plan-only and requires physical backups, so it is not currently available without an owner plan decision.
+
+The read-only inventory query is [`supabase/operations/restore-customization-inventory.sql`](../../supabase/operations/restore-customization-inventory.sql). It records exact managed-table counts, extension versions, roles/memberships, default ACLs, role/database settings, custom functions/triggers/event triggers, policies, publications, and foreign servers without reading secret values. Re-run it immediately before export and save the result privately.
+
+The custom `auth.users.on_auth_user_created` trigger is not in the default dump because it belongs to the excluded Auth schema. Its function `public.handle_new_user()` is in the public schema dump. Recreate the trigger on the isolated target with [`restore-auth-user-trigger.sql`](../../supabase/operations/restore-auth-user-trigger.sql), then run its regression assertion. Never run that DDL script on production.
+
+Passing this offline verifier still does not prove that project-level Auth settings, API keys, Storage, Vault key material, Realtime configuration, Edge Function secrets, or database settings were restored. See [the managed-schema and project-customization restore inventory](restore-customization-inventory.md).
+
+---
+
 # Offline backup manifest verifier
 
 This verifier checks the integrity and declared inventory of owner-created backup artifacts. It is offline and read-only. It does not create a backup, connect to Supabase, inspect database contents, or prove that a restore succeeded.
@@ -42,7 +56,7 @@ The top-level JSON object accepts exactly: \`formatVersion\`, \`source\`, \`comm
 | \`appliedMigrationVersions\` | Exact ascending eight-version source ledger below |
 | \`repositoryMigrationVersions\` | Exact ascending version prefixes of every numbered \`.sql\` file in this checkout |
 | \`extensions\` | Exactly the four required non-plpgsql extension names, each with a non-empty captured version |
-| \`rowCounts\` | All 13 required table keys with non-negative integer counts captured immediately before export |
+| \`rowCounts\` | All 45 required table keys with non-negative integer counts captured immediately before export |
 
 The current source migration baseline is:
 
@@ -135,6 +149,6 @@ There is intentionally no \`restoreStatus\` field in the accepted manifest. Rest
 
 ## Regression coverage
 
-The 24 tests cover valid inventories, missing files, byte-size and SHA-256 mismatches, failed command statuses, target mismatch/attestation, source and repository migration drift, malformed and symlinked migration filenames, unsafe paths, symlinks, repository-local artifact/manifest paths, credential material, incomplete row counts/extensions, commit mismatch, unsupported restore claims, and duplicate artifact paths.
+The 25 tests cover valid inventories, missing files, byte-size and SHA-256 mismatches, failed command statuses, target mismatch/attestation, source and repository migration drift, malformed and symlinked migration filenames, unsafe paths, symlinks, repository-local artifact/manifest paths, credential material, incomplete row counts/extensions, commit mismatch, unsupported restore claims, and duplicate artifact paths.
 
 The tests run as part of \`npm test\`; the CLI is exposed as \`npm run backup:manifest:verify\`.
