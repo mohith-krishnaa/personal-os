@@ -197,3 +197,38 @@ test('rejects an unexpected event type or entity identity', () => {
     /entity_id does not match/,
   )
 })
+
+
+test('accepts a legacy anon JWT key', () => {
+  const env = validEnvironment()
+  const payload = Buffer.from(JSON.stringify({ role: 'anon' })).toString('base64url')
+  env.PERSONAL_OS_ACCEPTANCE_ANON_KEY = 'header.' + payload + '.signature'
+  const config = loadAcceptanceConfig(env, ['--execute'])
+  assert.equal(config.anonKey, env.PERSONAL_OS_ACCEPTANCE_ANON_KEY)
+})
+
+test('rejects an unrecognized opaque API key', () => {
+  const env = validEnvironment()
+  env.PERSONAL_OS_ACCEPTANCE_ANON_KEY = 'not-a-supabase-api-key'
+  assert.throws(() => loadAcceptanceConfig(env, ['--execute']), /publishable key or a legacy anon JWT/)
+})
+
+test('rejects an empty publishable-key prefix', () => {
+  const env = validEnvironment()
+  env.PERSONAL_OS_ACCEPTANCE_ANON_KEY = 'sb_publishable_'
+  assert.throws(() => loadAcceptanceConfig(env, ['--execute']), /publishable key is empty/)
+})
+
+test('rejects a legacy JWT without an anon role claim', () => {
+  const env = validEnvironment()
+  const payload = Buffer.from(JSON.stringify({ sub: 'anonymous' })).toString('base64url')
+  env.PERSONAL_OS_ACCEPTANCE_ANON_KEY = 'header.' + payload + '.signature'
+  assert.throws(() => loadAcceptanceConfig(env, ['--execute']), /not an anon key/)
+})
+
+test('rejects an authenticated JWT', () => {
+  const env = validEnvironment()
+  const payload = Buffer.from(JSON.stringify({ role: 'authenticated' })).toString('base64url')
+  env.PERSONAL_OS_ACCEPTANCE_ANON_KEY = 'header.' + payload + '.signature'
+  assert.throws(() => loadAcceptanceConfig(env, ['--execute']), /not an anon key/)
+})

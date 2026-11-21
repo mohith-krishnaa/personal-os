@@ -31,8 +31,18 @@ function assertPublicKey(key: string) {
     throw new Error('A Supabase secret/service key is not allowed. Use the project anon or publishable key.')
   }
 
+  const publishablePrefix = 'sb_publishable_'
+  if (key.startsWith(publishablePrefix)) {
+    if (key.length === publishablePrefix.length) {
+      throw new Error('The configured Supabase publishable key is empty.')
+    }
+    return
+  }
+
   const parts = key.split('.')
-  if (parts.length !== 3) return
+  if (parts.length !== 3) {
+    throw new Error('The configured Supabase API key must be a Supabase publishable key or a legacy anon JWT key.')
+  }
 
   let payload: { role?: unknown }
   try {
@@ -42,7 +52,7 @@ function assertPublicKey(key: string) {
   }
 
   if (payload.role !== 'anon') {
-    throw new Error('The configured Supabase JWT key is not an anon key. Service-role and authenticated JWTs are forbidden.')
+    throw new Error('The configured Supabase JWT key is not an anon key. Only legacy anon JWTs or sb_publishable_ keys are allowed.')
   }
 }
 

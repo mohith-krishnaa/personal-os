@@ -10,7 +10,7 @@ Do not run this harness against production or against an unverified copy.
 2. The owner must restore that backup into a separate isolated Supabase project.
 3. The owner must verify the restore and complete the [checklist reconciliation conflict disposition](organization-v1-preflight.md#checklist-reconciliation-conflict-disposition) against the restored copy, retaining the private report and per-row approval evidence.
 4. Create two disposable, confirmed Auth users in the isolated project. Do not use production user accounts.
-5. Obtain only that isolated project's anon/publishable API key. A service-role or secret key is rejected by the script.
+5. Obtain only that isolated project's anon/publishable API key. The harness accepts either an `sb_publishable_...` key or a legacy anon JWT whose decoded `role` claim is exactly `anon`. It rejects `sb_secret_...`, malformed JWTs, JWTs with a missing or different role, and unknown opaque strings. This is a format/role guard; Supabase still validates the key itself server-side.
 
 The three isolated-target/restore confirmation environment variables are operator attestations, not cryptographic proof that a backup exists. The script cannot independently verify backup completeness or restore success. The owner remains responsible for those checks.
 
