@@ -1,3 +1,40 @@
+# Latest handoff — managed-schema restore and isolated-target guard (2026-11-21)
+
+## Exact resume point
+
+- Branch: `feature/organization-v1`
+- Pre-checkpoint HEAD: `876b6ec92cd8e7c4ae89950d391aba0590b3fbf1`
+- PR #11: open, unmerged; PR #12: open superseded draft.
+- Repository migrations: 27. Production project migration ledger: 8; 19 branch-only migrations.
+- No migration was added during this task.
+
+## Changes completed
+
+1. Added read-only inventory SQL at `supabase/operations/restore-customization-inventory.sql`.
+2. Added isolated-only Auth trigger restore at `supabase/operations/restore-auth-user-trigger.sql`, guarded by the session GUC `app.personal_os_restore_target='isolated'`. The migration runner verifies refusal without the GUC, then applies the script twice with the GUC and runs the assertion.
+3. Expanded the offline manifest verifier to 45 row counts; all 36 managed/ephemeral data counts must be zero for the standard CLI logical-backup path.
+4. Added the managed-schema restore runbook and updated Organization preflight, manifest verifier, project state, handoff, and roadmap.
+
+## Critical source facts
+
+- All nine public application tables and all 36 managed/ephemeral data tables were zero in the 2026-11-21 03:23 UTC snapshot. Re-run inventory immediately before export.
+- Provider migration ledgers: Auth 84, Storage 81, Realtime 97; project migration ledger 8. Do not restore provider-owned migration ledgers.
+- Four non-plpgsql extensions: `pg_stat_statements 1.11`, `pgcrypto 1.3`, `supabase_vault 0.3.1`, `uuid-ossp 1.1`.
+- The default CLI dump excludes managed schemas such as `auth`, `storage`, and extension-created schemas. If any of the 36 managed/ephemeral data counts is non-zero, stop; the five CLI dump artifacts are not complete. The organization is Free; native Restore-to-New-Project requires a paid plan and physical backups.
+- Custom Auth trigger: `auth.users.on_auth_user_created` calls `public.handle_new_user()`. The public function is in the public dump; the Auth trigger is not. Recreate it only on the isolated target after verifying the target project reference, setting `app.personal_os_restore_target='isolated'` in the same session, and applying the script.
+- Verify public event trigger `ensure_rls` and `public.rls_auto_enable()` after schema restore.
+- Out-of-ledger `public.claim_due_reminders(integer)` exists in production with `search_path=public`; the branch migration expects `pg_catalog, public`. Capture and review this drift; let the branch migration normalize only on the isolated target.
+- No custom login roles, no managed-schema RLS policies, no custom schemas, no foreign servers, no `pg_cron`/`pg_net`/`wrappers`; publication `supabase_realtime` has no table members. No Edge Functions were listed; secrets and Dashboard Auth settings were not accessible.
+- Source default ACLs are broad in several schemas. Compare target `pg_default_acl`, role memberships, role settings, and database settings after restore; do not leave target defaults revoked if source defaults are restored.
+
+## CI evidence
+
+CI #482: <https://github.com/mohith-krishnaa/personal-os/actions/runs/44861228036> passed on `ce77eef14abed0fe6fc37fc42f2401ff47e277b4`: PostgREST preflight 21/21, 27 migration replay, Organization/RLS assertions, 178/178 application tests, typecheck, production build, and 0 npm vulnerabilities. The explicit isolated-target GUC guard was added at `876b6ec92cd8e7c4ae89950d391aba0590b3fbf1` after CI #482. Check CI on the latest branch head before claiming the guard verified.
+
+## Next action
+
+Owner-controlled complete backup and isolated restore. If the owner cannot provide it, do not retry the same unavailable step. Use the private scratch diff workspace with only the eight live migrations to inspect `claim_due_reminders` and `ensure_rls` drift, and complete Dashboard-only Auth/Secrets/Realtime/Storage settings inventory. Keep production read-only, keep PR #11 unmerged, and keep Analytics queued.
+
 # Latest handoff — managed-schema restore audit (2026-11-21)
 
 ## Exact resume point

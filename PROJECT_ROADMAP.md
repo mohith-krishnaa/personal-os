@@ -2,6 +2,24 @@
 
 ## Organization V1 — active, not accepted
 
+The managed-schema/project-settings audit and isolated Auth trigger restore guard are implemented. The manual CLI manifest verifier requires 45 row-count keys; all 36 Auth/Storage/Vault/Realtime managed/ephemeral data counts must be zero. The source snapshot at 2026-11-21 03:23 UTC showed all nine public application tables and all 36 managed/ephemeral tables empty.
+
+Restore dependencies documented:
+- Recreate `auth.users.on_auth_user_created` on the isolated target; the default CLI dump excludes the Auth schema even though the public function is included.
+- Verify the public `ensure_rls` event trigger and `public.rls_auto_enable()`.
+- Review out-of-ledger `public.claim_due_reminders(integer)` drift: live `search_path=public`, branch migration expects `pg_catalog, public`.
+- Reconcile source/target extensions, default ACLs, role memberships/settings, database settings, Realtime publication, and Dashboard-only Auth/API/Storage/Vault/Secrets configuration.
+
+CI #482 passed on `ce77eef14abed0fe6fc37fc42f2401ff47e277b4` with 21/21 PostgREST preflight tests, 27 migration replay, Organization/RLS assertions, 178/178 application tests, typecheck, build, and 0 npm vulnerabilities. The isolated-target session-GUC guard was added after that SHA; verify CI on the actual latest head.
+
+**Acceptance gates remain open:** owner-controlled schema/data/roles backup, successful isolated restoration, extension/role/default-ACL/setting verification, checklist conflict disposition on the restored copy, and authenticated two-owner PostgREST acceptance. Current organization is Free; native Restore-to-New-Project is paid-plan-only. No production migration or PR merge is authorized.
+
+Analytics, AI Assistant, Research Agent, Adaptive Scheduling, and production hardening remain queued behind Organization acceptance. Do not start Analytics based on empty tables or disposable CI alone.
+
+# Latest roadmap checkpoint — 2026-11-21
+
+## Organization V1 — active, not accepted
+
 The managed-schema and project-setting restore audit is now documented. The manual CLI backup verifier requires 45 row-count keys; all 36 Auth/Storage/Vault/Realtime managed/ephemeral data counts must be zero. The read-only inventory snapshot at 2026-11-21 03:23 UTC showed all nine public application tables and all 36 managed/ephemeral tables empty.
 
 The audit also identified the project-owned Auth trigger that must be restored separately, the `ensure_rls` event trigger that must be verified after public schema restore, and an out-of-ledger `claim_due_reminders` function whose live `search_path=public` differs from the branch migration's `pg_catalog, public` contract. No production change was made.

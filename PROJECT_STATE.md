@@ -1,3 +1,39 @@
+# Latest checkpoint — managed-schema restore and isolated-target guard (2026-11-21)
+
+**Pre-checkpoint branch HEAD:** `876b6ec92cd8e7c4ae89950d391aba0590b3fbf1` on `feature/organization-v1`. PR #11 is open and unmerged.
+
+## Recovery and repository state
+
+- Personal-OS Builder is enabled. The current recorded run started after the previous result; the latest stored result belonged to the preceding backup-manifest verifier run.
+- Starting repository HEAD was `445cb71253e102878850d38c826e487d0057bc6e`. The actual PR #11 head was checked before edits; PR #12 remains an open superseded draft.
+- The prior offline manifest verifier was complete. This run continued with the documented Supabase-managed schema/project-customization audit.
+- Repository migrations remain 27; no migration was added. Production migration ledger remains 8; 19 repository migrations are branch-only.
+
+## Verified implementation
+
+- Added `supabase/operations/restore-customization-inventory.sql`, a single read-only query. It was executed against the source project and covers nine public application tables plus 36 Auth/Storage/Vault/Realtime managed/ephemeral data tables, installed extensions, roles/memberships, default ACLs, role/database settings, functions, triggers, event triggers, policies, publications, and foreign servers.
+- Added `supabase/operations/restore-auth-user-trigger.sql` and `supabase/tests/restore-auth-user-trigger.sql`. The script verifies the public function contract and restores only `auth.users.on_auth_user_created` on an isolated target.
+- Added an explicit session guard: the Auth trigger restore script refuses to run unless the same SQL session has `app.personal_os_restore_target='isolated'`. The migration runner tests the refusal without the attestation, then runs the script twice with the attestation and checks the result.
+- Expanded the offline manifest verifier to require 45 row-count keys and reject any non-zero value among the 36 managed/ephemeral data tables. Added tests for all 36 zero gates and for SQL inventory coverage/read-only behavior.
+- Added `docs/operations/restore-customization-inventory.md` and updated the manifest verifier, Organization preflight, state, handoff, and roadmap documentation.
+
+## Production inventory findings
+
+- Project `gujzvkyytxsnervovvrt`: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, region `ap-southeast-1`; organization plan Free.
+- All nine public application tables and all 36 inventoried managed/ephemeral data tables were empty at 2026-11-21 03:23 UTC. Re-run immediately before export.
+- Provider-owned migration ledgers: Auth 84 rows, Storage 81, Realtime 97; project migration ledger 8. The earlier table-list estimate of 8 for Realtime was inaccurate; exact `count(*)=97` supersedes it.
+- Installed non-plpgsql extensions: `pg_stat_statements 1.11`, `pgcrypto 1.3`, `supabase_vault 0.3.1`, `uuid-ossp 1.1`. No non-platform custom schema.
+- No Auth/Storage/Realtime RLS policies; `supabase_realtime` publication has no table members; `pg_cron`, `pg_net`, `wrappers` and foreign servers are absent. Nine login roles are platform roles; no custom LOGIN role was found. No Edge Functions are listed. Secret names/values and Dashboard Auth settings were not accessible.
+- `auth.users.on_auth_user_created` calls postgres-owned SECURITY INVOKER `public.handle_new_user()` with `search_path=public`. The function is in the public dump; the trigger is in the excluded Auth schema and must be restored separately.
+- `ensure_rls` event trigger calls postgres-owned SECURITY DEFINER `public.rls_auto_enable()` with `search_path=pg_catalog`; verify it after restoring public schema.
+- Production has out-of-ledger `public.claim_due_reminders(integer)`: postgres-owned SECURITY DEFINER, service_role-only EXECUTE, live `search_path=public`; branch migration `20261120000300_atomic_reminder_delivery.sql` expects `pg_catalog, public`. Treat this as schema drift; do not change production.
+
+## CI and limitations
+
+CI #482 passed on code/test HEAD `ce77eef14abed0fe6fc37fc42f2401ff47e277b4`: PostgREST preflight 21/21, all 27 migration replay checks and Organization/RLS assertions, 178/178 application tests, TypeScript typecheck, production build, and npm install audit with 0 vulnerabilities. It did **not** include the subsequent explicit session-guard change at `876b6ec92cd8e7c4ae89950d391aba0590b3fbf1`; CI on the actual latest head must be checked separately.
+
+No backup or restore was created. No production DDL/DML, migration, RLS change, role change, project setting change, or PR merge occurred. No local checkout is attached, so local working-tree status cannot be certified.
+
 # Latest checkpoint — Supabase-managed restore audit (2026-11-21)
 
 **Checkpoint base HEAD:** `4d13c537a075c8659be4bf0b555b392711b3cf0a` on `feature/organization-v1`. This is the branch HEAD immediately before this three-file checkpoint commit. The PR remains open and unmerged.
