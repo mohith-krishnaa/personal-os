@@ -37,6 +37,10 @@ if [[ "$applied_migrations" -ne "$expected_migrations" ]]; then
 fi
 
 psql -X -v ON_ERROR_STOP=1 -f supabase/tests/organization-migration-assertions.sql
+echo "Verifying isolated Auth trigger restore script"
+psql -X -v ON_ERROR_STOP=1 -f supabase/operations/restore-auth-user-trigger.sql
+psql -X -v ON_ERROR_STOP=1 -f supabase/operations/restore-auth-user-trigger.sql
+psql -X -v ON_ERROR_STOP=1 -f supabase/tests/restore-auth-user-trigger.sql
 echo "Verifying transactional task activity events"
 psql -X -v ON_ERROR_STOP=1 -f supabase/tests/task-activity-events.sql
 echo "Verifying transactional task DELETE activity events"
