@@ -35,9 +35,80 @@ export const REQUIRED_ROW_COUNT_KEYS = [
   'public.reminders',
   'public.tasks',
   'auth.users',
+  'auth.instances',
+  'auth.identities',
+  'auth.refresh_tokens',
+  'auth.sessions',
+  'auth.audit_log_entries',
+  'auth.mfa_factors',
+  'auth.mfa_challenges',
+  'auth.mfa_amr_claims',
+  'auth.sso_providers',
+  'auth.sso_domains',
+  'auth.saml_providers',
+  'auth.saml_relay_states',
+  'auth.flow_state',
+  'auth.one_time_tokens',
+  'auth.oauth_clients',
+  'auth.oauth_authorizations',
+  'auth.oauth_consents',
+  'auth.oauth_client_states',
+  'auth.custom_oauth_providers',
+  'auth.webauthn_credentials',
+  'auth.webauthn_challenges',
+  'auth.scim_users',
+  'auth.scim_tokens',
+  'auth.mfa_recovery_code_sets',
+  'auth.mfa_recovery_codes',
   'storage.buckets',
   'storage.objects',
+  'storage.s3_multipart_uploads',
+  'storage.s3_multipart_uploads_parts',
+  'storage.buckets_analytics',
+  'storage.buckets_vectors',
+  'storage.vector_indexes',
   'vault.secrets',
+  'realtime.messages',
+  'realtime.subscription',
+] as const
+
+export const REQUIRED_EMPTY_MANAGED_ROW_COUNT_KEYS = [
+  'auth.users',
+  'auth.instances',
+  'auth.identities',
+  'auth.refresh_tokens',
+  'auth.sessions',
+  'auth.audit_log_entries',
+  'auth.mfa_factors',
+  'auth.mfa_challenges',
+  'auth.mfa_amr_claims',
+  'auth.sso_providers',
+  'auth.sso_domains',
+  'auth.saml_providers',
+  'auth.saml_relay_states',
+  'auth.flow_state',
+  'auth.one_time_tokens',
+  'auth.oauth_clients',
+  'auth.oauth_authorizations',
+  'auth.oauth_consents',
+  'auth.oauth_client_states',
+  'auth.custom_oauth_providers',
+  'auth.webauthn_credentials',
+  'auth.webauthn_challenges',
+  'auth.scim_users',
+  'auth.scim_tokens',
+  'auth.mfa_recovery_code_sets',
+  'auth.mfa_recovery_codes',
+  'storage.buckets',
+  'storage.objects',
+  'storage.s3_multipart_uploads',
+  'storage.s3_multipart_uploads_parts',
+  'storage.buckets_analytics',
+  'storage.buckets_vectors',
+  'storage.vector_indexes',
+  'vault.secrets',
+  'realtime.messages',
+  'realtime.subscription',
 ] as const
 
 const REQUIRED_COMMANDS = [
@@ -261,6 +332,11 @@ function validateManifestShape(value: unknown, repositoryVersions: string[], exp
     const count = rowCounts[key]
     if (typeof count !== 'number' || !Number.isSafeInteger(count) || count < 0) {
       fail('source.rowCounts.' + key + ' must be a non-negative safe integer.')
+    }
+  }
+  for (const key of REQUIRED_EMPTY_MANAGED_ROW_COUNT_KEYS) {
+    if (rowCounts[key] !== 0) {
+      fail('source.rowCounts.' + key + ' must be zero for the CLI logical backup path because Supabase-managed data is excluded from the standard db dump.')
     }
   }
 
