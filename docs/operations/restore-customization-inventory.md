@@ -184,7 +184,28 @@ The database inventory cannot recover or attest these Dashboard/API settings. Th
 - Database webhooks, cron jobs, read replicas, network restrictions, SSL enforcement, compute/database settings, log drains, and backup/PITR configuration.
 - Vault root key dependency. Current secret count is zero, but the owner must confirm there are no encrypted columns or other Vault-dependent values.
 
-## 7. Acceptance order
+## 7. Optional fail-closed `ensure_rls` candidate — owner decision required
+
+The source project's `public.rls_auto_enable()` currently logs and swallows errors from `ALTER TABLE ... ENABLE ROW LEVEL SECURITY`. The existing event-trigger behavior test proves that a forced enable failure can allow `CREATE TABLE` to complete with RLS disabled. This is a real fail-open edge case, not merely a documentation concern.
+
+A separately reviewed candidate is provided at [`supabase/operations/apply-ensure-rls-fail-closed.sql`](../../supabase/operations/apply-ensure-rls-fail-closed.sql). It preserves the function owner, SECURITY DEFINER setting, fixed `search_path=pg_catalog`, event-trigger definition, and exact postgres/service_role EXECUTE ACL. Its only behavioral change is to log an RLS-enable error and then re-raise it, causing the originating table-creation statement to roll back rather than leave a public table without RLS.
+
+**This candidate is not a migration, is not automatically applied, and is not approved for production.** It is prepared for review and testing on a fully restored isolated target only. It refuses to run unless the same session has both:
+
+```sql
+SET app.personal_os_restore_target = 'isolated';
+SET app.personal_os_fail_closed_rls_approval = 'owner-approved';
+```
+
+The second setting is an operator attestation, not cryptographic proof of approval. Set it only after the owner has reviewed the operational consequence: if RLS cannot be enabled, the CREATE TABLE/CREATE TABLE AS/SELECT INTO statement now fails. The script also requires a direct `session_user=current_user='postgres'`, the exact reviewed source or candidate function fingerprint, the expected owner/security/search-path contract, the postgres/service_role-only ACL, and the existing enabled postgres-owned `ensure_rls` trigger. It is idempotent for the exact source/candidate fingerprints and refuses unknown definitions or ACL drift.
+
+The candidate's reviewed `pg_proc.prosrc` fingerprint is `b95d4b52e100f89abf4b5afa270a4776`; the original source fingerprint is `99be20677b456ea8d3be47bdd44fb369`.
+
+The disposable CI test [`supabase/tests/ensure-rls-fail-closed-candidate.sql`](../../supabase/tests/ensure-rls-fail-closed-candidate.sql) checks successful public-table RLS enablement, injects an error in a test-only replacement body that uses the same re-raise semantics, proves the CREATE TABLE statement leaves no table behind, and rolls back to restore the candidate body. The migration runner also verifies missing-target, missing-approval, and wrong-role rejection and applies the candidate twice. This validates SQL behavior on local PostgreSQL; it does **not** emulate Supautils' hosted event-trigger privilege hook or constitute an owner decision.
+
+Do not run this candidate against production. Do not add it to the migration chain unless a separate owner-approved production change is explicitly authorized after a complete owner-controlled backup and successful isolated restoration.
+
+## 8. Acceptance order
 
 1. Re-run the SQL inventory immediately before export; save and hash the private JSON output.
 2. Export roles, schema, data, and the project migration history with the corrected CLI target selector. Verify each command's target and exit status.
