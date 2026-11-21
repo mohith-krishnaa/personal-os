@@ -336,7 +336,7 @@ function validateManifestShape(value: unknown, repositoryVersions: string[], exp
   }
   for (const key of REQUIRED_EMPTY_MANAGED_ROW_COUNT_KEYS) {
     if (rowCounts[key] !== 0) {
-      fail('source.rowCounts.' + key + ' must be zero for this CLI logical backup path because the standard dump does not preserve all Supabase-managed and project-level data.')
+      fail('source.rowCounts.' + key + ' must be zero for the CLI logical backup path because the standard dump does not preserve all Supabase-managed and project-level data.')
     }
   }
 
