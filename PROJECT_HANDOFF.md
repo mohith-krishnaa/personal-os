@@ -1,3 +1,55 @@
+# Latest verified checkpoint — owner backup preflight revalidated (2026-11-21)
+
+**Starting branch/HEAD:** `feature/organization-v1` / `92e0fa88af8df5de58fe822e5e39051d4c048d5e`.  
+**Main HEAD:** `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`; branch comparison: 622 ahead, 0 behind.  
+**PR #11:** open, unmerged, mergeable; head matches the starting HEAD; 121 changed files. No review submissions or inline review threads were present. PR #12 remains an open superseded draft.  
+**CI baseline:** PR workflow #540 completed successfully on the exact starting HEAD. The combined commit-status endpoint returned no separate status entries; the workflow result is the available CI evidence.
+
+## Continuity recovery
+
+- Personal-OS Builder is enabled.
+- The recorded current run was marked `in_progress`; that status was not treated as proof of worker liveness.
+- The latest stored result belonged to the preceding checklist-reconciliation determinism/repeatability task and was created before the recorded current-run start. It was not attributed to this run.
+- The previous completed task is verified in the repository as checklist migration repeatability and read-only conflict-report determinism. No partial implementation from that task was found.
+- No local repository checkout is attached. The active container is not a Git repository and has no Supabase CLI, `pg_dump`, `psql`, or Docker binaries.
+
+## Fresh production source inventory — read-only
+
+The documented `restore-customization-inventory.sql` was fetched from the current PR branch, statically screened as SELECT-only, and executed against source project `gujzvkyytxsnervovvrt`. The database returned `inspected_at=2026-11-21T14:16:37.284033Z`.
+
+- Project status: `ACTIVE_HEALTHY`; PostgreSQL `17.11.0.003`; region `ap-southeast-1`.
+- Live project migration ledger: exactly 8 versions: `20260829182309`, `20260830085036`, `20260830103327`, `20260830114218`, `20260830120132`, `20260830123420`, `20260830141616`, `20260905162251`.
+- Repository migration inventory: 27 files; 19 branch-only migrations. No migration was added or applied.
+- All 9 public application tables have zero rows.
+- All 36 managed/ephemeral data-table counts in the backup manifest contract are zero. This satisfies the current row-count gate for the documented Supabase CLI logical-backup path; it does not mean a backup exists or prove that a restore works.
+- Required non-plpgsql extensions and versions: `pg_stat_statements 1.11`, `pgcrypto 1.3`, `supabase_vault 0.3.1`, and `uuid-ossp 1.1`.
+- Provider-managed migration ledgers: `auth.schema_migrations=84`, `realtime.schema_migrations=97`, `storage.migrations=81`; the project migration ledger has 8 rows.
+- No non-platform custom schemas, foreign servers, `pg_cron`, `pg_net`, or `wrappers` were found. No RLS policies were found in the inspected managed schemas. Publication `supabase_realtime` has no table membership.
+- The custom `auth.users.on_auth_user_created` trigger remains present and calls `public.handle_new_user()`. The `ensure_rls` event trigger remains enabled, owned by `postgres`, and calls SECURITY DEFINER `public.rls_auto_enable()` with `search_path=pg_catalog`. Its source fingerprint remains `99be20677b456ea8d3be47bdd44fb369`; direct EXECUTE grants are `postgres` and `service_role`.
+- `public.claim_due_reminders(integer)` remains the applied baseline implementation, owned by `postgres`, SECURITY DEFINER with `search_path=public`, and executable by `postgres`/ `service_role` only. Branch-only atomic replacement `20261120000300_atomic_reminder_delivery.sql` remains unapplied.
+- Role/database settings and default ACLs were captured. The source has broad default ACL entries across `public`, `storage`, `graphql`, and `graphql_public`; the isolated target must be prepared and reconciled against the saved inventory. Do not blindly copy platform defaults or leave every default revoked.
+- The existing `rls_auto_enable()` exception path still logs an RLS-enable failure without re-raising. The fail-closed candidate remains an isolated-only proposal awaiting an explicit owner decision.
+
+## Backup and isolated-restore gate
+
+- No owner-controlled backup manifest or dump artifacts were surfaced in the current Library search.
+- Supabase `list_branches` returned no development branches. No isolated restore target was verified. An inactive project in the organization was not assumed to be a restore target or touched.
+- The connected Supabase tools provide read-only inspection and migration listing but no database export action. Creating a Supabase branch would not copy production data and may incur cost; no project or branch was created.
+- The offline manifest verifier validates declared metadata, inventories, file sizes, and SHA-256 hashes. It does not parse dump contents, prove completeness, or prove successful restoration.
+- The owner-controlled export must therefore be performed from a private workstation with the supported CLI/backup tooling. The fresh inventory makes the documented CLI logical path eligible under its managed-row-count gate, but the custom Auth trigger and `ensure_rls` event trigger still require their separate restore/verification steps.
+
+## Changes and verification
+
+This checkpoint makes no application-code or migration changes. The project state, handoff, roadmap, and source-inventory documentation are being refreshed only to record the verified read-only snapshot and prevent the next run from repeating it. CI #540 is the last verified workflow on the starting code HEAD; the new documentation commit requires its own workflow result. No application tests were executed in the non-checkout container.
+
+No production DDL/DML, migration, RLS/role/project-setting change, backup, restoration, or PR merge occurred.
+
+## Next action
+
+Owner-controlled complete export of roles, schema, data, and project migration history from the private workstation; verify the offline manifest; restore into a separate isolated Supabase project; compare extensions, roles/memberships, default ACLs, role/database settings, Auth trigger, `ensure_rls`, and reminder-function contracts; review checklist conflicts; apply the 19 branch-only migrations only to that restored isolated target; then run authenticated two-owner PostgREST acceptance. Do not apply branch-only migrations to production, deploy the fail-closed candidate, or merge PR #11.
+
+---
+
 # Latest verified checkpoint — checklist reconciliation report determinism and repeatability (2026-11-21)
 
 **Implementation/test HEAD:** `bc7aded35e8451e544f262bc64b7780aa4bf530a` — [CI #539 passed on this exact commit](https://github.com/mohith-krishnaa/personal-os/actions/runs/44908479254).  
