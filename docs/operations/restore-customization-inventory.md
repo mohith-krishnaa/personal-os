@@ -223,3 +223,20 @@ Do not run this candidate against production. Do not add it to the migration cha
 ## Evidence and limitations
 
 The inventory was executed with read-only SQL on the source project. It did not create a backup, restore a target, retrieve secrets, inspect Auth provider configuration, or change project settings. The current production migration ledger remains at eight project migrations; the repository contains 27. The production database remains read-only for this automation.
+
+
+## Latest read-only revalidation — 2026-11-21
+
+Database-reported inspection time: `2026-11-21T14:16:37.284033Z`. The full inventory query was re-executed against the source project; no DDL or DML was issued.
+
+Reconfirmed:
+- Project `ACTIVE_HEALTHY`, PostgreSQL `17.11.0.003`, region `ap-southeast-1`.
+- Project migration ledger: 8 versions; repository migration inventory: 27 (19 branch-only).
+- All 9 public application tables: 0 rows. All 36 managed/ephemeral data tables required by the manifest: 0 rows.
+- Extensions: `pg_stat_statements 1.11`, `pgcrypto 1.3`, `supabase_vault 0.3.1`, `uuid-ossp 1.1`.
+- Provider migration ledgers: Auth 84 rows, Realtime 97 rows, Storage 81 rows; project ledger 8 rows.
+- No non-platform custom schemas, foreign servers, `pg_cron`, `pg_net`, `wrappers`, or managed-schema RLS policies; `supabase_realtime` has no table membership.
+- The custom Auth trigger, `ensure_rls` event trigger, and baseline `claim_due_reminders(integer)` function remain present with the contracts described above.
+- Default ACL entries remain present across `public`, `storage`, `graphql`, and `graphql_public`; the isolated restore must compare and reconcile them against the captured source inventory.
+
+This is a read-only inventory refresh, **not a backup** and not evidence of a successful isolated restore. The standard CLI logical-backup path passes the current managed-row-count gate, but owner-controlled exports and restore verification remain mandatory.
