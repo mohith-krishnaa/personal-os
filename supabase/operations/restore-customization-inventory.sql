@@ -132,7 +132,7 @@ publications AS (
   FROM pg_publication p
 ),
 login_roles AS (
-  SELECT rolname, rolsuper, rolcreaterole, rolcreatedb, rolreplication, rolbypassrls
+  SELECT rolname, rolcanlogin, rolsuper, rolcreaterole, rolcreatedb, rolreplication, rolbypassrls
   FROM pg_roles WHERE rolcanlogin ORDER BY rolname
 ),
 role_memberships AS (

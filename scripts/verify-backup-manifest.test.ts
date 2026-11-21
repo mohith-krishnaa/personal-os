@@ -448,8 +448,9 @@ test('rls_auto_enable remains project-installed outside migrations and the CI fi
   assert.match(bootstrap, /CREATE ROLE supabase_admin NOLOGIN SUPERUSER/i)
 
   const restoreScript = readFileSync(join(process.cwd(), 'supabase', 'operations', 'restore-ensure-rls-event-trigger.sql'), 'utf8')
-  assert.match(restoreScript, /rolname = current_user[\\s\\S]*rolsuper/i)
-  assert.match(restoreScript, /ALTER EVENT TRIGGER ensure_rls OWNER TO postgres/i)
+  assert.ok(restoreScript.includes('rolname = current_user'))
+  assert.ok(restoreScript.includes('rolsuper'))
+  assert.ok(restoreScript.includes('ALTER EVENT TRIGGER ensure_rls OWNER TO postgres'))
 })
 
 test('restore customization inventory records event-trigger tags and function fingerprints without exposing bodies', () => {
@@ -459,6 +460,7 @@ test('restore customization inventory records event-trigger tags and function fi
   )
   assert.ok(inventory.includes('e.evttags'))
   assert.ok(inventory.includes('md5(p.prosrc) AS source_md5'))
+  assert.ok(inventory.includes('rolcanlogin'))
   assert.ok(!inventory.includes('p.prosrc AS source_body'))
 })
 
