@@ -1,3 +1,41 @@
+# Latest verified checkpoint — managed-schema restore audit (2026-11-21)
+
+**Implementation/test HEAD:** `293068da23e1f47b3c6b26b10fd21852bd1449e3` on `feature/organization-v1`. This exact commit passed CI #487: <https://github.com/mohith-krishnaa/personal-os/actions/runs/44861473748>.
+
+## Verified CI evidence
+
+- PostgREST acceptance preflight: 21 tests, 21 passed.
+- Organization migration replay: all 27 repository migrations replayed; Organization/RLS assertions and authenticated isolation/anonymous denial passed.
+- Task hierarchy concurrency checks passed.
+- Isolated Auth trigger restore script refused to run without the explicit session attestation, then ran twice with `app.personal_os_restore_target='isolated'`; the trigger/function assertion passed.
+- Application tests: **179 passed, 0 failed**.
+- TypeScript typecheck passed.
+- Production build passed.
+- npm install audit: 0 vulnerabilities.
+- No lint script is configured.
+
+CI #479 failed only because the test expected the wording “for the CLI logical backup path” while the verifier message said “for this CLI logical backup path”. The message was corrected; CI #480 and later CI #487 passed. No test was disabled or weakened.
+
+## Source restore inventory
+
+The read-only inventory query was executed against the source project:
+- Project ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, `ap-southeast-1`; organization plan Free.
+- Project migration ledger 8; repository 27; 19 branch-only.
+- Nine public application tables and all 36 managed/ephemeral data tables were zero in the 2026-11-21 03:23 UTC snapshot.
+- Provider-managed ledgers: Auth 84, Storage 81, Realtime 97. Do not restore these provider-owned ledgers; the earlier Realtime table-list estimate of 8 was incorrect.
+- Installed non-plpgsql extensions: `pg_stat_statements 1.11`, `pgcrypto 1.3`, `supabase_vault 0.3.1`, `uuid-ossp 1.1`.
+- No custom schemas, no Auth/Storage/Realtime RLS policies, empty `supabase_realtime` publication, no `pg_cron`/`pg_net`/`wrappers`, and no foreign servers.
+- No custom LOGIN roles; nine login roles are platform roles. No Edge Functions were listed. Secret names/values and Dashboard Auth settings were not accessible.
+- Auth trigger `auth.users.on_auth_user_created` calls postgres-owned SECURITY INVOKER `public.handle_new_user()` with `search_path=public`; the function is in the public dump, but the trigger is in the excluded Auth schema and is restored separately on an isolated target.
+- Public event trigger `ensure_rls` calls postgres-owned SECURITY DEFINER `public.rls_auto_enable()` with `search_path=pg_catalog`; verify it after restoring public schema.
+- Out-of-ledger `public.claim_due_reminders(integer)` exists in production with SECURITY DEFINER, postgres owner, service_role-only EXECUTE, and live `search_path=public`; branch migration `20261120000300_atomic_reminder_delivery.sql` expects `pg_catalog, public`. Do not change production.
+
+## Safety and remaining work
+
+The manifest verifier now requires 45 row counts, with all 36 managed/ephemeral counts zero for the manual CLI logical-backup path. The isolated Auth trigger restore DDL requires a same-session `app.personal_os_restore_target='isolated'` marker. The repository has no `supabase/config.toml`; source drift diff must use a private temporary CLI workspace with only the exact eight live migration files, not all 27 branch migrations.
+
+No backup or restore was created. No production DDL/DML, migration, RLS change, role change, project setting change, or PR merge occurred. No local checkout is attached, so local working-tree cleanliness cannot be certified. PR #11 remains open and unmerged.
+
 # Latest CI follow-up — isolated-target restore guard (2026-11-21)
 
 The current branch HEAD before this documentation update was `fe918c9c165adda10d66cf73b5fccd66156d4949`. CI #482 passed on `ce77eef14abed0fe6fc37fc42f2401ff47e277b4` with 21/21 PostgREST preflight tests, 27 migration replay/Organization-RLS checks, 178/178 application tests, typecheck, production build, and 0 npm vulnerabilities. CI #482 did not include the later session-GUC guard in `restore-auth-user-trigger.sql` or the negative guard test added afterward. The latest head must be checked for a new workflow result; do not treat #482 as verification of `fe918c9`.

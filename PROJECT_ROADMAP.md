@@ -1,3 +1,17 @@
+# Latest verified roadmap checkpoint — 2026-11-21
+
+## Organization V1 — active, not accepted
+
+Managed-schema/project-level restore audit is implemented and CI-verified. The offline manifest verifier requires 45 row-count keys; all 36 Auth/Storage/Vault/Realtime managed/ephemeral data counts must be zero for the manual CLI logical-backup path. The source snapshot at 2026-11-21 03:23 UTC showed nine public application tables and all 36 managed/ephemeral tables empty.
+
+The isolated Auth trigger restore script requires explicit same-session `app.personal_os_restore_target='isolated'` attestation. The public `ensure_rls` event trigger and `public.rls_auto_enable()` must be verified after schema restore. The out-of-ledger `public.claim_due_reminders(integer)` function has live `search_path=public`, while the branch migration expects `pg_catalog, public`.
+
+CI #487 passed on `293068da23e1f47b3c6b26b10fd21852bd1449e3`: PostgREST preflight 21/21, 27 migration replay/Organization-RLS checks, task hierarchy concurrency, isolated Auth trigger refusal and idempotent restore, 179/179 application tests, typecheck, production build, and 0 npm vulnerabilities. CI #479 had a test-message mismatch that was corrected; #480 and #487 passed.
+
+**Acceptance gates remain open:** complete owner-controlled schema/data/roles backup, successful isolated restoration, extension/role/default-ACL/database-setting verification, checklist conflict disposition on the restored copy, and authenticated two-owner PostgREST acceptance. Current organization is Free; native Restore-to-New-Project is paid-plan-only. No production migration or PR merge is authorized.
+
+Analytics, AI Assistant, Research Agent, Adaptive Scheduling, and production hardening remain queued behind Organization acceptance. Do not start Analytics based on empty tables or disposable CI alone.
+
 # Latest CI follow-up — 2026-11-21
 
 The isolated Auth trigger restore script now requires an explicit same-session `app.personal_os_restore_target='isolated'` attestation. The disposable migration runner verifies that the script refuses to run without the attestation and can be applied twice when the target is explicitly marked isolated.

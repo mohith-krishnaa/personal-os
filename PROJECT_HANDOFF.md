@@ -1,3 +1,48 @@
+# Latest handoff — CI-verified managed-schema restore audit (2026-11-21)
+
+## Exact resume point
+
+- Implementation/test HEAD: `293068da23e1f47b3c6b26b10fd21852bd1449e3`
+- CI #487: <https://github.com/mohith-krishnaa/personal-os/actions/runs/44861473748> — passed on that exact HEAD.
+- Branch: `feature/organization-v1`; PR #11 open/unmerged; PR #12 open superseded draft.
+- Repository migrations 27; production project migration ledger 8; 19 branch-only.
+- No migration was added.
+
+## Completed
+
+1. Read-only Supabase-managed customization inventory at `supabase/operations/restore-customization-inventory.sql`.
+2. Isolated-only Auth trigger restore at `supabase/operations/restore-auth-user-trigger.sql`, guarded by same-session `app.personal_os_restore_target='isolated'`; CI tests refusal without the marker and two idempotent applications with it.
+3. Offline manifest verifier requires 45 row-count keys and rejects any non-zero count among 36 managed/ephemeral data tables.
+4. Runbook and project state/roadmap/handoff updated.
+
+## CI #487 exact results
+
+- PostgREST preflight 21/21.
+- All 27 migration replay checks and Organization/RLS assertions passed.
+- Task hierarchy concurrency passed.
+- Isolated Auth trigger refusal/restore/idempotence assertions passed.
+- Application tests 179/179.
+- TypeScript typecheck and production build passed.
+- npm install audit reported 0 vulnerabilities.
+- No lint script is configured.
+
+CI #479 had one assertion-wording failure; the verifier message was corrected and subsequent CI #480 and #487 passed.
+
+## Production findings and blockers
+
+- Source project ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, `ap-southeast-1`, Free plan.
+- Nine public application tables and 36 managed/ephemeral data tables were all empty at the 2026-11-21 03:23 UTC snapshot. Re-run inventory immediately before export.
+- Auth/Storage/Realtime provider ledgers: 84/81/97 rows; project migration ledger 8. Do not restore provider-managed ledgers.
+- Standard Supabase CLI dump excludes managed schemas such as `auth`, `storage`, and extension-created schemas. The manual CLI path is allowed only while all 36 managed counts remain zero. If any become non-zero, stop and use a complete supported backup/restore path.
+- Native Restore-to-New-Project requires a paid plan and physical backups; current organization is Free.
+- Restore the custom Auth trigger separately on the isolated target. Verify `ensure_rls`/ `rls_auto_enable` after public schema restore.
+- Review out-of-ledger `claim_due_reminders` drift: live `search_path=public`, branch migration expects `pg_catalog, public`.
+- Secrets and Dashboard-only Auth/API/Storage/Realtime settings were not accessible; owner inventory is required.
+
+## Next action
+
+Owner-controlled backup and isolated restoration. If unavailable, do not churn on the same blocked step: use the private scratch diff workspace with only the eight live migrations to inspect `claim_due_reminders` and `ensure_rls` drift, and complete the Dashboard-only settings inventory. Keep production read-only and Analytics queued.
+
 # Latest resume note — CI coverage for isolated-target guard (2026-11-21)
 
 - Branch: `feature/organization-v1`
