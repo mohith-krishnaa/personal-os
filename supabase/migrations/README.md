@@ -7,6 +7,10 @@
 - The live function's ACL currently excludes PUBLIC, anon, and authenticated and allows service_role. The migration itself does not revoke PUBLIC, so the isolated restore/preflight must verify that ACL explicitly.
 - `claim_due_reminders(integer)` is not out-of-ledger drift: its live implementation matches the applied baseline migration `20260830123420_atomize_reminder_delivery_claim.sql`. Branch-only migration `20261120000300_atomic_reminder_delivery.sql` is the intended atomic replacement and is not in the live eight-version ledger.
 
+## Schema-drift audit verification
+
+CI #489 on `ed75d744ab885b5d6c6b9b900fa67afa62a01847` passed 21/21 PostgREST preflight, 27 migration replay, Organization/RLS and hierarchy checks, and 181/181 application tests, but failed TypeScript typecheck on a readonly tuple `includes` argument. The test was corrected in `ec92d85946001f261c87bc1059d9540edacf2ab3`. CI #490 passed on that exact implementation/test HEAD: 21/21 preflight, 27/27 migrations, Organization/RLS and hierarchy checks, 181/181 tests, typecheck, production build, and 0 npm vulnerabilities. No lint script is configured.
+
 
 The branch contains **27 migrations**. The last fresh read-only production ledger contains **8 applied versions**, leaving **19 branch-only migrations**. Migration 27 is `20261121000500_trusted_activity_event_writers.sql`; it moves the task activity trigger to a postgres-owned SECURITY DEFINER writer, removes authenticated direct activity-event INSERT, and retains service_role as the trusted server-side writer.
 

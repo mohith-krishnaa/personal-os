@@ -72,4 +72,12 @@ The existing `scripts/verify-backup-manifest.test.ts` suite now verifies:
 - The eight-version source migration list includes the baseline reminder function but excludes the branch-only atomic replacement.
 - The baseline and replacement retain their distinct search paths and notification-write contracts.
 
-The tests protect migration classification; they do not prove the production event trigger is restored. CI for the audit commit is recorded in the latest project checkpoint after the workflow completes.
+The tests protect migration classification; they do not prove the production event trigger is restored.
+
+## 6. CI evidence
+
+- CI #489 on `ed75d744ab885b5d6c6b9b900fa67afa62a01847`: 21/21 PostgREST preflight, 27/27 migrations, Organization/RLS assertions, task hierarchy concurrency, and 181/181 application tests passed. Typecheck failed on a readonly tuple `includes` argument; the production build was skipped.
+- The test-only correction widened the source migration list to `readonly string[]` in `ec92d85946001f261c87bc1059d9540edacf2ab3`.
+- CI #490 passed on that exact implementation/test HEAD: 21/21 preflight, 27/27 migration replay, Organization/RLS and hierarchy checks, 181/181 tests, typecheck, production build, and npm install reported 0 vulnerabilities.
+- No lint script is configured. No migration or runtime application code changed.
+

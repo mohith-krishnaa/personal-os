@@ -18,6 +18,12 @@ Added static regression coverage for the migration boundary and the baseline-to-
 
 No owner-controlled backup or isolated restore exists. No production DDL/DML, migration, RLS/role/project-setting change, backup, restore, or PR merge occurred. Dashboard Auth/API/SMTP/JWT/Realtime/webhook settings and secret names remain owner-controlled inventory items. A fresh Supabase Edge Function listing returned no functions.
 
+## CI verification on the audit implementation
+
+- CI #489 on `ed75d744ab885b5d6c6b9b900fa67afa62a01847`: PostgREST preflight 21/21, 27/27 migrations replayed, Organization/RLS assertions and task hierarchy concurrency passed, and application tests 181/181 passed. TypeScript typecheck failed because the readonly tuple type of `REQUIRED_SOURCE_MIGRATIONS` rejected the pending version literal in an `includes` assertion; production build was skipped.
+- Corrected the test by widening the local view to `readonly string[]` in `ec92d85946001f261c87bc1059d9540edacf2ab3`.
+- CI #490 passed on that exact implementation/test HEAD: PostgREST preflight 21/21; 27/27 migrations replayed; Organization/RLS and task hierarchy concurrency passed; **181/181 application tests passed**; typecheck passed; production build passed; npm install reported **0 vulnerabilities**. No lint script is configured.
+
 The next code-side task, if owner backup remains unavailable, is to extend read-only preflight with an explicit PUBLIC ACL assertion and build an isolated-only verification/restore test for the `ensure_rls` customization. Do not change production. Keep Analytics queued behind Organization acceptance.
 
 ---

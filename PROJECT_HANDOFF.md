@@ -23,6 +23,12 @@
 - Corrected the CI fixture comment and current restore/preflight/migration documentation.
 - No migration, runtime behavior, or production object was changed.
 
+## CI verification
+
+- CI #489 on `ed75d744ab885b5d6c6b9b900fa67afa62a01847` failed only at typecheck: the readonly tuple type of `REQUIRED_SOURCE_MIGRATIONS` rejected `20261120000300` in an `includes` assertion. Its 21/21 PostgREST preflight, 27-migration replay, Organization/RLS assertions, hierarchy concurrency, and 181/181 application tests passed; build was skipped after typecheck failed.
+- The type-only issue was corrected in `ec92d85946001f261c87bc1059d9540edacf2ab3` by widening the local migration-version view to `readonly string[]`.
+- CI #490 passed on that exact implementation/test HEAD: 21/21 preflight, 27/27 migration replay, Organization/RLS and hierarchy checks, 181/181 tests, typecheck, production build, and npm audit with 0 vulnerabilities. No lint script is configured.
+
 ## Production safety
 
 No backup or isolated restore exists. Production was queried read-only only. No DDL/DML, migration, RLS, role, project setting, backup, restore, or merge was performed. The connected Supabase tools expose no backup/export action. Edge Function listing returned empty; Dashboard-only Auth/API/SMTP/JWT/Realtime/webhook settings remain owner inventory.

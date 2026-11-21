@@ -1,3 +1,11 @@
+# Latest schema-drift audit verification — 2026-11-21
+
+CI #489 on `ed75d744ab885b5d6c6b9b900fa67afa62a01847` passed 21/21 PostgREST preflight tests, 27/27 migration replay, Organization/RLS assertions, hierarchy concurrency, and 181/181 application tests, but failed TypeScript typecheck because a readonly tuple's `includes` parameter rejected the branch-only migration literal. The test was corrected in `ec92d85946001f261c87bc1059d9540edacf2ab3`. CI #490 passed on that exact implementation/test HEAD: 21/21 preflight, 27/27 migrations, Organization/RLS and hierarchy checks, 181/181 tests, typecheck, production build, and 0 npm vulnerabilities. No lint script is configured.
+
+The audit corrects the previous restore note: `claim_due_reminders(integer)` matches the applied baseline migration; `20261120000300_atomic_reminder_delivery.sql` is its intended branch-only atomic replacement. `ensure_rls`/`rls_auto_enable()` is a project-installed optional event-trigger customization; no repository migration creates it. See [schema-drift audit](schema-drift-audit-2026-11-21.md).
+
+---
+
 # Latest preflight addendum — Supabase-managed schema and project customization audit (2026-11-21)
 
 Fresh read-only inventory was executed at 2026-11-21 03:23 UTC against the source project. The exact SQL result, not the earlier table-list estimate, is authoritative:

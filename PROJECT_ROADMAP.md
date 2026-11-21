@@ -6,7 +6,7 @@ The latest audit corrected two restore classifications:
 - `claim_due_reminders(integer)` matches the applied eight-migration baseline. Branch-only `20261120000300_atomic_reminder_delivery.sql` is the pending atomic replacement, not out-of-ledger drift.
 - `ensure_rls` / `rls_auto_enable()` is a project-installed optional event-trigger customization, not a Supabase-managed built-in or a repository-created object. The current function logs and swallows RLS-enable exceptions; the migration chain only revokes anon/authenticated EXECUTE and does not enforce the currently absent PUBLIC grant.
 
-Two static regression tests protect these boundaries. The disposable bootstrap is explicitly documented as a no-op stub, not a production behavior simulation. No migration or production change was made. CI on this audit commit is pending; starting HEAD `a4703c2` had CI #488 pass.
+Two static regression tests protect these boundaries. The disposable bootstrap is explicitly documented as a no-op stub, not a production behavior simulation. No migration or production change was made. CI #489 exposed one TypeScript tuple-typing error after 181/181 tests passed; the assertion was corrected in `ec92d85946001f261c87bc1059d9540edacf2ab3`. CI #490 passed on that exact implementation/test HEAD: 21/21 preflight, 27/27 migrations, Organization/RLS and hierarchy checks, 181/181 tests, typecheck, build, and 0 npm vulnerabilities.
 
 Organization acceptance remains blocked by complete owner-controlled backup, successful isolated restoration, managed/project settings verification, checklist conflict disposition, and authenticated two-owner PostgREST acceptance. Analytics, AI Assistant, Research Agent, Adaptive Scheduling, and production hardening remain queued.
 
