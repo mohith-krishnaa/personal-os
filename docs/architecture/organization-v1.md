@@ -271,9 +271,11 @@ Latest code/test verification (2026-11-20): commit `eb194521e6d1bb12147058530c84
 
 ### Runtime inventory
 
-A branch-head audit inspected all 56 TypeScript/TSX/JavaScript files under `src/` and `lib/`, plus root `middleware.ts`. No runtime module references `task_checklist_items`. The current service in `src/lib/checklists.ts` uses only `checklist_items`; authenticated dashboard actions call `auth.getUser()` and pass the resolved user to that service. Service tests assert the canonical table and owner/task filters.
+At branch HEAD `ba5b1548c492ff79cccbca9b9a88d36724624fd8`, a recursive Git tree audit enumerated and fetched all 62 TypeScript/TSX/JavaScript files under `src/` and `lib/`, plus root `middleware.ts` (63 files total). No runtime module references `task_checklist_items`. The only runtime checklist service, `src/lib/checklists.ts`, uses `checklist_items`; authenticated dashboard actions call `auth.getUser()` and pass the resolved user to that service. Service tests assert the canonical table and owner/task filters. CI #456 adds `scripts/legacy-checklist-runtime-guard.test.ts` to `npm test` so future runtime references to the transitional table fail CI.
 
 This establishes the repository's current client behavior only. It does not establish whether an older external or already-deployed client still calls the legacy table.
+
+The only non-test script that intentionally writes `task_checklist_items` is the isolated `scripts/postgrest-organization-acceptance.ts` harness. Its writes are disposable compatibility checks, not product runtime callers. SQL migration fixtures and RLS assertions also reference the table. External/deployed client usage remains unknown; see the phased cutover contract in [the migration README](../../supabase/migrations/README.md#legacy-checklist-compatibility-contract--2026-11-19).
 
 ### Database behavior on the Organization branch
 

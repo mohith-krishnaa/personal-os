@@ -134,9 +134,11 @@ Use `supabase migration list` after linking the project to verify local/remote v
 
 ### Runtime inventory
 
-A branch-head audit inspected all 56 TypeScript/TSX/JavaScript files under `src/` and `lib/`, plus root `middleware.ts`. No runtime module references `task_checklist_items`. The current service in `src/lib/checklists.ts` uses only `checklist_items`; authenticated dashboard actions call `auth.getUser()` and pass the resolved user to that service. Service tests assert the canonical table and owner/task filters.
+At branch HEAD `ba5b1548c492ff79cccbca9b9a88d36724624fd8`, a recursive Git tree audit enumerated and fetched all 62 TypeScript/TSX/JavaScript files under `src/` and `lib/`, plus root `middleware.ts` (63 files total). No runtime module references `task_checklist_items`. The only runtime checklist service, `src/lib/checklists.ts`, uses `checklist_items`; authenticated dashboard actions call `auth.getUser()` and pass the resolved user to that service. Service tests assert the canonical table and owner/task filters. CI #456 adds `scripts/legacy-checklist-runtime-guard.test.ts` to `npm test`; it scans non-test runtime files under `src/`, `lib/`, and `middleware.ts` and fails if a legacy-table reference is introduced.
 
 This establishes the repository's current client behavior only. It does not establish whether an older external or already-deployed client still calls the legacy table.
+
+The only non-test script that intentionally writes the legacy table is `scripts/postgrest-organization-acceptance.ts`. It creates, updates, and deletes uniquely identified disposable rows in both checklist tables through two authenticated sessions to verify the retained compatibility contract. SQL migration fixtures and assertions also exercise the legacy table. These are test/acceptance paths, not product runtime callers and not evidence of real external-client traffic.
 
 ### Database behavior on the Organization branch
 
@@ -152,6 +154,14 @@ This establishes the repository's current client behavior only. It does not esta
 3. Do not add dual-write/synchronization behavior, change legacy RLS/write permissions, or drop the legacy table in this audit. Those choices require an explicit compatibility window and owner approval.
 4. Before a future sunset, inventory deployed clients and observe PostgREST/API logs for legacy-table reads/writes over an owner-approved window after the table exists in the target environment. Review every row returned by the conflict report against a complete backup restored in isolation.
 5. A future deprecation should be staged: first restrict legacy writes through a reviewed forward migration while preserving a read/export window and rollback period; remove the table only in a separate later migration after the retention and rollback criteria are met.
+
+### Cutover sequence
+
+1. **Current state — compatibility retained.** Current application code writes only `checklist_items`. Keep the legacy table's owner/task-scoped RLS policies unchanged until external-client usage can be measured; do not add dual writes or synchronization.
+2. **Establish observability after deployment.** The last recorded production inspection on 2026-11-19 found eight applied migrations and neither checklist table present. Production was not rechecked in the 2026-11-21 audit. Because the legacy table is not part of that recorded live schema, no production legacy-table traffic baseline exists. After a separately approved rollout creates the table, inventory deployed clients and observe PostgREST/API logs for legacy SELECT/INSERT/UPDATE/DELETE over an owner-approved window. Retain the exact window, filters, and evidence privately.
+3. **Freeze writes in a separate forward migration.** Only after zero observed legacy writes over the approved window, conflict-report disposition, and owner sign-off, restrict authenticated legacy INSERT/UPDATE/DELETE while retaining SELECT/export for a defined rollback and retention window. Re-run two-owner RLS tests and the conflict report. Do not combine this write freeze with table removal.
+4. **Rollback window.** Keep the legacy table and read/export path intact. If a supported client is discovered or an agreed acceptance check fails, restore the prior write policy through a reviewed forward migration; do not rewrite migration history or reset the database.
+5. **Final removal.** Only after the rollback window, retention requirements, private export, and owner approval are complete, use a separate later migration to remove the legacy table and its policies/indexes. Production DDL remains blocked by the complete owner-controlled backup and isolated-restore gate plus explicit authorization.
 
 ### Current production limitation
 

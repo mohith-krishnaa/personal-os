@@ -1,4 +1,70 @@
-# Latest verified checkpoint — checklist reconciliation operator disposition audit (2026-11-21)
+# Latest verified checkpoint — legacy checklist runtime audit and cutover guard (2026-11-21)
+
+**Starting branch HEAD:** `ba5b1548c492ff79cccbca9b9a88d36724624fd8` — CI #455 passed.  
+**Code/test HEAD:** `c8a5fdc75165f32654dcd22bdb8017d2b193f3ee` — [CI #456 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44843369999).  
+**Branch:** `feature/organization-v1`. **Repository migrations:** 27; no migration was added.  
+**PR #11:** open and unmerged. **PR #12:** open, superseded draft.
+
+## Continuity recovery
+
+- Personal-OS Builder is enabled.
+- Recorded last run: `8fb5af3f-96c4-8325-8e43-c41bfa820204`, status `in_progress`, started `2026-11-21T00:18:45.978924Z`.
+- Latest stored result: run `35a1ce1d-e950-8330-a799-c912befd29bd`, created `2026-11-20T23:36:21.790596Z`. It predates the recorded current run and belongs to the previous checklist-conflict audit; it was not attributed to the current run.
+- The previous completed task was checklist reconciliation conflict disposition. No partial code change was left to recover.
+- The current branch and PR head were verified through GitHub. No local checkout is attached; a clone attempt failed because this environment could not resolve `github.com`. Remote working-tree cleanliness therefore cannot be certified.
+
+## Legacy checklist caller audit
+
+A recursive Git tree walk at the starting HEAD enumerated 62 TypeScript/TSX/JavaScript/JSX files across `src/` and `lib/`, plus root `middleware.ts`. All 63 files were fetched and scanned.
+
+- No runtime application module references `task_checklist_items`.
+- `src/lib/checklists.ts` uses only canonical `checklist_items`; authenticated dashboard actions resolve the user with `auth.getUser()` and pass that user ID to the service.
+- `src/lib/checklists.test.ts` asserts canonical table selection and owner/task filters.
+- The only non-test script intentionally writing the legacy table is `scripts/postgrest-organization-acceptance.ts`. It creates, updates, and deletes uniquely marked rows in both tables through two disposable authenticated owners to test the compatibility surface. This is not product runtime or evidence of external-client traffic.
+- SQL fixtures and migration assertions also exercise legacy CRUD/RLS and conflict handling; these are test-only references.
+
+The 27 migration files were scanned. Relevant legacy-table behavior is limited to:
+- `20260905170100_organization_v1_checklists.sql`: creates the transitional table and authenticated owner/task-scoped CRUD policies.
+- `20261015000200_reconcile_checklist_tables.sql`: one-time same-owner copy into canonical `checklist_items`, preserving canonical ID collisions with `ON CONFLICT (id) DO NOTHING`.
+- `20261117000200_harden_checklist_select_ownership.sql`: adds task-owner validation to legacy SELECT visibility.
+
+No migration installs a legacy-to-canonical synchronization trigger. A valid legacy write after reconciliation can remain absent from the application-facing canonical table and appear as `missing_canonical` in the read-only conflict report. Authenticated legacy INSERT/UPDATE/DELETE remains permitted by the transitional policies.
+
+External or already-deployed client usage is unknown. The last recorded production inspection (2026-11-19) found eight applied migrations and neither checklist table present. Production was not queried during this audit, so that baseline is not being represented as a fresh observation and no production legacy-traffic measurement is available.
+
+## Regression guard and CI #456
+
+Added `scripts/legacy-checklist-runtime-guard.test.ts` and included it in `npm test`. It scans non-test runtime files under `src/`, `lib/`, and root `middleware.ts`, failing if the transitional table name is introduced into runtime code.
+
+Verified on code/test HEAD `c8a5fdc75165f32654dcd22bdb8017d2b193f3ee`:
+- npm install: 0 vulnerabilities reported.
+- PostgREST safety preflight: **21/21 passed**.
+- PostgreSQL 17 migration replay: **27/27 passed**.
+- Task hierarchy concurrency: passed.
+- Application tests: **152/152 passed**, including the new runtime guard.
+- TypeScript typecheck: passed.
+- Production build: passed.
+- No lint script is configured.
+
+Non-failing CI warnings: Node's `punycode` deprecation notice and npm's install-script review advisory. No check failed.
+
+## Legacy checklist deprecation decision
+
+1. **Keep the current compatibility state.** Current application runtime uses canonical `checklist_items`; retain legacy owner-scoped writes until external-client usage can be measured. Do not add dual-write or synchronization behavior.
+2. **Observe only after an approved rollout creates the table in the target environment.** Inventory deployed clients and observe PostgREST/API logs for legacy SELECT/INSERT/UPDATE/DELETE over an owner-approved window. Keep the exact window and evidence private; synthetic acceptance-harness traffic is not client telemetry.
+3. **Freeze writes separately.** Only after zero observed use, conflict-report disposition, and owner sign-off, use a reviewed forward migration to restrict legacy INSERT/UPDATE/DELETE while retaining SELECT/export for a defined rollback and retention window. Re-run two-owner RLS tests and the conflict report.
+4. **Preserve rollback.** Keep the table and read/export path during the rollback window. If an old client is found, restore the prior write policy through a reviewed forward migration; do not rewrite migration history.
+5. **Remove later, separately.** Drop the legacy table only in a later migration after retention, rollback, export, and owner-approval criteria are satisfied. Do not combine write freeze and table removal.
+
+## Safety boundary and next action
+
+No production query, DDL/DML, migration, RLS change, backup, restore, or PR merge was performed. The complete owner-controlled schema/data/roles backup and successful isolated restoration remain outstanding, followed by restored-copy checklist conflict disposition and authenticated two-owner PostgREST acceptance. The last recorded live baseline is not freshly revalidated.
+
+**Next owner action:** create the complete backup and restore it into a separate isolated project; verify the eight-version source baseline, reviewed Auth trigger/extensions/roles/RLS/Vault requirements, then apply the 19 branch-only migrations only to that isolated target, review the conflict report, and execute the PostgREST harness. Do not retry an unavailable export or use production as a test target. If the owner gate remains unavailable, continue a different bounded Organization audit rather than repeating this completed legacy-caller scan.
+
+---
+
+# Previous checkpoint — checklist reconciliation operator disposition audit (2026-11-21)
 
 **Implementation/test HEAD:** `44cde434c6507f1c492b373b6d53b60f5214bb8f` — [CI #454 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44837508847).  
 **Starting HEAD:** `818442304c8419d093d55089352cb30571ed9f6b`.  

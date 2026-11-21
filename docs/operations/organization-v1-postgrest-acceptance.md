@@ -67,6 +67,8 @@ Using two separate authenticated sessions and only the public anon/publishable k
 - Each owner can create, read, update, and delete their own projects.
 - Each owner can create, read, update, and delete tasks and subtasks.
 - Each owner can create, read, update, and delete canonical checklist_items and legacy task_checklist_items.
+
+The legacy-table CRUD calls are intentionally included only to verify the transitional compatibility surface. The current application runtime uses canonical `checklist_items` only; `scripts/legacy-checklist-runtime-guard.test.ts` enforces that boundary. Harness traffic is synthetic and must not be treated as evidence that an older external client still uses the legacy table.
 - Cross-owner SELECT returns no rows.
 - Cross-owner UPDATE and DELETE affect no rows.
 - Owner A cannot directly INSERT an `activity_events` row; the request must fail with PostgreSQL `42501`.
@@ -74,7 +76,7 @@ Using two separate authenticated sessions and only the public anon/publishable k
 - Each owner can read its own task event; the other owner cannot read it.
 - Owner spoofing, cross-owner project/task/parent links, and cross-owner checklist/task links are rejected.
 - Deleting a parent task cascades only through its own child hierarchy and attached checklist rows; the other owner's task remains.
-- The script deletes only the project, task, and checklist IDs it created, using the same authenticated owner sessions.
+- The script deletes only the project, task, and checklist IDs it created, using the same authenticated owner sessions. The legacy checklist rows it creates are included in that exact-ID cleanup; they are test fixtures, not production-client telemetry. Keep this compatibility check while legacy writes remain supported. After a separately approved legacy write-freeze migration, change the harness to assert denied legacy writes and retained read/export behavior; do not simply remove the coverage.
 - It never attempts to delete `activity_events`. Task INSERT/UPDATE/DELETE triggers create append-only event rows, so task-linked test events remain after fixture cleanup. The script reports the combined retained event count across both owners.
 
 The harness does not create Auth users, delete Auth users, or inspect production. The live PostgREST acceptance run does not run automatically in CI; its unit tests cover the environment/URL/key safety gate without contacting Supabase. A successful unit-test run is not evidence that the live PostgREST acceptance suite has been executed.
