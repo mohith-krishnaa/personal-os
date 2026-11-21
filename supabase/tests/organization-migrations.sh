@@ -449,3 +449,12 @@ if ! grep -Fq "$expected_restore_executor_line" <<<"$preflight_output"; then
   printf '%s\n' "$preflight_output"
   exit 1
 fi
+
+post_rollback_ensure_rls_state="$(psql -X -v ON_ERROR_STOP=1 -A -t -c "SELECT md5(p.prosrc) || '|' || (SELECT count(*)::text FROM pg_event_trigger WHERE evtname = 'ensure_rls') FROM pg_proc p WHERE p.oid = 'public.rls_auto_enable()'::regprocedure")"
+if [[ "$post_rollback_ensure_rls_state" != '99be20677b456ea8d3be47bdd44fb369|0' ]]; then
+  echo "The isolated ensure_rls/candidate test transaction did not roll back to the original source function and absent event-trigger baseline:"
+  printf '%s\n' "$post_rollback_ensure_rls_state"
+  exit 1
+fi
+
+echo "Verified fail-closed candidate tests leave the disposable migration baseline unchanged after rollback."
