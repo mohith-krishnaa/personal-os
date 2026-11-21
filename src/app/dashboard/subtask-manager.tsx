@@ -1,14 +1,20 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { addSubtaskAction, listSubtasksAction } from './subtask-actions'
 import { toggleTaskAction } from './actions'
 import type { Task } from '@/types/task'
 import { afterSubtaskCreated, afterSubtaskListLoadFailed } from '@/lib/subtask-state'
-import { getClientRequestState, type PendingClientRequest } from '@/lib/client-request-id'
+import {
+  completeClientRequestState,
+  getClientRequestState,
+  getClientRequestStorage,
+  type PendingClientRequest,
+} from '@/lib/client-request-id'
 
 export default function SubtaskManager({ task }: { task: Task }) {
   const requestRef = useRef<PendingClientRequest>(null)
+  const requestStorageKey = 'personal-os:task-create:' + useId()
   const [title, setTitle] = useState('')
   const [items, setItems] = useState<Task[]>([])
   const [open, setOpen] = useState(false)
@@ -47,10 +53,13 @@ export default function SubtaskManager({ task }: { task: Task }) {
     const value = title.trim()
     if (!value || loading || saving) return
     const payload = { parent_task_id: task.id, title: value, project_id: task.project_id }
-    const request = getClientRequestState(
+    const storage = getClientRequestStorage()
+    const request = await getClientRequestState(
       requestRef.current,
       payload,
       () => globalThis.crypto.randomUUID(),
+      storage,
+      requestStorageKey,
     )
     requestRef.current = request
     setSaving(true)
@@ -61,6 +70,7 @@ export default function SubtaskManager({ task }: { task: Task }) {
         project_id: task.project_id,
         client_request_id: request.id,
       })
+      completeClientRequestState(request, storage, requestStorageKey)
       const next = afterSubtaskCreated(items, subtask, loaded)
       setItems(next.items)
       setLoaded(!next.shouldReload)
