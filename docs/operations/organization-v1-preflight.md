@@ -422,7 +422,7 @@ Create a separate isolated Supabase project; do not use the production project, 
 Restore the custom-role export first so every source owner role exists before privilege preparation. This is still only the isolated target:
 
 ~~~bash
-psql "$TARGET_DB_URL" --single-transaction --variable ON_ERROR_STOP=1 --file roles.sql --dbname "$TARGET_DB_URL"
+psql --single-transaction --variable ON_ERROR_STOP=1 --file roles.sql --dbname "$TARGET_DB_URL"
 ~~~
 
 The Supabase CLI restore documentation warns that a new project's default privileges can grant broad access to restored tables. Before restoring schema objects, connect as `postgres` and revoke the target's default table grants to `anon` and `authenticated` for the role that owns the restored public objects:
