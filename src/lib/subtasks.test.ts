@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createSubtask, listSubtasks } from './subtasks'
+import { hashClientRequestPayload } from './task-create-idempotency'
 import { afterSubtaskCreated, afterSubtaskListLoadFailed } from './subtask-state'
 
 const REQUEST_ID = '94000000-0000-4000-8000-000000000099'
@@ -12,6 +13,7 @@ function unreachableDatabase() {
 function createLookupSupabase(responses: Array<{ table: string; data: unknown; error: unknown | null }>) {
   const pending = [...responses]
   const calls: string[] = []
+  const filters: Array<[string, string, string]> = []
   const supabase = {
     from(table: string) {
       calls.push(table)
@@ -20,13 +22,13 @@ function createLookupSupabase(responses: Array<{ table: string; data: unknown; e
       assert.equal(response.table, table)
       return {
         select() { return this },
-        eq() { return this },
+        eq(column: string, value: string) { filters.push([table, column, value]); return this },
         single: async () => response,
         maybeSingle: async () => response,
       }
     },
   } as any
-  return { supabase, calls }
+  return { supabase, calls, filters }
 }
 
 function createSubtaskDatabase(projectStatus: string) {
@@ -161,6 +163,85 @@ test('creates a subtask only after owner-scoped ACTIVE-project preflight', async
     due_at: null,
     estimated_minutes: null,
   })
+})
+
+test('returns the existing owner-scoped subtask for a same-payload retry before rechecking mutable parent state', async () => {
+  const requestHash = hashClientRequestPayload({
+    kind: 'SUBTASK',
+    parent_task_id: 'parent-1',
+    project_id: null,
+    title: 'Child task',
+    priority: 'MEDIUM',
+    due_at: null,
+    estimated_minutes: null,
+  })
+  const existingSubtask = {
+    id: 'subtask-1',
+    user_id: 'owner-1',
+    parent_task_id: 'parent-1',
+    project_id: null,
+    title: 'Child task',
+    priority: 'MEDIUM',
+    due_at: null,
+    estimated_minutes: null,
+    client_request_id: REQUEST_ID,
+    client_request_hash: requestHash,
+  }
+  const { supabase, calls, filters } = createLookupSupabase([
+    { table: 'tasks', data: existingSubtask, error: null },
+  ])
+
+  const result = await createSubtask(supabase, 'owner-1', 'parent-1', {
+    client_request_id: REQUEST_ID,
+    title: 'Child task',
+  })
+
+  assert.equal(result.id, 'subtask-1')
+  assert.equal('client_request_id' in result, false)
+  assert.equal('client_request_hash' in result, false)
+  assert.deepEqual(calls, ['tasks'])
+  assert.deepEqual(filters, [
+    ['tasks', 'user_id', 'owner-1'],
+    ['tasks', 'client_request_id', REQUEST_ID],
+  ])
+})
+
+test('rejects reusing a subtask request ID with a different parent task', async () => {
+  const existingHash = hashClientRequestPayload({
+    kind: 'SUBTASK',
+    parent_task_id: 'another-parent',
+    project_id: null,
+    title: 'Child task',
+    priority: 'MEDIUM',
+    due_at: null,
+    estimated_minutes: null,
+  })
+  const { supabase, calls, filters } = createLookupSupabase([
+    {
+      table: 'tasks',
+      data: {
+        id: 'subtask-1',
+        user_id: 'owner-1',
+        parent_task_id: 'another-parent',
+        client_request_id: REQUEST_ID,
+        client_request_hash: existingHash,
+      },
+      error: null,
+    },
+  ])
+
+  await assert.rejects(
+    () => createSubtask(supabase, 'owner-1', 'parent-1', {
+      client_request_id: REQUEST_ID,
+      title: 'Child task',
+    }),
+    /already been used with different task details/,
+  )
+  assert.deepEqual(calls, ['tasks'])
+  assert.deepEqual(filters, [
+    ['tasks', 'user_id', 'owner-1'],
+    ['tasks', 'client_request_id', REQUEST_ID],
+  ])
 })
 
 test('createSubtask preserves parent database authorization errors', async () => {
