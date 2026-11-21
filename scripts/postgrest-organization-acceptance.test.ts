@@ -99,7 +99,7 @@ test('rejects a legacy JWT with an unsupported algorithm or token type', () => {
 test('rejects a legacy JWT with an empty or malformed signature segment', () => {
   const env = validEnvironment()
   env.PERSONAL_OS_ACCEPTANCE_ANON_KEY = legacyJwtKey({ role: 'anon' }, undefined, '')
-  assert.throws(() => loadAcceptanceConfig(env, ['--execute']), /structurally valid three-part/)
+  assert.throws(() => loadAcceptanceConfig(env, ['--execute']), /publishable key or a legacy anon JWT/)
 
   env.PERSONAL_OS_ACCEPTANCE_ANON_KEY = legacyJwtKey({ role: 'anon' }, undefined, 'AA!')
   assert.throws(() => loadAcceptanceConfig(env, ['--execute']), /structurally valid three-part/)
