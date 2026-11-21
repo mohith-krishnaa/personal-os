@@ -1,3 +1,59 @@
+# Latest handoff — strict legacy anon JWT structural preflight (2026-11-21)
+
+## Exact resume point
+
+- Branch: `feature/organization-v1`.
+- Implementation/test HEAD: `40a61594fa0a84d2745813f3987511c0370a1be4`; [CI #519 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44884424453).
+- Starting HEAD: `122f8bb5ad388920ab428b5eac858cf1784c0137`; [CI #515 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44880296409).
+- Main: `2b42dd17796b75dca79434a81d4e1f0cbf0fa043); current implementation branch was 598 commits ahead and 0 behind main.
+- PR #11 is open, unmerged, and mergeable; PR #12 is an open superseded draft.
+- Repository migrations: 27. No migration was added.
+- No local checkout is attached; remote branch/diff and CI were inspected, but local working-tree cleanliness is not independently certified.
+
+## Completed
+
+The PostgREST acceptance key preflight now validates legacy anon JWT structure: exactly three non-empty base64url segments, JSON-object header/payload, `alg=HS256`, optional `typ=JWT`, and payload `role=anon`. It rejects malformed header/payload JSON, invalid segments, unsupported algorithms/types, empty/malformed signatures, secret keys, opaque strings, and non-anon JWT roles. It does not verify the signature or expiry; Supabase validates the key server-side. Non-empty `sb_publishable_...` remains accepted; `sb_secret_...` remains denied.
+
+Updated:
+- `scripts/postgrest-organization-acceptance.ts`
+- `scripts/postgrest-organization-acceptance.test.ts`
+- `docs/operations/organization-v1-postgrest-acceptance.md`
+
+Three structural regression cases were added, and the legacy JWT fixtures were corrected to use well-formed synthetic segments. No database or application runtime behavior changed.
+
+## Verification
+
+CI #516, #517, and #518 initially failed only in the isolated preflight test step due stale synthetic JWT fixtures/assertion expectations. Those failures were inspected and corrected.
+
+CI #519 passed on the exact implementation/test HEAD:
+- 29/29 PostgREST preflight tests.
+- 27/27 PostgreSQL migration replay and Organization/RLS assertions.
+- Task-hierarchy concurrency checks.
+- 190/190 application tests.
+- TypeScript typecheck.
+- Production build.
+- npm install audit: 0 vulnerabilities.
+- No lint script is configured.
+
+## Production and rollout boundary
+
+No production Supabase query or mutation occurred in this task. The last recorded live baseline remains 8 applied migrations versus 27 in the repository (19 branch-only), not refreshed here. Do not apply migrations, alter RLS/roles, deploy the fail-closed `ensure_rls` candidate, or merge PR #11.
+
+Still required:
+1. Owner-controlled complete schema/data/roles backup.
+2. Offline manifest verification and successful restoration into a separate isolated Supabase project.
+3. Extensions, roles/memberships, default ACLs, database settings, Vault, Auth trigger, `ensure_rls`, and reminder function verification.
+4. Checklist conflict disposition on the restored copy.
+5. Apply the 19 branch-only migrations only to the isolated target.
+6. Authenticated two-owner PostgREST acceptance.
+7. Separate explicit owner decision on fail-closed `ensure_rls` behavior.
+
+## Next action
+
+Owner-controlled complete backup and isolated restoration. If owner artifacts remain unavailable, audit partial-failure cleanup and retained activity-event accounting in the acceptance harness as a distinct Organization task. Do not start Analytics until Organization acceptance gates are verified.
+
+---
+
 # Latest handoff — PostgREST acceptance key-class validation (2026-11-21)
 
 ## Exact resume point

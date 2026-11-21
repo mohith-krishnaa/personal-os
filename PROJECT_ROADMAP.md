@@ -1,3 +1,21 @@
+# Latest verified roadmap checkpoint — legacy anon JWT structural preflight (2026-11-21)
+
+## Organization V1 — active, not accepted
+
+The isolated PostgREST acceptance key gate now validates legacy anon JWT structure rather than trusting only the payload role. It requires three non-empty base64url segments, a JSON-object header/payload, `alg=HS256`, optional `typ=JWT`, and `role=anon`. It rejects malformed segments/JSON, unsupported algorithms/types, empty or malformed signatures, secret keys, unknown opaque strings, and non-anon roles. Signature and expiry verification remain server-side; the local gate is not cryptographic verification. Non-empty `sb_publishable_...` keys remain accepted.
+
+Implementation/test HEAD: `40a61594fa0a84d2745813f3987511c0370a1be4`; [CI #519 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44884424453). Verification: 29/29 PostgREST preflight tests, 27/27 PostgreSQL 17 migrations replayed with Organization/RLS assertions and task-hierarchy concurrency checks, 190/190 application tests, typecheck, production build, and npm install audit with 0 vulnerabilities. No lint script is configured. CI #516–#518 exposed test-fixture and stale-assertion failures in the preflight suite; these were corrected before the authoritative #519 pass.
+
+At the starting checkpoint, branch `feature/organization-v1` was 594 commits ahead and 0 behind main (`2b42dd17796b75dca79434a81d4e1f0cbf0fa043`). PR #11 remains open and unmerged; PR #12 remains an open superseded draft. The branch now contains four commits since starting HEAD `122f8bb5ad388920ab428b5eac858cf1784c0137`; only the acceptance harness, its tests, and its runbook changed. Migration count remains 27.
+
+No production Supabase query or mutation occurred. The last recorded live ledger remains 8 applied migrations versus 27 repository migrations (19 branch-only); it was not refreshed here. No production schema, RLS, role, or data change occurred.
+
+**Organization V1 acceptance gates remain open:** complete owner-controlled schema/data/roles backup; successful isolated restoration; extension/role/default-ACL/database-setting/Auth-trigger/Vault/`ensure_rls` verification; checklist conflict disposition; and authenticated two-owner PostgREST acceptance. The fail-closed `ensure_rls` candidate still requires explicit owner approval and isolated-target testing. Analytics, AI Assistant, Research Agent, Adaptive Scheduling, and production hardening remain queued behind Organization acceptance.
+
+**Next task:** complete owner-controlled backup and isolated restore. If owner artifacts remain unavailable, perform a distinct Organization audit of partial-failure cleanup and retained activity-event accounting in the PostgREST harness. Do not start Analytics based on passing CI alone.
+
+---
+
 # Latest verified roadmap checkpoint — PostgREST acceptance key-class validation (2026-11-21)
 
 ## Organization V1 — active, not accepted

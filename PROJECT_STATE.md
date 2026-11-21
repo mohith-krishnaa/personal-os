@@ -1,3 +1,61 @@
+# Latest verified checkpoint — legacy anon JWT structural preflight (2026-11-21)
+
+**Implementation/test HEAD:** `40a61594fa0a84d2745813f3987511c0370a1be4` — [CI #519 passed on this exact commit](https://github.com/mohith-krishnaa/personal-os/actions/runs/44884424453).  
+**Starting HEAD:** `122f8bb5ad388920ab428b5eac858cf1784c0137` — [CI #515 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44880296409).
+
+## Continuity and repository recovery
+
+- Personal-OS Builder is enabled.
+- Recorded last run: `7faf1921-6f98-832d-82ef-5c4eb8fa5680`, status `in_progress`, started at `2026-11-21T08:15:29.740066Z`.
+- Latest stored result: run `81e03a26-f280-8322-ab73-514910c7e349`, created at `2026-11-21T07:28:42.400615Z`. It predates the recorded current run and is the preceding completed PostgREST key-classification checkpoint. The in-progress record does not establish worker liveness.
+- Starting branch: `feature/organization-v1`, HEAD `122f8bb5ad388920ab428b5eac858cf1784c0137`; PR #11 head matched. Main was `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`; starting branch comparison was 594 ahead, 0 behind.
+- PR #11 was open and unmerged; PR #12 was an open superseded draft.
+- Repository migration count remains 27. No migration was added.
+- No local checkout is attached; local working-tree cleanliness cannot be independently certified.
+
+## Bounded issue and correction
+
+The previous `assertPublicKey` preflight checked only that a key had three dot-separated segments and that the decoded payload claimed `role=anon`. It did not validate the JWT header or the signature segment's syntax. A malformed token with an anon payload could therefore pass the local format gate, contradicting the runbook's claim that malformed JWTs were rejected.
+
+The gate now:
+- requires exactly three non-empty base64url segments;
+- requires header and payload segments to decode to JSON objects;
+- requires header `alg=HS256`, and if `typ` is present it must equal `JWT`;
+- requires payload `role=anon`;
+- rejects malformed segments/JSON, unsupported algorithms/token types, empty or malformed signature segments, secret-key prefixes, and non-anon roles.
+
+This remains **structural classification only**. It does not cryptographically verify the signature or check token expiry; Supabase Auth/PostgREST verifies the actual key server-side. A non-empty `sb_publishable_...` key remains accepted by prefix classification, while `sb_secret_...` is rejected.
+
+Added three structural regression cases (malformed header JSON, unsupported algorithm/token type, and empty/malformed signature), converted legacy JWT fixtures to structurally valid test tokens, and retained coverage for anon acceptance, missing role, authenticated role, service_role, opaque keys, and secret-key prefixes. The runbook now states the exact structural contract and its limitations.
+
+No application runtime behavior, database schema, RLS policy, migration, or production data changed.
+
+## CI evidence and corrected failures
+
+- CI #516 failed at the preflight step: 26/30 tests passed. Four failures were caused by legacy fixtures using literal `header`/`signature` placeholders and an error-message expectation that no longer matched the stricter parser.
+- CI #517 failed at the preflight step: 28/29 passed. One stale assertion still expected the previous malformed-segment error wording.
+- CI #518 also failed at the preflight step: 28/29 passed because a second occurrence of that assertion remained unchanged.
+- **CI #519 passed on implementation/test HEAD `40a61594fa0a84d2745813f3987511c0370a1be4`:**
+  - PostgREST acceptance preflight: 29/29 passed.
+  - PostgreSQL 17 migration replay: 27/27 migrations; Organization/RLS assertions and task-hierarchy concurrency passed.
+  - Application tests: 190/190 passed.
+  - TypeScript typecheck: passed.
+  - Production build: passed.
+  - npm install audit: 0 vulnerabilities.
+  - No lint script is configured.
+
+The first three failures were test-fixture/assertion defects, not suppressed. The final CI run passed the complete configured workflow.
+
+## Production and acceptance boundary
+
+No production Supabase query or mutation was performed in this task. The last recorded live baseline remains 8 applied migrations versus 27 in the repository (19 branch-only), but it was not refreshed here. No production DDL/DML, migration, RLS/role/project-setting change, backup, restore, or PR merge occurred.
+
+Organization V1 remains incomplete. Still required: owner-controlled complete schema/data/roles backup; successful isolated restoration; extension, roles, default ACL, database settings, Auth trigger, Vault, and `ensure_rls` verification; restored-copy checklist conflict disposition; and authenticated two-owner PostgREST acceptance. The fail-closed `ensure_rls` candidate still requires an explicit owner decision and isolated-target testing. Analytics remains queued.
+
+**Next task:** complete the owner-controlled backup and isolated restoration. If those artifacts remain unavailable, perform a distinct Organization audit of partial-failure cleanup and retained activity-event accounting in the PostgREST harness; do not repeat unavailable backup attempts or start Analytics.
+
+---
+
 # Latest verified checkpoint — PostgREST acceptance key-class validation (2026-11-21)
 
 **Implementation/test HEAD:** `c84dd038d3a4c4dd4253c0d7ca03931be823d92b` — [CI #513 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44880004720).  
