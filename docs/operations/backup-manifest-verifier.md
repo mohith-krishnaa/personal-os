@@ -79,21 +79,52 @@ Required extension names:
 - \`supabase_vault\`
 - \`uuid-ossp\`
 
-Required row-count keys:
-- \`public.activity_events\`
-- \`public.goals\`
-- \`public.notes\`
-- \`public.notifications\`
-- \`public.profiles\`
-- \`public.progress_entries\`
-- \`public.projects\`
-- \`public.reminders\`
-- \`public.tasks\`
-- \`auth.users\`
-- \`storage.buckets\`
-- \`storage.objects\`
-- \`vault.secrets\`
-
+Required row-count keys (45 total; the 36 managed/ephemeral keys must be zero):
+- `public.activity_events`
+- `public.goals`
+- `public.notes`
+- `public.notifications`
+- `public.profiles`
+- `public.progress_entries`
+- `public.projects`
+- `public.reminders`
+- `public.tasks`
+- `auth.users`
+- `auth.instances`
+- `auth.identities`
+- `auth.refresh_tokens`
+- `auth.sessions`
+- `auth.audit_log_entries`
+- `auth.mfa_factors`
+- `auth.mfa_challenges`
+- `auth.mfa_amr_claims`
+- `auth.sso_providers`
+- `auth.sso_domains`
+- `auth.saml_providers`
+- `auth.saml_relay_states`
+- `auth.flow_state`
+- `auth.one_time_tokens`
+- `auth.oauth_clients`
+- `auth.oauth_authorizations`
+- `auth.oauth_consents`
+- `auth.oauth_client_states`
+- `auth.custom_oauth_providers`
+- `auth.webauthn_credentials`
+- `auth.webauthn_challenges`
+- `auth.scim_users`
+- `auth.scim_tokens`
+- `auth.mfa_recovery_code_sets`
+- `auth.mfa_recovery_codes`
+- `storage.buckets`
+- `storage.objects`
+- `storage.s3_multipart_uploads`
+- `storage.s3_multipart_uploads_parts`
+- `storage.buckets_analytics`
+- `storage.buckets_vectors`
+- `storage.vector_indexes`
+- `vault.secrets`
+- `realtime.messages`
+- `realtime.subscription`
 Record actual counts; do not copy the earlier zero-row snapshot without rechecking. If the live source migration ledger or required extension inventory changes after an explicitly approved rollout, update the verifier's expected baseline and tests in a separate reviewed code change before accepting a new manifest.
 
 ### Export command records
