@@ -1,3 +1,58 @@
+# Latest verified checkpoint — PostgREST acceptance partial-failure cleanup (2026-11-21)
+
+**Implementation/test HEAD:** 0d86584084a2f186da19ed0124b5ed08eddb1e5d — [CI #521 passed on this exact commit](https://github.com/mohith-krishnaa/personal-os/actions/runs/44889487367).  
+**Starting HEAD:** 8abfa26c132652281ff4548e29bfcecd26d46cd5 — [CI #520 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44884605844).
+
+## Continuity and repository recovery
+
+- Personal-OS Builder is enabled.
+- Recorded run at recovery: a109f338-9738-8324-98ce-1d0889928263, started at 2026-11-21T09:20:51.153226Z, recorded in_progress.
+- Latest stored result: run 7faf1921-6f98-832d-82ef-5c4eb8fa5680, created at 2026-11-21T08:24:54.584886Z. It predates the recorded run and is the preceding completed JWT structural-preflight checkpoint. The in_progress record is not proof of worker liveness.
+- Starting branch feature/organization-v1 was at 8abfa26c132652281ff4548e29bfcecd26d46cd5, matching PR #11's head. Main was 2b42dd17796b75dca79434a81d4e1f0cbf0fa043; the starting comparison was 599 commits ahead, 0 behind.
+- After the implementation commit, PR #11 head matched 0d86584084a2f186da19ed0124b5ed08eddb1e5d; it remained open and unmerged. PR #12 remained an open superseded draft.
+- Repository migration count is 27. No migration was added.
+- No local checkout is attached; local working-tree cleanliness cannot be independently certified.
+
+## Bounded issue and correction
+
+The previous harness tracked fixture IDs only after a successful insert response. If PostgreSQL committed an INSERT but the HTTP response was lost, the row could remain while its ID was absent from the cleanup tracker. The old cleanup path could not recover that row automatically.
+
+The harness now:
+- generates a per-run lowercase-hex UUID marker with a trailing hyphen and validates it before constructing a LIKE pattern;
+- re-queries each fixture table with both the authenticated owner's exact user_id and the unique run-marker prefix;
+- merges discovered IDs with IDs returned by successful inserts, rejects any recovered row with a different owner, and deduplicates IDs;
+- attempts every tracked/recovered deletion even when an individual delete request fails;
+- includes recovered task IDs in the append-only event count, scoped by owner and entity_type=TASK;
+- marks the retained-event count incomplete if task-marker discovery or event counting fails, and includes the run marker in failure output for isolated-project reconciliation.
+
+The harness still never deletes activity_events. The four new unit tests cover safe marker generation, rejection of wildcard-bearing markers, ID deduplication, and refusal of cross-owner recovered rows. The runbook documents the ambiguous-commit recovery path.
+
+No application runtime behavior, database schema, RLS policy, migration, or production data changed.
+
+## CI evidence
+
+CI #521 passed on implementation/test HEAD 0d86584084a2f186da19ed0124b5ed08eddb1e5d:
+- PostgREST acceptance preflight: 33/33 passed.
+- PostgreSQL 17 migration replay: 27/27; Organization/RLS assertions passed.
+- Task-hierarchy concurrency checks passed.
+- Application tests: 194/194 passed.
+- TypeScript typecheck passed.
+- Production build passed.
+- npm install audit: 0 vulnerabilities.
+- No lint script is configured.
+
+The runbook and project checkpoint documents are updated separately from the implementation commit. The current documentation commit receives its own CI run; do not infer its result from CI #521.
+
+## Production and acceptance boundary
+
+No production Supabase query or mutation was performed in this run. The last recorded live baseline remains 8 applied migrations versus 27 repository migrations (19 branch-only), not refreshed here. No production DDL/DML, migration, RLS/role/project-setting change, backup, restore, or PR merge occurred.
+
+Organization V1 remains incomplete. Still required: owner-controlled complete schema/data/roles backup; successful isolated restoration; extension, roles, default ACL, database settings, Auth trigger, Vault and ensure_rls verification; restored-copy checklist conflict disposition; authenticated two-owner PostgREST acceptance; and the separate owner decision on the fail-closed ensure_rls candidate. Analytics remains queued.
+
+**Next task:** complete owner-controlled backup and isolated restoration. If owner artifacts remain unavailable, continue with a different bounded Organization audit; do not repeat unavailable backup attempts or start Analytics.
+
+---
+
 # Latest verified checkpoint — legacy anon JWT structural preflight (2026-11-21)
 
 **Implementation/test HEAD:** `40a61594fa0a84d2745813f3987511c0370a1be4` — [CI #519 passed on this exact commit](https://github.com/mohith-krishnaa/personal-os/actions/runs/44884424453).  

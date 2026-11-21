@@ -1,3 +1,52 @@
+# Latest handoff — marker-based PostgREST partial-failure cleanup (2026-11-21)
+
+## Exact resume point
+
+- Branch: feature/organization-v1.
+- Implementation/test HEAD: 0d86584084a2f186da19ed0124b5ed08eddb1e5d; [CI #521 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44889487367).
+- Starting HEAD: 8abfa26c132652281ff4548e29bfcecd26d46cd5; [CI #520 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44884605844).
+- Main: 2b42dd17796b75dca79434a81d4e1f0cbf0fa043; branch was 600 commits ahead and 0 behind after the implementation commit.
+- PR #11 is open, unmerged and mergeable; its head matched the implementation commit. PR #12 is an open superseded draft.
+- Repository migrations: 27. No migration was added.
+- No local checkout is attached; remote branch/diff and CI were inspected, but local working-tree cleanliness is not independently certified.
+
+## Completed
+
+The two-owner PostgREST harness now recovers rows whose INSERT may have committed even when the HTTP response did not return the row ID. It uses a validated lowercase-hex run marker, owner-scoped marker discovery for projects/tasks/canonical and legacy checklist rows, ID deduplication, explicit owner verification, and best-effort deletion that continues after an individual failure. The retained activity-event count includes recovered task IDs and is filtered by both owner and entity_type=TASK. It never deletes activity events; if task discovery/counting fails, the count is explicitly marked incomplete and the run marker is printed for manual isolated-target reconciliation.
+
+Four unit tests were added. The cleanup runbook now documents the ambiguous-commit case. No application runtime behavior, migration, schema, RLS, or production data changed.
+
+## Verification
+
+CI #521 passed on the exact implementation/test HEAD:
+- 33/33 PostgREST acceptance preflight tests.
+- 27/27 PostgreSQL 17 migrations replayed with Organization/RLS assertions.
+- Task hierarchy concurrency checks.
+- 194/194 application tests.
+- TypeScript typecheck.
+- Production build.
+- npm install audit: 0 vulnerabilities.
+- No lint script is configured.
+
+## Production and rollout boundary
+
+No production Supabase query or mutation occurred in this task. The last recorded live baseline remains 8 applied migrations versus 27 in the repository (19 branch-only), not refreshed here. Do not apply migrations, alter RLS/roles, deploy the fail-closed ensure_rls candidate, or merge PR #11.
+
+Still required:
+1. Owner-controlled complete schema/data/roles backup.
+2. Offline manifest verification and successful restoration into a separate isolated Supabase project.
+3. Extensions, roles/memberships, default ACLs, database settings, Vault, Auth trigger, ensure_rls, and reminder function verification.
+4. Checklist conflict disposition on the restored copy.
+5. Apply the 19 branch-only migrations only to the isolated target.
+6. Authenticated two-owner PostgREST acceptance.
+7. Separate explicit owner decision on fail-closed ensure_rls behavior.
+
+## Next action
+
+Owner-controlled complete backup and isolated restoration. If owner artifacts remain unavailable, perform a different bounded Organization audit rather than repeating the same cleanup work or attempting unavailable backup operations. Do not start Analytics until Organization acceptance gates are verified.
+
+---
+
 # Latest handoff — strict legacy anon JWT structural preflight (2026-11-21)
 
 ## Exact resume point

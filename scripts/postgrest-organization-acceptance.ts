@@ -320,8 +320,8 @@ async function cleanup(client: Client, rows: CreatedRows, ownerId: string, marke
       if (error) throw new Error(table + ' cleanup discovery failed (' + error.code + ').')
 
       const discovered = (data ?? []) as Row[]
-      recoveredRows += discovered.filter((row) => !ids.includes(row.id)).length
       idsToDelete = mergeOwnedCleanupIds(ids, discovered, ownerId)
+      recoveredRows += discovered.filter((row) => !ids.includes(row.id)).length
       if (table === 'tasks') taskIds = idsToDelete
     } catch (error) {
       errors.push(error instanceof Error ? error.message : table + ' cleanup discovery failed.')

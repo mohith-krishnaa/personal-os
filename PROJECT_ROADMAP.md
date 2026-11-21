@@ -1,3 +1,21 @@
+# Latest verified roadmap checkpoint — PostgREST acceptance partial-failure cleanup (2026-11-21)
+
+## Organization V1 — active, not accepted
+
+The two-owner PostgREST acceptance harness now recovers marker-matched fixture rows when an INSERT may have committed but its HTTP response was lost. Recovery is scoped by the authenticated owner's user_id, validates owner identity again before deletion, deduplicates returned/recovered IDs, attempts all per-row deletes, and includes recovered task IDs in an owner- and entity_type=TASK-scoped retained-event count. The harness never deletes append-only activity events. If task recovery or event counting fails, the count is explicitly marked incomplete and the run marker is emitted for manual reconciliation.
+
+Implementation/test HEAD: 0d86584084a2f186da19ed0124b5ed08eddb1e5d; [CI #521 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44889487367). Verification: 33/33 PostgREST preflight tests, 27/27 PostgreSQL 17 migrations replayed with Organization/RLS assertions, task-hierarchy concurrency checks, 194/194 application tests, typecheck, production build, and npm install audit with 0 vulnerabilities. No lint script is configured.
+
+At the implementation checkpoint, branch feature/organization-v1 was 600 commits ahead and 0 behind main (2b42dd17796b75dca79434a81d4e1f0cbf0fa043). PR #11 remained open and unmerged; PR #12 remained an open superseded draft. Migration count remains 27. No migration or production change was made.
+
+No production Supabase query or mutation occurred. The last recorded live ledger remains 8 applied migrations versus 27 repository migrations (19 branch-only); it was not refreshed in this task.
+
+**Organization V1 acceptance gates remain open:** complete owner-controlled schema/data/roles backup; successful isolated restoration; extension/role/default-ACL/database-setting/Auth-trigger/Vault/ensure_rls verification; checklist conflict disposition; and authenticated two-owner PostgREST acceptance. The fail-closed ensure_rls candidate still requires explicit owner approval and isolated-target testing. Analytics, AI Assistant, Research Agent, Adaptive Scheduling, and production hardening remain queued behind Organization acceptance.
+
+**Next task:** complete owner-controlled backup and isolated restore. If owner artifacts remain unavailable, continue a distinct bounded Organization audit. Do not start Analytics based on passing CI alone.
+
+---
+
 # Latest verified roadmap checkpoint — legacy anon JWT structural preflight (2026-11-21)
 
 ## Organization V1 — active, not accepted
