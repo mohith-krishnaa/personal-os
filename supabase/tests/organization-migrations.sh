@@ -374,7 +374,7 @@ wrong_superuser_status=$?
 set -e
 if [[ "$wrong_superuser_status" -eq 0 ]] || ! grep -Fq 'connect directly as the Supabase postgres role' <<<"$wrong_superuser_output"; then
   echo "ERROR: ensure_rls restore accepted a non-postgres SUPERUSER identity or failed for an unexpected reason:" >&2
-  printf '%s\\n' "$wrong_superuser_output" >&2
+  printf '%s\n' "$wrong_superuser_output" >&2
   exit 1
 fi
 
@@ -391,6 +391,12 @@ preflight_output="$(
 expected_ensure_rls_line='ensure_rls_contract|t|t|t|t|t|t|t|t|t|t|t|f|f|f|t|t|t'
 if ! grep -Fq "$expected_ensure_rls_line" <<<"$preflight_output"; then
   echo "The read-only preflight did not report the exact ensure_rls source/ACL contract:"
+  printf '%s\n' "$preflight_output"
+  exit 1
+fi
+expected_restore_executor_line='ensure_rls_restore_executor|t|t|t'
+if ! grep -Fq "$expected_restore_executor_line" <<<"$preflight_output"; then
+  echo "The read-only preflight did not report the expected postgres restore executor identity:"
   printf '%s\n' "$preflight_output"
   exit 1
 fi

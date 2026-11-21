@@ -679,3 +679,14 @@ SELECT
 FROM (VALUES (1)) AS singleton(dummy)
 LEFT JOIN target_function f ON true
 LEFT JOIN target_event_trigger e ON true;
+
+
+-- 22. Restore executor identity for the project-installed ensure_rls customization.
+-- Supabase Supautils permits the postgres role to manage event triggers without
+-- making it a PostgreSQL superuser. This query reports the actual connection role;
+-- it does not treat rolsuper=true as a prerequisite.
+SELECT
+  'ensure_rls_restore_executor'::text AS contract_name,
+  session_user = 'postgres' AS session_authenticated_as_postgres,
+  current_user = 'postgres' AS current_role_postgres,
+  coalesce((SELECT rolsuper FROM pg_roles WHERE rolname = 'postgres'), false) AS postgres_is_superuser;
