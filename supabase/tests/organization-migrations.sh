@@ -349,14 +349,6 @@ fi
 echo "Seeding a valid legacy-only write after one-time reconciliation"
 psql -X -v ON_ERROR_STOP=1 -f supabase/tests/organization-migration-seed-post-reconciliation.sql
 
-run_checklist_conflict_report() {
-  psql -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
-BEGIN READ ONLY;
-\\i supabase/operations/checklist-reconciliation-conflicts.sql
-ROLLBACK;
-SQL
-}
-
 echo "Executing the read-only checklist reconciliation conflict report twice"
 run_checklist_conflict_report() {
   psql -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
