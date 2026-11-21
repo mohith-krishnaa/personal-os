@@ -47,6 +47,8 @@ psql -X -v ON_ERROR_STOP=1 -c "SET app.personal_os_restore_target = 'isolated'" 
 psql -X -v ON_ERROR_STOP=1 -f supabase/tests/restore-auth-user-trigger.sql
 echo "Verifying transactional task activity events"
 psql -X -v ON_ERROR_STOP=1 -f supabase/tests/task-activity-events.sql
+echo "Verifying concurrent recurring completion and occurrence idempotency"
+bash supabase/tests/recurring-occurrence-concurrency.sh
 echo "Verifying transactional task DELETE activity events"
 psql -X -v ON_ERROR_STOP=1 -f supabase/tests/task-delete-activity-events.sql
 echo "Verifying append-only activity-event access"

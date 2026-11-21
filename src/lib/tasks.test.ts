@@ -356,6 +356,12 @@ function createUpdateTaskSupabase(plans: UpdateTaskPlan[]) {
           call.filters.push([column, value])
           return this
         },
+        neq() {
+          return this
+        },
+        limit() {
+          return this
+        },
         single() {
           return Promise.resolve(finish(call))
         },
@@ -701,4 +707,80 @@ test('createTaskForUser rejects request-key reuse with changed task details', as
     /already been used with different task details/,
   )
   assert.equal(calls.length, 1)
+})
+
+
+test('setTaskStatusForUser resolves a concurrent recurrence insert conflict to the existing owner-scoped occurrence', async () => {
+  const task = {
+    id: 'task-recurring', user_id: 'owner-1', project_id: null, parent_task_id: null,
+    recurrence_parent_id: 'task-recurring', recurrence_rule: { frequency: 'DAILY', interval: 1 },
+    recurrence_until: null, due_at: '2099-01-01T09:00:00.000Z', scheduled_start: null,
+    scheduled_end: null, title: 'Recurring', description: null, status: 'TODO',
+    priority: 'MEDIUM', estimated_minutes: null, actual_minutes: null, completed_at: null,
+    created_at: '2098-01-01T00:00:00.000Z', updated_at: '2099-01-01T10:00:00.000Z',
+  }
+  const completedTask = { ...task, status: 'COMPLETED', completed_at: '2099-01-01T10:00:00.000Z' }
+  const existingOccurrence = {
+    ...completedTask,
+    id: 'occurrence-existing',
+    recurrence_parent_id: 'task-recurring',
+    due_at: '2099-01-02T09:00:00.000Z',
+  }
+  const uniqueError = {
+    code: '23505',
+    message: 'duplicate key value violates unique constraint "tasks_recurring_occurrence_unique"',
+  }
+  const { supabase, calls, remainingPlans } = createUpdateTaskSupabase([
+    { table: 'tasks', action: 'select', data: task },
+    { table: 'tasks', action: 'update', data: completedTask },
+    { table: 'tasks', action: 'insert', error: uniqueError },
+    { table: 'tasks', action: 'select', data: existingOccurrence },
+  ])
+
+  const result = await setTaskStatusForUser(supabase, 'owner-1', 'task-recurring', 'COMPLETED')
+
+  assert.equal(result.id, 'task-recurring')
+  assert.equal(calls.length, 4)
+  assert.equal(calls[2].payload?.recurrence_parent_id, 'task-recurring')
+  assert.equal(calls[2].payload?.due_at, '2099-01-02T09:00:00.000Z')
+  assert.deepEqual(calls[3].filters, [
+    ['user_id', 'owner-1'],
+    ['recurrence_parent_id', 'task-recurring'],
+    ['due_at', '2099-01-02T09:00:00.000Z'],
+  ])
+  assert.equal(remainingPlans(), 0)
+})
+
+test('setTaskStatusForUser rethrows a recurrence unique violation when no matching owner occurrence exists', async () => {
+  const task = {
+    id: 'task-recurring', user_id: 'owner-1', project_id: null, parent_task_id: null,
+    recurrence_parent_id: 'task-recurring', recurrence_rule: { frequency: 'DAILY', interval: 1 },
+    recurrence_until: null, due_at: '2099-01-01T09:00:00.000Z', scheduled_start: null,
+    scheduled_end: null, title: 'Recurring', description: null, status: 'TODO',
+    priority: 'MEDIUM', estimated_minutes: null, actual_minutes: null, completed_at: null,
+    created_at: '2098-01-01T00:00:00.000Z', updated_at: '2099-01-01T10:00:00.000Z',
+  }
+  const uniqueError = {
+    code: '23505',
+    message: 'duplicate key value violates unique constraint "tasks_recurring_occurrence_unique"',
+  }
+  const { supabase, calls, remainingPlans } = createUpdateTaskSupabase([
+    { table: 'tasks', action: 'select', data: task },
+    { table: 'tasks', action: 'update', data: { ...task, status: 'COMPLETED' } },
+    { table: 'tasks', action: 'insert', error: uniqueError },
+    { table: 'tasks', action: 'select', data: null },
+  ])
+
+  await assert.rejects(
+    () => setTaskStatusForUser(supabase, 'owner-1', 'task-recurring', 'COMPLETED'),
+    error => error === uniqueError,
+  )
+
+  assert.equal(calls.length, 4)
+  assert.deepEqual(calls[3].filters, [
+    ['user_id', 'owner-1'],
+    ['recurrence_parent_id', 'task-recurring'],
+    ['due_at', '2099-01-02T09:00:00.000Z'],
+  ])
+  assert.equal(remainingPlans(), 0)
 })
