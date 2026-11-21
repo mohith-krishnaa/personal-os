@@ -3,7 +3,7 @@
 ## Exact resume point
 
 - Branch: `feature/organization-v1`
-- Pre-checkpoint HEAD: `876b6ec92cd8e7c4ae89950d391aba0590b3fbf1`
+- Latest verified branch HEAD before this handoff follow-up: `6364551e02fdb6f85963a8ba8d043688ac3e546a` (the immediately preceding isolated-target guard commit is `876b6ec92cd8e7c4ae89950d391aba0590b3fbf1`).
 - PR #11: open, unmerged; PR #12: open superseded draft.
 - Repository migrations: 27. Production project migration ledger: 8; 19 branch-only migrations.
 - No migration was added during this task.
