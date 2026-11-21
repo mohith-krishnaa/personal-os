@@ -1,5 +1,50 @@
 # Latest verified checkpoint — offline backup manifest verifier (2026-11-21)
 
+**Starting HEAD:** \`95c8c9184551a979d3bdd2b3bd9fb03833ceed67\` (CI #466 passed).  
+**Initial implementation:** \`d5b01c49fa18c3855a267b945de10c42a5cb4a4d\` (CI #467 failed three test-fixture assertions).  
+**Corrected code/test HEAD:** \`1dbd3ab6e73709ead9ae5d46c1d107d42d3295a4\` — [CI #468 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44855630997).  
+**Inventory hardening HEAD:** \`8c925641e7a3b86d3baaa0f439c4bb28c39a88e3\` — [CI #470 passed on this exact commit](https://github.com/mohith-krishnaa/personal-os/actions/runs/44855941859).  
+**Documentation checkpoint:** [CI #469 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44855854253).  
+Branch: \`feature/organization-v1\`; repository migrations: 27; fresh live ledger: 8; branch-only: 19. PR #11 is open/unmerged; PR #12 is an open superseded draft.
+
+## Continuity recovery and repository inspection
+
+- Personal-OS Builder is enabled. The recorded current run was \`c3ff18fd-8e54-8327-8f9a-3ae2e641d6ac\`, started \`2026-11-21T02:19:40.283657Z\`, and recorded \`in_progress\`. The latest stored result belonged to the previous backup/restore preflight run (\`2d21ded0-8264-8330-9b18-7be327a398ae\`, created \`2026-11-21T01:26:25.418390Z\`); it was not attributed to this run.
+- The previous task corrected Supabase CLI v3/v4 dump syntax and isolated restore default-ACL preparation. No owner backup or isolated restore artifacts existed.
+- The branch started at \`95c8c9184551a979d3bdd2b3bd9fb03833ceed67\`; PR #11 head matched it. Main was \`2b42dd17796b75dca79434a81d4e1f0cbf0fa043\`.
+- Fresh read-only Supabase project metadata: \`gujzvkyytxsnervovvrt\` ACTIVE_HEALTHY, \`ap-southeast-1\`, PostgreSQL \`17.11.0.003\`. A fresh migration listing returned the exact eight source versions in the preflight; repository contains 27 numbered SQL migrations.
+- No local repository checkout is attached. Local working-tree cleanliness cannot be independently certified; remote branch commits and files were inspected.
+
+## Offline manifest verifier
+
+Added \`scripts/verify-backup-manifest.ts\`, \`scripts/verify-backup-manifest.test.ts\`, and npm script \`backup:manifest:verify\`. The 24 new regression tests are included in \`npm test\`.
+
+The verifier is offline/read-only. It requires current clean Git HEAD to match \`source.repositoryCommit\`; compares all repository migration filename versions; enforces the exact eight-version source ledger, four required extension names, and 13 row-count keys; validates five export command statuses/target attestations; and hashes five required dump files. It rejects credential-like manifest data, symlinks (including migration SQL symlinks), unsafe paths, and manifest/artifact locations inside the repository.
+
+The repository had no root \`.gitignore\`; one was added for generated dependencies/build output, local environment files, temporary Supabase state, logs, and the npm-generated lockfile. Backup dumps are not blanket-ignored; they must remain outside Git. No lockfile is committed, so dependency versions remain mutable because package dependencies use \`latest\`.
+
+The verifier does not read environment variables, connect to Supabase, inspect SQL dump contents, create exports, authenticate the CLI Target output, or verify a restore. Success proves only recorded metadata and file integrity; target-line verification and row counts remain owner attestations.
+
+## CI outcomes and correction
+
+- CI #467 on \`d5b01c4\` failed \`npm test\`: 172/175 passed. Three fixture expectations were wrong: the size-mismatch fixture had equal length, the hash-mismatch fixture had different length, and the credential test expected a later schema-key error although credential-value scanning correctly rejected the connection string first.
+- Those fixtures were corrected in \`1dbd3ab6e73709ead9ae5d46c1d107d42d3295a4\`. CI #468 passed: PostgREST preflight 21/21; PostgreSQL 17 migration replay 27/27; task hierarchy concurrency; application tests 175/175; typecheck; production build; npm install reported 0 vulnerabilities.
+- Added rejection of symlinked migration SQL entries and root ignore rules in \`8c925641e7a3b86d3baaa0f439c4bb28c39a88e3\`. CI #470 passed on that exact commit: PostgREST preflight 21/21; migration replay 27/27; task hierarchy concurrency; application tests 176/176; typecheck; production build; npm install reported 0 vulnerabilities.
+- CI #469 passed on documentation checkpoint \`7a8744a\`. npm's esbuild install-script advisory remains non-failing. No lint script is configured.
+- No migration was added; migration count remains 27. No production SQL, DDL/DML, migration, RLS change, backup, restore, or PR merge occurred.
+
+## Remaining gates and next action
+
+Outstanding: owner-controlled schema/data/roles backup and successful isolated restore; project-level Auth/Realtime/webhook/secret inventory; extension/Vault root-key/Auth trigger/default-ACL verification; restored-copy checklist conflict disposition; authenticated two-owner PostgREST acceptance.
+
+Owner action: create the complete private backup, create the non-secret manifest, and run the verifier from the exact clean commit. Only after the complete backup is restored and verified in a separate isolated project may the 19 branch-only migrations be replayed there. Production remains read-only.
+
+If owner artifacts remain unavailable, do not retry export; perform a separate bounded Organization audit of managed-schema/customization restore requirements. Do not start Analytics.
+
+---
+
+# Latest verified checkpoint — offline backup manifest verifier (2026-11-21)
+
 **Starting branch HEAD:** \`95c8c9184551a979d3bdd2b3bd9fb03833ceed67\` — CI #466 passed.  
 **Initial implementation commit:** \`d5b01c49fa18c3855a267b945de10c42a5cb4a4d\` — CI #467 failed three new test assertions.  
 **Corrected code/test HEAD:** \`1dbd3ab6e73709ead9ae5d46c1d107d42d3295a4\` — [CI #468 passed on this exact commit](https://github.com/mohith-krishnaa/personal-os/actions/runs/44855630997).  

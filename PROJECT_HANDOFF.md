@@ -1,5 +1,44 @@
 # Latest handoff — offline backup manifest verifier (2026-11-21)
 
+Starting HEAD: \`95c8c9184551a979d3bdd2b3bd9fb03833ceed67\`.  
+Corrected code/test HEAD: \`1dbd3ab6e73709ead9ae5d46c1d107d42d3295a4\` — [CI #468 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44855630997).  
+Inventory hardening HEAD: \`8c925641e7a3b86d3baaa0f439c4bb28c39a88e3\` — [CI #470 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44855941859).  
+Branch: \`feature/organization-v1\`. PR #11 open/unmerged; PR #12 open/superseded draft.
+
+## Recovery and verified state
+
+The latest stored automation result belonged to the prior backup/restore runbook audit, not the current run. Production is ACTIVE_HEALTHY, PostgreSQL 17.11.0.003; a fresh read-only migration listing returned the exact eight source versions documented in preflight. Repository inventory is 27 numbered migrations (19 branch-only).
+
+## New offline verifier
+
+~~~bash
+npm run backup:manifest:verify -- --manifest "$BACKUP_DIR/manifest.json" --artifacts-dir "$BACKUP_DIR"
+~~~
+
+Run from a clean Git checkout whose HEAD equals \`source.repositoryCommit\`. Manifest and SQL artifacts must be outside the repository. The verifier checks eight source migration versions, all repository migration filenames, required extension names, 13 row-count keys, five export command exit statuses/target attestations, and five artifact sizes/SHA-256 digests. It rejects credentials, symlinks (including migration-file symlinks), unsafe paths, and repository-local backup paths.
+
+Added a root \`.gitignore\` because none existed. It excludes generated dependencies/build output, local environment files, Supabase temporary state, logs, and the npm-generated lockfile. Backup SQL files remain outside Git by policy.
+
+The verifier performs no network/database calls and reads no environment variables. It does not create a backup, parse SQL contents, prove the CLI Target line, or verify restoration. A successful result is not backup completeness or restore evidence. See \`docs/operations/backup-manifest-verifier.md\`.
+
+## Verification
+
+CI #467 failed three fixture assertions (172/175 passed); fixture lengths and credential-error expectation were corrected.
+
+CI #468 passed on \`1dbd3ab\`: 21/21 PostgREST preflight, 27/27 migration replay, task hierarchy concurrency, 175/175 tests, typecheck and build.
+
+CI #470 passed on \`8c92564\`: 21/21 PostgREST preflight, 27/27 migration replay, task hierarchy concurrency, 176/176 tests, typecheck and build. npm install reported 0 vulnerabilities. CI #469 passed on the intermediate documentation checkpoint. No lint script is configured.
+
+## Next action
+
+Owner must create and restore the complete backup into a separate isolated Supabase project. Run the verifier on private artifacts, then verify extensions, roles/default ACLs, Auth trigger, Vault decision, exact eight-version ledger, and checklist conflicts. Apply the 19 branch-only migrations only to the isolated target and run the two-owner PostgREST harness there. Do not modify production or merge PR #11.
+
+No local checkout is attached, so local working-tree cleanliness is not certified. No production operation or backup/restore was performed.
+
+---
+
+# Latest handoff — offline backup manifest verifier (2026-11-21)
+
 **Starting HEAD:** \`95c8c9184551a979d3bdd2b3bd9fb03833ceed67\`.  
 **Corrected implementation/test HEAD:** \`1dbd3ab6e73709ead9ae5d46c1d107d42d3295a4\` — [CI #468 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44855630997).  
 **Branch:** \`feature/organization-v1\`. **PR #11:** open/unmerged. **PR #12:** open/superseded draft.

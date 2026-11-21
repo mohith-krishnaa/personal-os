@@ -1,5 +1,28 @@
 # Latest roadmap checkpoint — offline backup manifest verifier (2026-11-21)
 
+Branch: \`feature/organization-v1\`. Corrected code/test HEAD \`1dbd3ab6e73709ead9ae5d46c1d107d42d3295a4\` passed CI #468. Inventory hardening HEAD \`8c925641e7a3b86d3baaa0f439c4bb28c39a88e3\` passed [CI #470](https://github.com/mohith-krishnaa/personal-os/actions/runs/44855941859). PR #11 remains open/unmerged; PR #12 remains an open superseded draft.
+
+## Organization V1
+
+- **Completed:** offline backup-manifest verifier, 24 regression tests, and root ignore rules. It validates current clean Git commit, exact eight-version source ledger, repository migration inventory, required extension names, 13 row-count fields, five export command status/target attestations, and five artifact sizes/SHA-256 hashes. It rejects symlinked migration files and artifact paths.
+- **Safety boundary:** verifier is offline/read-only. It does not create a backup, prove CLI target output, inspect SQL dump completeness, or verify a restore. Backup manifest and dump files must remain outside the repository.
+- **CI:** #467 initially failed three fixture assertions (172/175 passed); corrected. #468 passed 175/175 tests. #469 passed on documentation checkpoint. #470 passed on hardened code/test HEAD: PostgREST preflight 21/21, PostgreSQL 17 migrations 27/27, task hierarchy concurrency, 176/176 tests, typecheck, production build, npm install audit 0 vulnerabilities.
+- **Still blocked:** owner-controlled complete backup and successful isolated restore; project-level Auth/Realtime/webhook/secret inventory; extension/Vault root-key/Auth trigger/default-ACL verification; restored-copy checklist conflict disposition; authenticated two-owner PostgREST acceptance.
+- **Next:** owner creates private backup and manifest, runs verifier from exact clean commit, restores into a separate isolated project, and completes all restore gates. Production remains read-only.
+
+## Roadmap order
+
+- **Organization V1:** in progress; do not mark complete before isolated restore and authenticated acceptance.
+- **Analytics:** queued until Organization acceptance is genuinely verified.
+- **AI Assistant:** queued.
+- **Research Agent:** queued.
+- **Adaptive Scheduling:** queued.
+- **Production hardening:** pending.
+
+---
+
+# Latest roadmap checkpoint — offline backup manifest verifier (2026-11-21)
+
 **Branch:** \`feature/organization-v1\`. **Corrected code/test HEAD:** \`1dbd3ab6e73709ead9ae5d46c1d107d42d3295a4\` — [CI #468 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44855630997).  
 **PR #11:** open/unmerged. **PR #12:** open/superseded draft.
 

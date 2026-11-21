@@ -17,7 +17,7 @@ The verifier:
 - reads numbered migration filenames in \`supabase/migrations\` and compares them with the manifest;
 - requires the exact eight source migration versions recorded in the current live baseline;
 - validates the required source project, extension names, row-count keys, five export command records, and five artifact records;
-- rejects credential-like manifest fields/values, symlinks, unsafe artifact paths, and manifest/artifact locations inside the Git repository;
+- rejects credential-like manifest fields/values, symlinks (including symlinked migration SQL entries), unsafe artifact paths, and manifest/artifact locations inside the Git repository;
 - checks each artifact's actual byte size and SHA-256 digest.
 
 It does not read environment variables, invoke GitHub, invoke the Supabase CLI, call a database, or parse SQL dump contents. The SQL files may contain sensitive data and must remain private. Do not commit the manifest or dump files.
@@ -135,6 +135,6 @@ There is intentionally no \`restoreStatus\` field in the accepted manifest. Rest
 
 ## Regression coverage
 
-The tests cover valid inventories, missing files, byte-size and SHA-256 mismatches, failed command statuses, target mismatch/attestation, source and repository migration drift, malformed migration filenames, unsafe paths, symlinks, repository-local artifact/manifest paths, credential material, incomplete row counts/extensions, commit mismatch, unsupported restore claims, and duplicate artifact paths.
+The 24 tests cover valid inventories, missing files, byte-size and SHA-256 mismatches, failed command statuses, target mismatch/attestation, source and repository migration drift, malformed and symlinked migration filenames, unsafe paths, symlinks, repository-local artifact/manifest paths, credential material, incomplete row counts/extensions, commit mismatch, unsupported restore claims, and duplicate artifact paths.
 
 The tests run as part of \`npm test\`; the CLI is exposed as \`npm run backup:manifest:verify\`.
