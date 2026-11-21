@@ -456,7 +456,7 @@ test('rls_auto_enable remains project-installed outside migrations and the CI fi
   assert.ok(runner.includes('SET ROLE supabase_admin'))
   assert.ok(runner.includes("SET app.personal_os_restore_target = 'isolated'"))
   assert.ok(runner.includes('ROLLBACK'))
-  assert.ok(runner.trimEnd().endsWith(')"'))
+  assert.ok(runner.includes('-c "ROLLBACK"\n)"\nexpected_ensure_rls_line'))
   const behaviorTest = readFileSync(join(process.cwd(), 'supabase', 'tests', 'restore-ensure-rls-event-trigger.sql'), 'utf8')
   assert.ok(behaviorTest.includes('SAVEPOINT ensure_rls_exception_path'))
   assert.ok(behaviorTest.includes('ROLLBACK TO SAVEPOINT ensure_rls_exception_path'))
