@@ -1,3 +1,48 @@
+# Latest verified checkpoint — Supabase backup/restore preflight corrected (2026-11-21)
+
+**Starting HEAD:** `700fedf12638fe6f1bc6414ed0962d4568442929` (CI #458 passed).
+**Final runbook HEAD:** `1b9c2ca12145226f865d22414f95de6170729e54` — [CI #464 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44849631968).
+**Branch:** `feature/organization-v1`. **Repository migrations:** 27. **Live ledger:** 8; **branch-only:** 19.
+**PR #11:** open, unmerged, mergeable. **PR #12:** open superseded draft.
+
+## Continuity recovery
+
+- Personal-OS Builder is enabled. At recovery, `last_run.id=2d21ded0-8264-8330-9b18-7be327a398ae` was recorded `in_progress`, started `2026-11-21T01:12:18.900454Z`; `latest_result.run_id=8fb5af3f-96c4-8325-8e43-c41bfa820204` was created `2026-11-21T00:28:15.554687Z`. The result predates the current run and belongs to the completed legacy-checklist audit.
+- The previous stated next action was owner-controlled backup and isolated restoration. The actual branch already contained the activity-event PostgREST acceptance implementation in commits `8b2cf9426cb899817c1e7bb92015b39bab3cac85` and `28885b8b6ebb6415adf4601f2ad4766b6fff7dfb` (CI #450/#451), so that completed task was not duplicated.
+- Starting branch/PR head was `700fedf12638fe6f1bc6414ed0962d4568442929`; CI #458 passed. The branch now points to the runbook checkpoint commit that follows the runbook verification below.
+- No local repository checkout exists in this environment. The container has no Docker, Supabase CLI, `pg_dump`, or `psql`; local working-tree cleanliness cannot be certified. Remote branch diffs and commit contents were inspected.
+
+## Backup/restore runbook audit and correction
+
+- The backup gate was checked against the current Supabase CLI v3/v4 source documentation and implementation. The public hosted reference still shows the older `--db-url` alias, but current CLI docs state `--db-url` is deprecated in v3 and removed in v4; `--remote=<ref|branch|url>` accepts a PostgreSQL URL and prints a `Target:` line. The final runbook uses the equals form `--remote="$SOURCE_DB_URL"` for all five dumps and requires verifying the target line and Dashboard Connect details.
+- An intermediate documentation edit followed the older hosted reference and used `--db-url`; that assumption was corrected after inspecting the current CLI source. The final runbook does not use `--db-url`.
+- Restore order is now explicit: import `roles.sql` into the isolated target first; revoke target default privileges for TABLES, FUNCTIONS, and SEQUENCES from `anon` and `authenticated` for each reviewed owner role; then restore schema/data and migration history. A `pg_default_acl` query verifies the resulting defaults.
+- The source inventory was refreshed read-only on 2026-11-21: 27 repository migrations versus eight live; 19 branch-only; nine public tables, all RLS-enabled and empty; no checklist tables; `auth.users`, Storage buckets/objects, and `vault.secrets` all zero; `auth.schema_migrations=84`; `storage.migrations=81`; four extension versions recorded; no auth/storage RLS policies; 12 non-internal auth/storage triggers; one project-owned Auth profile-bootstrap trigger; no Edge Functions listed.
+- Shell snippets passed `bash -n`. This is syntax validation only; no Supabase CLI dump or restore was executed.
+
+## CI evidence
+
+- CI #459 passed on `c95929f87c06751d2d9fd8de831fe90ec06fa1b9`.
+- CI #460 passed on `260f7210e5449d32ac2a9c6b22bfd4bcabf83f65`.
+- CI #461 passed on `484f09aeeb6bd703d9a6d244fb425f9e2686833d`.
+- CI #462 passed on `12885122b8b59293e2f41ebf8d2a40c55f2c9c07`.
+- CI #463 passed on `224b11599004234f19daabf01fc5e3e522008fc5`.
+- Final CI #464 passed on runbook HEAD `1b9c2ca12145226f865d22414f95de6170729e54`: PostgREST preflight 21/21, PostgreSQL 17 migration replay 27/27, task-hierarchy concurrency, application tests 152/152, TypeScript typecheck, production build, and npm audit with 0 vulnerabilities. No lint script is configured. Non-failing warnings include Node's `punycode` deprecation and the local test PostgreSQL `trust` warning; negative migration tests intentionally emit expected error logs.
+- CI validates the application and migration suite; it does not execute the owner backup/restore commands. The backup commands remain unexecuted.
+
+## Production boundary and remaining blockers
+
+- Fresh production checks were read-only. Project `gujzvkyytxsnervovvrt` is ACTIVE_HEALTHY in `ap-southeast-1`, PostgreSQL 17.11.0.003, with eight applied project migrations. All nine public tables have RLS enabled and zero rows. Auth, Storage, Vault, extensions, migration metadata, and trigger inventory are recorded in the preflight runbook.
+- No production DDL/DML, migration, RLS change, backup, restore, or PR merge occurred. The connected Supabase tools expose no backup/export action; no restore operation was invoked.
+- The complete owner-controlled schema/data/roles backup and successful isolated restore remain outstanding. Vault root-key handling, Auth trigger recreation, role/default-ACL verification, checklist conflict disposition, and authenticated two-owner PostgREST acceptance remain gates.
+
+## Next action
+
+Owner: create the complete backup using the current CLI v3+ runbook, verify every artifact hash and exit status, restore roles and schema/data into a separate isolated project, verify extensions/Auth trigger/Vault/default ACLs and the exact eight-version ledger, then apply the 19 branch-only migrations only to that isolated target. Review checklist conflicts and execute the two-owner PostgREST harness there.
+
+If owner artifacts are still unavailable next run, do not retry the same blocked operation. The next safe code-side task is an offline backup-manifest verifier for file presence, byte sizes, SHA-256 hashes, and recorded command statuses; it must not read or contain credentials or claim that a restore succeeded.
+
+---
 # Latest verified checkpoint — legacy checklist runtime audit and cutover guard (2026-11-21)
 
 **Starting branch HEAD:** `ba5b1548c492ff79cccbca9b9a88d36724624fd8` — CI #455 passed.  

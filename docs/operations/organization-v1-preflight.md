@@ -1,3 +1,16 @@
+# Latest preflight update — backup/restore CLI v3/v4 and target default ACLs (2026-11-21)
+
+The backup gate remains unsatisfied; no backup or restore was executed. The connected Supabase tools have no backup/export action, and the automation container has no Supabase CLI, Docker, `pg_dump`, or `psql`.
+
+**CLI syntax:** current Supabase CLI v3/v4 uses `--remote=<ref|branch|url>` for `supabase db dump`. For a connection string, use the equals form `--remote="$SOURCE_DB_URL"` and verify the printed `Target:` line. The `--db-url` alias is deprecated in v3 and removed in v4; the hosted Supabase reference page still shows the older alias. The current CLI docs and flag implementation are linked in the backup gate below.
+
+**Restore order:** import `roles.sql` first into the isolated target; revoke target default privileges for TABLES, FUNCTIONS, and SEQUENCES from `anon` and `authenticated` for each reviewed owner role; then restore schema/data and the migration history. Verify `pg_default_acl` after restore.
+
+**Fresh 2026-11-21 source inventory:** ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, eight live project migrations versus 27 repository migrations (19 branch-only); nine public tables are RLS-enabled and empty; no checklist tables; `auth.users`, Storage buckets/objects, and `vault.secrets` are zero; four extension versions; no auth/storage RLS policies; 12 non-internal auth/storage triggers; one project-owned Auth profile trigger; no Edge Functions listed. Project-level Auth/Realtime/webhook/secret settings still require owner inventory.
+
+Final runbook commit `1b9c2ca12145226f865d22414f95de6170729e54` passed [CI #464](https://github.com/mohith-krishnaa/personal-os/actions/runs/44849631968): 21/21 preflight tests, 27/27 migration replay, 152/152 application tests, task hierarchy concurrency, typecheck, build, and npm audit 0 vulnerabilities. The documented shell snippets passed `bash -n`; no backup command was executed.
+
+---
 # Latest preflight update — trusted activity-event writers (migration 27, 2026-11-21)
 
 The branch contains **27 migrations**; the last read-only production ledger contains **8**, leaving **19 branch-only**. Migration 27 is `20261121000500_trusted_activity_event_writers.sql`. CI #444 passed the implementation/test commit `d05d5a47efd51dca6088ea211f897573b789374d`: 27/27 PostgreSQL migrations, migration 27 reapplication, 17/17 PostgREST safety tests, 147/147 application tests, typecheck, production build and npm audit (0 vulnerabilities). The fail-closed follow-up `fbb3be06e3c21156ce8e4f3d72c408d657af7d45` passed [CI #445](https://github.com/mohith-krishnaa/personal-os/actions/runs/44828178553): 27 migration replay/reapplication, 17/17 preflight tests, 147/147 application tests, typecheck, production build, and npm audit 0 vulnerabilities.

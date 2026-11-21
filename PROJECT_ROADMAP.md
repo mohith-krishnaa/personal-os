@@ -1,3 +1,27 @@
+# Latest roadmap checkpoint — Organization backup/restore preflight (2026-11-21)
+
+**Branch:** `feature/organization-v1`. **Runbook commit:** `1b9c2ca12145226f865d22414f95de6170729e54` — [CI #464 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44849631968).
+
+## Current milestone status
+
+- **Organization V1 — in progress.** Runtime checklist access is canonical-only with a regression guard; trusted activity-event PostgREST acceptance harness is implemented. The backup/restore runbook now uses current Supabase CLI v3/v4 `--remote=<url>` syntax, imports roles before target default-ACL preparation, revokes target defaults for tables/functions/sequences, and records a fresh 2026-11-21 source inventory. None of the 19 branch-only migrations has been applied to production.
+- **Analytics — queued.** Do not start until the complete backup has been restored in isolation, the 19 migrations pass on that restored copy, checklist conflicts are dispositioned, and authenticated two-owner PostgREST acceptance passes.
+- **AI Assistant — queued.**
+- **Research Agent — queued.**
+- **Adaptive Scheduling — queued.**
+- **Production hardening — pending.**
+
+## Verified source baseline and blockers
+
+- Live Supabase project is ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, region `ap-southeast-1`; eight project migrations are applied. The branch contains 27 migrations, leaving 19 branch-only.
+- Nine public application tables are RLS-enabled and empty; `checklist_items` and `task_checklist_items` are absent from the source baseline. `auth.users`, Storage buckets/objects, and Vault secrets are zero. Four extension versions, the custom Auth profile trigger, 12 auth/storage triggers, and absence of auth/storage RLS policies are documented in the preflight runbook.
+- A complete owner-controlled schema/data/roles backup and successful isolated restore are still missing. The environment has no backup/export connector action or local Supabase CLI/Docker/pg_dump/psql. Production remains read-only.
+
+## Next action
+
+Owner-controlled backup and isolated restore using the updated preflight runbook. If that owner action remains unavailable, continue with a distinct safe Organization task such as an offline backup-manifest verifier; do not repeatedly attempt export and do not start Analytics.
+
+---
 # Latest verified checkpoint — legacy checklist runtime audit and cutover guard (2026-11-21)
 
 **Starting branch HEAD:** `ba5b1548c492ff79cccbca9b9a88d36724624fd8` — CI #455 passed.  

@@ -1,3 +1,34 @@
+# Latest handoff — owner backup gate and current Supabase CLI restore procedure (2026-11-21)
+
+**Branch:** `feature/organization-v1`. **Runbook commit:** `1b9c2ca12145226f865d22414f95de6170729e54` — [CI #464 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44849631968).
+
+## Recovery
+
+- Automation enabled. `last_run.id=2d21ded0-8264-8330-9b18-7be327a398ae` started `2026-11-21T01:12:18.900454Z` and was recorded `in_progress`; `latest_result.run_id=8fb5af3f-96c4-8325-8e43-c41bfa820204` was created `2026-11-21T00:28:15.554687Z`, so it belongs to the prior completed legacy-checklist audit.
+- The actual branch already contained the trusted activity-event PostgREST acceptance harness (CI #450/#451). Do not recreate it. The latest completed repository task before this run was the legacy checklist caller audit and runtime guard.
+- Repository migrations: 27. Live project ledger: eight. Branch-only migrations: 19. PR #11 remains open and unmerged; PR #12 remains an open superseded draft.
+
+## Current backup/restore instructions
+
+1. Use Supabase CLI v3+ and `supabase db dump --remote="$SOURCE_DB_URL"`; `--remote=<ref|branch|url>` is the current selector. The hosted docs page still shows `--db-url`, but current CLI source docs mark that alias deprecated in v3 and removed in v4. Verify the printed `Target:` line and Dashboard Connect details.
+2. Export roles, schema, data, and `supabase_migrations` history separately; keep artifacts outside Git and record hashes, sizes, exit statuses, CLI version, and PostgreSQL version.
+3. On a separate isolated target, restore `roles.sql` first. Before schema restore, revoke target default privileges for TABLES, FUNCTIONS, and SEQUENCES from `anon` and `authenticated` for each reviewed object-owner role.
+4. Restore schema/data and migration history with `ON_ERROR_STOP`; recreate and verify the custom `auth.users.on_auth_user_created` trigger after `public.handle_new_user()` exists.
+5. Verify the complete backup manifest, role/default ACLs, extensions, Vault root-key decision, Auth trigger, and exactly eight source migration versions before applying the 19 branch-only migrations to the isolated target.
+6. Review checklist conflicts and run `scripts/postgrest-organization-acceptance.ts` only against the isolated target. Never run it against production.
+
+## Verification and limitations
+
+- Final runbook commit `1b9c2ca` passed CI #464: 21/21 PostgREST preflight tests, 27/27 PostgreSQL 17 migration replay, 152/152 application tests, task hierarchy concurrency, typecheck, production build, npm audit 0 vulnerabilities.
+- `bash -n` passed on the documented shell snippets. Actual Supabase CLI/pg_dump/psql/Docker tools and a local repository checkout are absent in the automation container; no backup or restore was executed.
+- The 2026-11-21 live Supabase inspection was read-only. Nine public tables are RLS-enabled and empty; auth.users, Storage buckets/objects, and Vault secrets are zero; four extension versions and 12 auth/storage triggers were inventoried; no Edge Functions or auth/storage RLS policies were listed.
+- No production DDL/DML, migration, RLS change, backup, restore, or merge was performed. The backup/export action is unavailable through the connected Supabase tools.
+
+## Next run
+
+Wait for owner-controlled backup and isolated restore artifacts. If they are still unavailable, do not retry export. Implement an offline manifest verifier (file presence, byte size, SHA-256, command status) or perform another distinct Organization acceptance audit. Keep Analytics queued.
+
+---
 # Latest verified checkpoint — legacy checklist runtime audit and cutover guard (2026-11-21)
 
 **Starting branch HEAD:** `ba5b1548c492ff79cccbca9b9a88d36724624fd8` — CI #455 passed.  
