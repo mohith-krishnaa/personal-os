@@ -2,7 +2,10 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
   assertSingleTaskCreatedEvent,
+  cleanupMarkerPattern,
+  createCleanupMarkerPrefix,
   loadAcceptanceConfig,
+  mergeOwnedCleanupIds,
   type ActivityEventAcceptanceRow,
 } from './postgrest-organization-acceptance'
 
@@ -258,4 +261,47 @@ test('rejects an authenticated JWT', () => {
   const env = validEnvironment()
   env.PERSONAL_OS_ACCEPTANCE_ANON_KEY = legacyJwtKey({ role: 'authenticated' })
   assert.throws(() => loadAcceptanceConfig(env, ['--execute']), /not an anon key/)
+})
+
+test('creates a per-run cleanup prefix with no LIKE wildcard characters', () => {
+  const markerPrefix = createCleanupMarkerPrefix()
+  assert.match(markerPrefix, /^personalosacceptance[a-f0-9]{32}-$/
+  )
+  assert.equal(cleanupMarkerPattern(markerPrefix), markerPrefix + '%')
+})
+
+test('rejects cleanup marker prefixes containing wildcard or SQL pattern characters', () => {
+  assert.throws(
+    () => cleanupMarkerPattern('personalosacceptance' + 'a'.repeat(32) + '_'),
+    /generated lowercase-hex run prefix/,
+  )
+  assert.throws(
+    () => cleanupMarkerPattern('personalosacceptance' + 'a'.repeat(32) + '%'),
+    /generated lowercase-hex run prefix/,
+  )
+})
+
+test('merges tracked and recovered cleanup IDs without duplicates for the same owner', () => {
+  assert.deepEqual(
+    mergeOwnedCleanupIds(
+      ['task-a'],
+      [
+        { id: 'task-a', user_id: 'owner-a' },
+        { id: 'task-b', user_id: 'owner-a' },
+      ],
+      'owner-a',
+    ),
+    ['task-a', 'task-b'],
+  )
+})
+
+test('refuses to clean up a marker-matched row belonging to another owner', () => {
+  assert.throws(
+    () => mergeOwnedCleanupIds(
+      ['task-a'],
+      [{ id: 'task-b', user_id: 'owner-b' }],
+      'owner-a',
+    ),
+    /refused a row not owned by the authenticated test owner/,
+  )
 })

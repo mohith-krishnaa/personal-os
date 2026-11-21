@@ -188,6 +188,31 @@ function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
 }
 
+export function createCleanupMarkerPrefix() {
+  return 'personalosacceptance' + randomUUID().replaceAll('-', '') + '-'
+}
+
+export function cleanupMarkerPattern(markerPrefix: string) {
+  if (!/^personalosacceptance[a-f0-9]{32}-$/.test(markerPrefix)) {
+    throw new Error('The acceptance cleanup marker must be a generated lowercase-hex run prefix.')
+  }
+  return markerPrefix + '%'
+}
+
+export function mergeOwnedCleanupIds(
+  trackedIds: readonly string[],
+  recoveredRows: readonly { id: string; user_id: string }[],
+  expectedOwnerId: string,
+) {
+  const recoveredIds = recoveredRows.map((row) => {
+    if (!row.id || row.user_id !== expectedOwnerId) {
+      throw new Error('Cleanup recovery refused a row not owned by the authenticated test owner.')
+    }
+    return row.id
+  })
+  return [...new Set([...trackedIds, ...recoveredIds])]
+}
+
 export type ActivityEventAcceptanceRow = {
   id: string
   user_id: string
@@ -253,36 +278,75 @@ async function expectMissing(client: Client, table: string, id: string, label: s
 }
 
 async function deleteCreated(client: Client, table: string, ids: string[]) {
-  for (const id of [...ids].reverse()) {
-    const { error } = await client.from(table).delete().eq('id', id)
-    if (error) throw new Error(table + ' cleanup failed (' + error.code + ').')
+  const errors: string[] = []
+  for (const id of [...new Set(ids)].reverse()) {
+    try {
+      const { error } = await client.from(table).delete().eq('id', id)
+      if (error) errors.push(table + ' cleanup failed (' + error.code + ').')
+    } catch (error) {
+      errors.push(error instanceof Error ? table + ' cleanup request failed: ' + error.message : table + ' cleanup request failed.')
+    }
   }
+  if (errors.length) throw new Error(errors.join(' | '))
 }
 
-async function cleanup(client: Client, rows: CreatedRows) {
+type CleanupResult = {
+  errors: string[]
+  taskIds: string[]
+  recoveredRows: number
+  taskRecoveryComplete: boolean
+}
+
+async function cleanup(client: Client, rows: CreatedRows, ownerId: string, markerPattern: string): Promise<CleanupResult> {
   const errors: string[] = []
-  for (const [table, ids] of [
-    ['checklist_items', rows.canonicalChecklists],
-    ['task_checklist_items', rows.legacyChecklists],
-    ['tasks', rows.tasks],
-    ['projects', rows.projects],
-  ] as const) {
+  let taskIds = [...rows.tasks]
+  let recoveredRows = 0
+  let taskRecoveryComplete = true
+  const tables = [
+    { table: 'checklist_items', markerColumn: 'title', ids: rows.canonicalChecklists },
+    { table: 'task_checklist_items', markerColumn: 'title', ids: rows.legacyChecklists },
+    { table: 'tasks', markerColumn: 'title', ids: rows.tasks },
+    { table: 'projects', markerColumn: 'name', ids: rows.projects },
+  ] as const
+
+  for (const { table, markerColumn, ids } of tables) {
+    let idsToDelete = [...ids]
     try {
-      await deleteCreated(client, table, ids)
+      const { data, error } = await client
+        .from(table)
+        .select('id,user_id')
+        .eq('user_id', ownerId)
+        .like(markerColumn, markerPattern)
+      if (error) throw new Error(table + ' cleanup discovery failed (' + error.code + ').')
+
+      const discovered = (data ?? []) as Row[]
+      recoveredRows += discovered.filter((row) => !ids.includes(row.id)).length
+      idsToDelete = mergeOwnedCleanupIds(ids, discovered, ownerId)
+      if (table === 'tasks') taskIds = idsToDelete
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : table + ' cleanup discovery failed.')
+      if (table === 'tasks') taskRecoveryComplete = false
+    }
+
+    try {
+      await deleteCreated(client, table, idsToDelete)
     } catch (error) {
       errors.push(error instanceof Error ? error.message : table + ' cleanup failed.')
     }
   }
-  return errors
+
+  return { errors, taskIds: [...new Set(taskIds)], recoveredRows, taskRecoveryComplete }
 }
 
-async function countRetainedActivityEvents(client: Client, taskIds: string[]) {
+async function countRetainedActivityEvents(client: Client, ownerId: string, taskIds: string[]) {
   const uniqueTaskIds = [...new Set(taskIds)]
   if (uniqueTaskIds.length === 0) return 0
 
   const { count, error } = await client
     .from('activity_events')
     .select('id', { count: 'exact', head: true })
+    .eq('user_id', ownerId)
+    .eq('entity_type', 'TASK')
     .in('entity_id', uniqueTaskIds)
 
   if (error) {
@@ -305,12 +369,17 @@ export async function runOrganizationAcceptance(config: AcceptanceConfig) {
   const ownerB = createClient(config.url, config.anonKey, clientOptions)
   const rowsA = createTracker()
   const rowsB = createTracker()
-  const runMarker = '__personal_os_acceptance_' + randomUUID() + '__'
+  const runMarker = createCleanupMarkerPrefix()
+  const markerPattern = cleanupMarkerPattern(runMarker)
+  let ownerAId: string | null = null
+  let ownerBId: string | null = null
   let runFailure: string | null = null
 
   try {
     const userA = await signIn(ownerA, config.ownerA, 'Owner A')
+    ownerAId = userA.id
     const userB = await signIn(ownerB, config.ownerB, 'Owner B')
+    ownerBId = userB.id
     assert(userA.id !== userB.id, 'Owner A and Owner B resolved to the same Auth user.')
 
     const projectA = await insertOwnedRow(ownerA, 'projects', {
@@ -541,24 +610,49 @@ export async function runOrganizationAcceptance(config: AcceptanceConfig) {
     runFailure = error instanceof Error ? error.message : 'Unknown PostgREST acceptance failure.'
   }
 
-  const cleanupErrors = [
-    ...await cleanup(ownerA, rowsA),
-    ...await cleanup(ownerB, rowsB),
-  ]
-
+  const cleanupWithoutIdentity = (rows: CreatedRows, label: string): CleanupResult => {
+    const hasTrackedRows = Object.values(rows).some((ids) => ids.length > 0)
+    return {
+      errors: hasTrackedRows ? [label + ' identity unavailable; refusing unscoped cleanup.'] : [],
+      taskIds: [...rows.tasks],
+      recoveredRows: 0,
+      taskRecoveryComplete: rows.tasks.length === 0,
+    }
+  }
+  const [ownerACleanup, ownerBCleanup] = await Promise.all([
+    ownerAId
+      ? cleanup(ownerA, rowsA, ownerAId, markerPattern)
+      : Promise.resolve(cleanupWithoutIdentity(rowsA, 'Owner A')),
+    ownerBId
+      ? cleanup(ownerB, rowsB, ownerBId, markerPattern)
+      : Promise.resolve(cleanupWithoutIdentity(rowsB, 'Owner B')),
+  ])
+  const cleanupErrors = [...ownerACleanup.errors, ...ownerBCleanup.errors]
+  const recoveredFixtureRows = ownerACleanup.recoveredRows + ownerBCleanup.recoveredRows
   let retainedActivityEvents = 0
+  let retainedActivityEventsComplete = ownerACleanup.taskRecoveryComplete && ownerBCleanup.taskRecoveryComplete
   try {
     const [ownerAEvents, ownerBEvents] = await Promise.all([
-      countRetainedActivityEvents(ownerA, rowsA.tasks),
-      countRetainedActivityEvents(ownerB, rowsB.tasks),
+      ownerAId ? countRetainedActivityEvents(ownerA, ownerAId, ownerACleanup.taskIds) : Promise.resolve(0),
+      ownerBId ? countRetainedActivityEvents(ownerB, ownerBId, ownerBCleanup.taskIds) : Promise.resolve(0),
     ])
     retainedActivityEvents = ownerAEvents + ownerBEvents
   } catch (error) {
+    retainedActivityEventsComplete = false
     cleanupErrors.push(error instanceof Error ? error.message : 'Could not count retained activity-event artifacts.')
   }
 
   if (runFailure || cleanupErrors.length) {
-    const details = [runFailure, ...cleanupErrors, retainedActivityEvents + ' task-linked activity-event rows retained'].filter(Boolean).join(' | ')
+    const retainedCount = retainedActivityEventsComplete
+      ? retainedActivityEvents + ' task-linked activity-event rows retained'
+      : 'task-linked activity-event count incomplete because marker recovery or counting failed'
+    const details = [
+      runFailure,
+      ...cleanupErrors,
+      recoveredFixtureRows + ' committed fixture rows recovered by run marker',
+      retainedCount,
+      'run marker ' + runMarker,
+    ].filter(Boolean).join(' | ')
     throw new Error(details)
   }
 
@@ -570,7 +664,10 @@ export async function runOrganizationAcceptance(config: AcceptanceConfig) {
     canonicalAndLegacyChecklistCrud: true,
     crossOwnerIsolation: true,
     cleanupCompleted: true,
+    runMarker,
+    recoveredFixtureRows,
     retainedActivityEvents,
+    retainedActivityEventsComplete,
   }
 }
 
@@ -579,6 +676,8 @@ async function main() {
   const result = await runOrganizationAcceptance(config)
   console.log('Organization PostgREST acceptance passed for isolated project ' + result.projectRef + '.')
   console.log('Two owners; project/task/subtask/canonical+legacy checklist CRUD; cross-owner isolation; trusted activity-event writer and read isolation passed.')
+  console.log('Run marker: ' + result.runMarker)
+  console.log(result.recoveredFixtureRows + ' committed fixture rows were recovered by marker during cleanup.')
   console.log(result.retainedActivityEvents + ' task-linked activity-event rows were retained; the harness never deletes activity events.')
 }
 

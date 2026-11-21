@@ -83,7 +83,11 @@ The harness does not create Auth users, delete Auth users, or inspect production
 
 ## Cleanup and failure handling
 
-Cleanup is attempted after success or a caught request failure and is limited to the exact project, task, and checklist IDs returned by this run's inserts. If a request fails, cleanup is still attempted for both owners. A cleanup failure is reported and must be reconciled manually in the isolated project using the run's uniquely prefixed records.
+Cleanup runs after success or a caught request failure. It re-queries each fixture table using both the authenticated owner's exact `user_id` and this run's unique marker prefix, then merges discovered IDs with IDs returned by successful inserts. The marker is generated from a lowercase hexadecimal UUID and a trailing hyphen; the SQL `LIKE` pattern contains only that literal prefix plus one final wildcard.
+
+This handles an ambiguous insert outcome where PostgreSQL committed the row but the HTTP response was lost before the client received its ID. The harness can still discover and delete that row. It refuses any discovered row whose `user_id` differs from the authenticated owner. If discovery fails, it still attempts deletion of IDs already tracked from successful responses. If an individual delete fails, it continues attempting the remaining IDs and reports every failure.
+
+Task IDs recovered by marker are included in the retained-event count. That count is scoped by both the authenticated owner and `entity_type='TASK'`. The harness never deletes `activity_events`; task-linked append-only events remain as expected artifacts. If task discovery or event counting fails, the output explicitly marks the retained-event count incomplete. On any cleanup failure, the run reports the unique run marker so the owner can reconcile only that run's records in the isolated project.
 
 Never point the harness at production to "see whether the guard works." Production is blocked in code, and no production write is authorized by this runbook.
 
