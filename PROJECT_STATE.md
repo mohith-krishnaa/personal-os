@@ -1,16 +1,19 @@
 # Latest verified checkpoint — PostgREST acceptance key-class validation (2026-11-21)
 
-**Implementation/test HEAD:** `c84dd038d3a4c4dd4253c0d7ca03931be823d92b` — [CI #513 passed on this exact commit](https://github.com/mohith-krishnaa/personal-os/actions/runs/44880004720).  
+**Implementation/test HEAD:** `c84dd038d3a4c4dd4253c0d7ca03931be823d92b` — [CI #513 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44880004720).  
+**Prior documentation HEAD:** `1d76005fca0cd2a64940396cbda1295d259ac775` — [CI #514 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44880155910).  
 **Starting HEAD:** `aeec41826b246abc8fc83d9ad1ab04af1d68cd88` — [CI #512 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44875025509).
 
 ## Repository reconciliation
 
-- Branch: `feature/organization-v1`; current implementation/test HEAD: `c84dd038d3a4c4dd4253c0d7ca03931be823d92b`.
-- Main HEAD: `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`; branch comparison: 592 commits ahead, 0 behind.
-- PR #11 is open and unmerged; its head matches `c84dd038d3a4c4dd4253c0d7ca03931be823d92b`. It contains 117 changed files.
-- PR #12 is an open, superseded draft targeting the feature branch.
+At the start of this documentation checkpoint:
+- Branch: `feature/organization-v1`; branch HEAD: `1d76005fca0cd2a64940396cbda1295d259ac775`.
+- Main HEAD: `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`; branch comparison: 593 commits ahead, 0 behind.
+- PR #11 was open and unmerged, with its head at `1d76005fca0cd2a64940396cbda1295d259ac775`; it contained 117 changed files.
+- PR #12 was an open, superseded draft targeting the feature branch.
 - Repository migration count remains 27; no migration was added.
-- The remote diff for this task contains exactly three files: the PostgREST acceptance harness, its unit tests, and the acceptance runbook. No local checkout is attached, so local working-tree cleanliness cannot be independently certified.
+- From the starting HEAD `aeec418`, the task changed exactly six expected files: the acceptance harness, its tests, the runbook, and the three canonical project checkpoint documents.
+- No local checkout is attached, so local working-tree cleanliness cannot be independently certified.
 
 ## Bounded change
 
@@ -34,9 +37,10 @@ CI #513 passed on the exact implementation/test commit `c84dd038d3a4c4dd4253c0d7
 - TypeScript typecheck: passed.
 - Production build: passed.
 - npm install audit: 0 vulnerabilities.
-- No lint script is configured.
 
-The workflow emitted the existing Node `punycode` deprecation and local PostgreSQL trust-authentication warning. Expected negative-test SQL errors were matched by the test runner; the workflow completed successfully.
+CI #514 passed on the prior documentation checkpoint `1d76005fca0cd2a64940396cbda1295d259ac775`. No lint script is configured. The workflow emitted the existing Node `punycode` deprecation and local PostgreSQL trust-authentication warning. Expected negative-test SQL errors were matched by the test runner; both workflows completed successfully.
+
+A credential-pattern scan found only the existing synthetic `sb_secret_test_key` negative-test fixture; no real credential was present in the changed files.
 
 ## Production and acceptance boundary
 

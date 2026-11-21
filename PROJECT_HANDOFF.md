@@ -4,10 +4,10 @@
 
 - Branch: `feature/organization-v1`.
 - Implementation/test HEAD: `c84dd038d3a4c4dd4253c0d7ca03931be823d92b`; [CI #513 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44880004720).
+- Prior documentation HEAD: `1d76005fca0cd2a64940396cbda1295d259ac775`; [CI #514 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44880155910).
 - Starting HEAD: `aeec41826b246abc8fc83d9ad1ab04af1d68cd88`; [CI #512 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44875025509).
-- Main: `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`; branch is 592 commits ahead and 0 behind.
-- PR #11 is open, unmerged, and its head matches the implementation/test HEAD; 117 changed files.
-- PR #12 is an open superseded draft.
+- Main: `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`; at the prior documentation checkpoint the branch was 593 commits ahead and 0 behind.
+- PR #11 was open and unmerged with the prior documentation HEAD; it contained 117 changed files. PR #12 was an open superseded draft.
 - Repository migrations: 27. The last verified production ledger: 8 versions, 19 branch-only; not refreshed in this task.
 
 ## Completed in this checkpoint
@@ -27,7 +27,7 @@ CI #513 passed on `c84dd038d3a4c4dd4253c0d7ca03931be823d92b`:
 - npm audit reported 0 vulnerabilities.
 - No lint script is configured.
 
-Existing non-failing Node `punycode` deprecation and local PostgreSQL trust-authentication warnings remain. Expected SQL errors from negative tests were handled by assertions.
+CI #514 passed on the subsequent documentation checkpoint `1d76005fca0cd2a64940396cbda1295d259ac775`. Existing non-failing Node `punycode` deprecation and local PostgreSQL trust-authentication warnings remain. Expected SQL errors from negative tests were handled by assertions.
 
 ## Production and rollout boundary
 
