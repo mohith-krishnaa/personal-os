@@ -417,16 +417,22 @@ All export commands must exit successfully. Record hashes even when a data-only 
 
 Create a separate isolated Supabase project; do not use the production project, a production branch, or the connected production restore operation. Match PostgreSQL major version and enable the same installed extensions before restoring. Review Supabase's documented handling for custom roles and platform-owned objects; do not broadly strip ownership or ACL statements to make a restore appear successful.
 
-### Target default-privilege preparation
+### Restore roles and prepare target default privileges
 
-The Supabase CLI restore documentation warns that a new project's default privileges can grant broad access to restored tables. Before restoring schema objects, connect to the isolated target as `postgres` (or the exact role that will own the restored objects) and revoke the target's default table grants to `anon` and `authenticated`:
+Restore the custom-role export first so every source owner role exists before privilege preparation. This is still only the isolated target:
+
+~~~bash
+psql "$TARGET_DB_URL" --single-transaction --variable ON_ERROR_STOP=1 --file roles.sql
+~~~
+
+The Supabase CLI restore documentation warns that a new project's default privileges can grant broad access to restored tables. Before restoring schema objects, connect as `postgres` and revoke the target's default table grants to `anon` and `authenticated` for the role that owns the restored public objects:
 
 ~~~bash
 psql "$TARGET_DB_URL" --set ON_ERROR_STOP=1 \
-  --command 'ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES FROM anon, authenticated;'
+  --command 'ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON TABLES FROM anon, authenticated;'
 ~~~
 
-This changes default privileges for the current role only. If the restore assigns public objects to other owner roles, inspect and reconcile each owner's default ACL separately; do not broadly strip source ACLs. The command is run only on the new isolated target, never on production. See the [CLI dump privilege-migration note](https://supabase.com/docs/reference/cli/supabase-db-dump#note-on-privilege-migration).
+The live source snapshot shows public application tables owned by `postgres`. If the reviewed schema export assigns public objects to any other owner role, apply the same `ALTER DEFAULT PRIVILEGES FOR ROLE <owner>` statement for each such role after `roles.sql` has created it and before `schema.sql` is restored. This changes defaults for the specified owner only; do not broadly strip source ACLs. Run these commands only on the new isolated target, never on production. See the [CLI dump privilege-migration note](https://supabase.com/docs/reference/cli/supabase-db-dump#note-on-privilege-migration).
 
 After restore, capture the target's public-table default ACLs and compare them with the source manifest and intended owner roles:
 
@@ -447,7 +453,6 @@ Use the documented logical restore sequence against TARGET_DB_URL:
 psql \
   --single-transaction \
   --variable ON_ERROR_STOP=1 \
-  --file roles.sql \
   --file schema.sql \
   --command 'SET session_replication_role = replica' \
   --file data.sql \
