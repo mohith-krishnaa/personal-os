@@ -378,6 +378,51 @@ if [[ "$wrong_superuser_status" -eq 0 ]] || ! grep -Fq 'connect directly as the 
   exit 1
 fi
 
+echo "Verifying fail-closed ensure_rls candidate rejects a missing isolated-target attestation"
+set +e
+fail_closed_target_output="$( 
+  psql -X -v ON_ERROR_STOP=1 -A -t 2>&1 \
+    -c "BEGIN; SET ROLE postgres" \
+    -f supabase/operations/apply-ensure-rls-fail-closed.sql
+)"
+fail_closed_target_status=$?
+set -e
+if [[ "$fail_closed_target_status" -eq 0 ]] || ! grep -Fq 'isolated-target attestation is missing' <<<"$fail_closed_target_output"; then
+  echo "ERROR: fail-closed candidate did not reject a missing isolated-target attestation:" >&2
+  printf '%s\n' "$fail_closed_target_output" >&2
+  exit 1
+fi
+
+echo "Verifying fail-closed ensure_rls candidate rejects missing owner approval"
+set +e
+fail_closed_approval_output="$( 
+  psql -X -v ON_ERROR_STOP=1 -A -t 2>&1 \
+    -c "BEGIN; SET ROLE postgres; SET app.personal_os_restore_target = 'isolated'" \
+    -f supabase/operations/apply-ensure-rls-fail-closed.sql
+)"
+fail_closed_approval_status=$?
+set -e
+if [[ "$fail_closed_approval_status" -eq 0 ]] || ! grep -Fq 'explicit owner approval attestation is missing' <<<"$fail_closed_approval_output"; then
+  echo "ERROR: fail-closed candidate did not reject missing owner approval:" >&2
+  printf '%s\n' "$fail_closed_approval_output" >&2
+  exit 1
+fi
+
+echo "Verifying fail-closed ensure_rls candidate rejects a non-postgres SUPERUSER"
+set +e
+fail_closed_role_output="$( 
+  psql -X -v ON_ERROR_STOP=1 -A -t 2>&1 \
+    -c "BEGIN; SET ROLE supabase_admin; SET app.personal_os_restore_target = 'isolated'; SET app.personal_os_fail_closed_rls_approval = 'owner-approved'" \
+    -f supabase/operations/apply-ensure-rls-fail-closed.sql
+)"
+fail_closed_role_status=$?
+set -e
+if [[ "$fail_closed_role_status" -eq 0 ]] || ! grep -Fq 'connect directly as the Supabase postgres role' <<<"$fail_closed_role_output"; then
+  echo "ERROR: fail-closed candidate accepted a non-postgres SUPERUSER identity or failed unexpectedly:" >&2
+  printf '%s\n' "$fail_closed_role_output" >&2
+  exit 1
+fi
+
 echo "Restoring and testing ensure_rls as the Supabase postgres role"
 preflight_output="$(
   psql -X -v ON_ERROR_STOP=1 -A -t \
@@ -386,6 +431,10 @@ preflight_output="$(
     -f supabase/operations/restore-ensure-rls-event-trigger.sql \
     -f supabase/tests/restore-ensure-rls-event-trigger.sql \
     -f supabase/operations/organization-v1-preflight.sql \
+    -c "SET app.personal_os_fail_closed_rls_approval = 'owner-approved'" \
+    -f supabase/operations/apply-ensure-rls-fail-closed.sql \
+    -f supabase/operations/apply-ensure-rls-fail-closed.sql \
+    -f supabase/tests/ensure-rls-fail-closed-candidate.sql \
     -c "ROLLBACK"
 )"
 expected_ensure_rls_line='ensure_rls_contract|t|t|t|t|t|t|t|t|t|t|t|f|f|f|t|t|t'
