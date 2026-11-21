@@ -1,3 +1,67 @@
+# Latest verified checkpoint — recurring occurrence concurrency and event idempotency (2026-11-21)
+
+**Implementation/test HEAD:** f8d373116444bfa8886fe253ed4d4b0a5a82806a — [CI #533 passed on this exact commit](https://github.com/mohith-krishnaa/personal-os/actions/runs/44903880721).
+
+## Continuity recovery
+
+- Personal-OS Builder is enabled.
+- Recorded current run: 5d41e936-c8f4-8333-9afb-7b1338c9d30c; recorded status in_progress; started 2026-11-21T12:19:03.929357Z.
+- Latest stored result: run ad8ef932-9524-8328-9eac-287ec8149d77, created 2026-11-21T11:22:35.663659Z. It predates the current run start and is the previous completed subtask retry/activity-event checkpoint, not this run's result. The recorded in_progress state was not treated as proof of worker liveness.
+- Starting branch feature/organization-v1 was at 6f60e687248fe0020262cb6836d5724c2e101578, matching PR #11. Main is 2b42dd17796b75dca79434a81d4e1f0cbf0fa043.
+- Starting CI #527 passed on the exact starting HEAD. PR #11 remained open and unmerged; PR #12 remained an open superseded draft.
+- Repository migration count remained 27. No migration was added.
+- No local checkout is attached; local working-tree cleanliness cannot be independently certified.
+
+## Recurring completion and occurrence audit
+
+Inspected src/lib/tasks.ts, src/lib/tasks.test.ts, recurrence migrations, the task activity-event trigger, the SQL migration runner, and existing sequential recurrence assertions.
+
+The application already uses the partial unique index tasks_recurring_occurrence_unique on (user_id, recurrence_parent_id, due_at). On SQLSTATE 23505, setTaskStatusForUser looks up the occurrence by authenticated owner, recurrence root, and due instant; if no matching row exists, it rethrows the original database error. Existing tests covered a retry after committed completion and a sequential duplicate, but not two concurrent completion requests.
+
+Added four expected files:
+- src/lib/tasks.test.ts: two tests cover resolving a unique-index race to the owner-scoped existing occurrence and rethrowing when the lookup finds no matching row. The query mock now models the chainable insert/select API.
+- supabase/tests/recurring-occurrence-concurrency.sh: two authenticated PostgreSQL sessions model separate PostgREST completion and occurrence-insert transactions. The first commits the status transition and holds the occurrence INSERT transaction open. The second completion is a no-op, then its competing occurrence INSERT waits on the unique index and resolves to the committed winner. Assertions require one TASK_COMPLETED event, one occurrence, and one source-linked TASK_RECURRENCE_GENERATED event.
+- supabase/tests/organization-migrations.sh invokes the new concurrency regression after task activity-event checks.
+- docs/architecture/recurring-task-idempotency.md records the database, retry, event, and test contracts.
+
+The concurrency test is a disposable PostgreSQL transaction/index test, not hosted Supabase/PostgREST end-to-end acceptance. No application runtime code or database migration changed.
+
+## Verification — CI #533
+
+- PostgREST acceptance preflight: 33/33 passed.
+- PostgreSQL 17 migration replay: 27/27 passed; the new two-session recurring-completion/occurrence race ran and passed.
+- Organization task-hierarchy concurrency: passed.
+- Application tests: 203/203 passed.
+- TypeScript typecheck: passed.
+- Production build: passed.
+- npm install reported 0 vulnerabilities; the existing install-script allowlist warning remains.
+- No lint script is configured.
+
+Three earlier attempts failed and were investigated rather than suppressed:
+- CI #530 failed because an unquoted shell heredoc expanded the SQL dollar-quote tag under set -u (retry: unbound variable). The dollar-quote escaping was corrected.
+- CI #531 failed because the test query mock returned a Promise from insert() instead of the chainable builder expected by insert().select(). The mock was corrected.
+- CI #532 ran on the prior queued head and repeated the same mock failure. The corrected final head was then verified by CI #533.
+
+The aggregate diff from the starting HEAD contains exactly the four expected files. A credential-pattern scan of all four files returned zero matches. No unrelated changes were found in the remote diff.
+
+## Repository and production boundary
+
+- Branch: feature/organization-v1.
+- Implementation/test HEAD: f8d373116444bfa8886fe253ed4d4b0a5a82806a.
+- Main HEAD: 2b42dd17796b75dca79434a81d4e1f0cbf0fa043.
+- Branch comparison: 615 commits ahead, 0 behind.
+- PR #11: open, unmerged, mergeable; head matches the implementation/test HEAD; 120 total changed files.
+- PR #12: open superseded draft.
+- No production Supabase query or mutation occurred. The last recorded live baseline remains 8 applied versions versus 27 repository migrations (19 branch-only); it was not refreshed during this run. No production DDL/DML, migration, RLS/role/project-setting change, backup, restore, or PR merge occurred.
+
+Organization V1 remains incomplete. Still required: complete owner-controlled schema/data/roles backup; offline manifest verification; successful isolated restoration; extension, role/membership, default-ACL, database-setting, Vault, Auth-trigger, ensure_rls, and reminder-function verification; restored-copy checklist conflict disposition; application of the 19 branch-only migrations only to the isolated target; authenticated two-owner PostgREST acceptance; and the separate owner decision on the fail-closed ensure_rls candidate.
+
+## Next action
+
+Owner-controlled complete backup and isolated restoration remain the primary gate. Verify the manifest, restore into a separate isolated Supabase project, then run the customization, migration, checklist, and authenticated PostgREST acceptance sequence there. If owner artifacts remain unavailable, the next safe code-side task is a bounded audit of checklist reconciliation conflict-report determinism and idempotence on disposable PostgreSQL data. Do not apply branch-only migrations to production, deploy the fail-closed candidate, or merge PR #11.
+
+---
+
 # Latest handoff — subtask retry and activity-event idempotency (2026-11-21)
 
 ## Exact resume point
