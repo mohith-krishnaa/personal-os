@@ -1,0 +1,188 @@
+# Supabase-managed schema and project customization restore inventory
+
+**Snapshot:** 2026-11-21 03:23 UTC  
+**Source:** project `gujzvkyytxsnervovvrt`  
+**Purpose:** define what the manual CLI logical backup does not preserve and what must be reconstructed or verified on a disposable isolated target.
+
+This is an inventory and runbook, not proof of a backup or restore. No backup was created and no target project was created during this audit.
+
+## 1. Hard boundary: the CLI dump is not a full Supabase project clone
+
+The standard Supabase CLI `db dump` excludes Supabase-managed schemas such as `auth`, `storage`, and extension-created schemas. Storage object bytes are not part of a database dump. Supabase documents Auth/Storage schema customizations as a separate restore step. See the [CLI backup/restore guide](https://supabase.com/docs/guides/platform/migrating-within-supabase/backup-restore) and [database backup guide](https://supabase.com/docs/guides/platform/backups).
+
+For this repository's manual CLI path, the offline manifest verifier now requires **45 exact row counts**:
+- 9 public application tables, whose counts are recorded but may be non-zero when the dump contains their data.
+- 36 managed/ephemeral data tables listed below, all of which must be exactly zero.
+
+If any managed count is non-zero, the verifier fails. Stop rather than treating the five standard dump artifacts as complete. Use a supported full backup/restore method or an owner-approved, independently tested managed-data export.
+
+The Supabase “Restore to a new project” flow copies database schema/data/roles, Auth user data, and the encryption root key, but Storage objects/settings, Edge Functions, Auth settings/API keys, Realtime settings, extensions/database settings, and read replicas require manual reconfiguration. The flow is restricted to paid plans with physical backups enabled. The current organization is on the Free plan, so that native flow is not currently available without an explicit owner plan/cost decision. See [Restore to a new project](https://supabase.com/docs/guides/platform/clone-project).
+
+## 2. Read-only inventory command
+
+Run [`supabase/operations/restore-customization-inventory.sql`](../../supabase/operations/restore-customization-inventory.sql) in the source project's SQL editor only after verifying the project reference in the Dashboard. It is one SELECT statement and does not read secret values. Save the JSON result privately and calculate its SHA-256; do not commit the result.
+
+The query inventories:
+- Exact row counts for all 9 public application tables and 36 managed/ephemeral tables.
+- Provider-managed migration ledger counts.
+- Installed extensions and versions.
+- Non-platform schemas.
+- Public functions, non-internal triggers, event triggers, and managed-schema RLS policies.
+- Default ACLs, login roles, role memberships, role settings, database settings.
+- Publications and table membership.
+- Foreign servers and presence of `pg_cron`, `pg_net`, and `wrappers`.
+
+It deliberately excludes function bodies and secret values. Project-level Auth, API, Edge Function secret, Storage API, and Dashboard settings still require an owner inventory.
+
+## 3. Exact managed-data row-count contract
+
+The current source snapshot returned zero for every table below. The verifier requires these keys in `source.rowCounts` and rejects any non-zero value:
+
+**Auth**
+- `auth.users`
+- `auth.instances`
+- `auth.identities`
+- `auth.refresh_tokens`
+- `auth.sessions`
+- `auth.audit_log_entries`
+- `auth.mfa_factors`
+- `auth.mfa_challenges`
+- `auth.mfa_amr_claims`
+- `auth.sso_providers`
+- `auth.sso_domains`
+- `auth.saml_providers`
+- `auth.saml_relay_states`
+- `auth.flow_state`
+- `auth.one_time_tokens`
+- `auth.oauth_clients`
+- `auth.oauth_authorizations`
+- `auth.oauth_consents`
+- `auth.oauth_client_states`
+- `auth.custom_oauth_providers`
+- `auth.webauthn_credentials`
+- `auth.webauthn_challenges`
+- `auth.scim_users`
+- `auth.scim_tokens`
+- `auth.mfa_recovery_code_sets`
+- `auth.mfa_recovery_codes`
+
+**Storage**
+- `storage.buckets`
+- `storage.objects`
+- `storage.s3_multipart_uploads`
+- `storage.s3_multipart_uploads_parts`
+- `storage.buckets_analytics`
+- `storage.buckets_vectors`
+- `storage.vector_indexes`
+
+**Vault and Realtime**
+- `vault.secrets`
+- `realtime.messages`
+- `realtime.subscription`
+
+Provider-managed migration ledgers are recorded separately and must not be copied as application data:
+- `auth.schema_migrations`: 84 rows
+- `storage.migrations`: 81 rows
+- `realtime.schema_migrations`: 97 rows
+- `supabase_migrations.schema_migrations`: 8 project migration versions
+
+The exact Realtime ledger count is 97. A previous table-list result reported 8; that was not an exact `count(*)` result and is superseded by the read-only inventory query.
+
+## 4. Current source customization findings
+
+### Project-owned database objects
+
+| Object | Current source contract | Restore treatment |
+|---|---|---|
+| `auth.users.on_auth_user_created` | AFTER INSERT; calls `public.handle_new_user()` | Auth schema is excluded from standard dump. Recreate with the dedicated script below after the public function and Auth table exist. |
+| `public.handle_new_user()` | Owner `postgres`; SECURITY INVOKER; `search_path=public` | Lives in public schema and should be in `schema.sql`. Do not recreate a second function. |
+| `ensure_rls` event trigger | Calls `public.rls_auto_enable()`; owner `postgres`; function SECURITY DEFINER; `search_path=pg_catalog` | Public-schema object; verify it is present in the schema dump and restored target. |
+| `public.claim_due_reminders(integer)` | Owner `postgres`; SECURITY DEFINER; `search_path=public`; EXECUTE granted to `service_role` only | Present in source although its branch migration is not in the live 8-version ledger. It is schema drift relative to the repository baseline. The branch migration `20261120000300_atomic_reminder_delivery.sql` expects `search_path=pg_catalog, public`; verify it normalizes the isolated target. Do not modify production. |
+
+The first repository migration, `20260829182309_create_personal_os_core.sql`, creates both `public.handle_new_user()` and the Auth trigger. Because the trigger belongs to the excluded `auth` schema, restoring the migration ledger as already applied does not recreate it.
+
+Apply [`supabase/operations/restore-auth-user-trigger.sql`](../../supabase/operations/restore-auth-user-trigger.sql) **only on the isolated target**, after `schema.sql` has restored `public.handle_new_user()` and the Supabase target provides `auth.users`. The script verifies the function owner/security/search-path contract, then drops and recreates only `on_auth_user_created`. It does not create the function or touch production.
+
+Afterward run [`supabase/tests/restore-auth-user-trigger.sql`](../../supabase/tests/restore-auth-user-trigger.sql). The migration CI runner also executes the restore script twice on disposable PostgreSQL to verify idempotence.
+
+### Platform-managed objects and settings
+
+The snapshot found:
+- Four non-plpgsql extensions: `pg_stat_statements 1.11`, `pgcrypto 1.3`, `supabase_vault 0.3.1`, `uuid-ossp 1.1`.
+- No non-platform custom schemas.
+- No RLS policies in `auth`, `storage`, or `realtime`.
+- Publication `supabase_realtime` exists with no table membership.
+- No `pg_cron`, `pg_net`, or `wrappers` extension and no foreign servers.
+- No custom LOGIN roles; the nine login roles reported are platform roles.
+- No Edge Functions are listed.
+- `storage.buckets`, `storage.objects`, `vault.secrets`, all inventoried Auth data tables, and Realtime messages/subscriptions are empty.
+
+The `supabase_vault` extension is installed but `vault.secrets` is empty. The encryption root key was not retrieved. If any Vault secrets or encrypted columns exist at backup time, the owner must preserve the root key through the documented Supabase procedure; never place it in the repository, manifest, CI, or chat. Recheck before export.
+
+The source has role/database settings and default ACLs that matter:
+- Role settings include `statement_timeout=3s` for `anon`, `8s` for `authenticated` and `authenticator`, and explicit search paths for platform roles.
+- Database settings include `row_security=on`, `statement_timeout=120000`, and a user-set search path.
+- `pg_default_acl` includes broad default grants in `public`, `storage`, `graphql`, and `graphql_public` for source owners/platform roles.
+
+The restore runbook prepares target default privileges before schema restore to prevent target defaults from broadening access. After schema restore, compare the target's `pg_default_acl`, role memberships, role settings, and database settings to the saved source inventory. Do not leave the target with all defaults revoked if the source dump restores explicit default ACLs.
+
+## 5. Schema drift review when generating a CLI diff
+
+The repository intentionally has no `supabase/config.toml`. Do not run `supabase init` in the repository or add a config file as part of this audit. To generate a source-baseline diff, create a private temporary workspace outside Git and copy **only the exact eight live project migration files**, not all 27 branch migrations:
+
+```bash
+set -euo pipefail
+REPO_ROOT="$PWD"
+DIFF_WORKDIR="$(mktemp -d)"
+mkdir -p "$DIFF_WORKDIR"
+(cd "$DIFF_WORKDIR" && supabase init)
+mkdir -p "$DIFF_WORKDIR/supabase/migrations"
+
+for version in \
+  20260829182309 \
+  20260830085036 \
+  20260830103327 \
+  20260830114218 \
+  20260830120132 \
+  20260830123420 \
+  20260830141616 \
+  20260905162251; do
+  file="$(find "$REPO_ROOT/supabase/migrations" -maxdepth 1 -type f -name "${version}_*.sql" -print -quit)"
+  test -n "$file"
+  cp "$file" "$DIFF_WORKDIR/supabase/migrations/"
+done
+
+(cd "$DIFF_WORKDIR" && supabase db diff --remote="$SOURCE_DB_URL" --use-pg-delta > "$BACKUP_DIR/source-schema-diff.sql")
+```
+
+This uses the exact eight-version source baseline and avoids mixing in the 19 branch-only migrations. It requires Docker for the CLI shadow database. Review the diff manually; it is drift evidence, not a backup artifact and not an apply script. Do not apply the output wholesale. The Auth trigger is already present in the first source migration, so the diff may not emit it even though the default dump excludes the Auth schema.
+
+## 6. Project-level settings checklist
+
+The database inventory cannot recover or attest these Dashboard/API settings. The owner must record their presence and a secure external reference, never secret values:
+
+- Auth Site URL, redirect allowlist, enabled providers, OAuth/SAML configuration, SMTP/SMS settings, MFA, CAPTCHA, hooks, rate limits, JWT signing/key rotation, and any custom domains.
+- New project's publishable/secret API keys and the deployments that must receive the new values.
+- Edge Function source, `deno.json`/import maps, verify-JWT settings, and secret names. No Edge Functions were listed in this snapshot; secret names/values were not accessible through the connected tools.
+- Storage bucket configuration and object bytes. Current bucket/object counts are zero; if non-zero, export object bytes through the Storage API and verify size/checksum separately.
+- Realtime project settings and publication table membership. Current `supabase_realtime` membership is empty.
+- Database webhooks, cron jobs, read replicas, network restrictions, SSL enforcement, compute/database settings, log drains, and backup/PITR configuration.
+- Vault root key dependency. Current secret count is zero, but the owner must confirm there are no encrypted columns or other Vault-dependent values.
+
+## 7. Acceptance order
+
+1. Re-run the SQL inventory immediately before export; save and hash the private JSON output.
+2. Export roles, schema, data, and the project migration history with the corrected CLI target selector. Verify each command's target and exit status.
+3. Build the manifest with all 45 row-count keys. Run the offline verifier; it must pass with all 36 managed data counts equal to zero.
+4. Create a separate isolated Supabase target. Do not use production as the target.
+5. Restore roles, prepare target defaults, restore schema/data and project migration history, enable compatible extensions, and compare roles/default ACLs/settings.
+6. Apply the Auth trigger restore script on the isolated target and verify `ensure_rls` plus the `claim_due_reminders` migration contract.
+7. Review the checklist conflict report against the restored copy and record owner-approved dispositions.
+8. Run authenticated two-owner PostgREST acceptance against the isolated target.
+9. Only after all evidence is complete may a separate owner review consider production rollout. This runbook does not authorize production DDL, DML, migration, RLS changes, project changes, or PR merge.
+
+---
+
+## Evidence and limitations
+
+The inventory was executed with read-only SQL on the source project. It did not create a backup, restore a target, retrieve secrets, inspect Auth provider configuration, or change project settings. The current production migration ledger remains at eight project migrations; the repository contains 27. The production database remains read-only for this automation.
