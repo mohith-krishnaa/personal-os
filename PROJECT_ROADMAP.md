@@ -1,3 +1,13 @@
+# Latest verified checkpoint — owner backup preflight revalidated (2026-11-21)
+
+Starting branch `feature/organization-v1` was at `92e0fa88af8df5de58fe822e5e39051d4c048d5e`; PR #11 was open, unmerged, mergeable, and pointed to that exact HEAD. CI #540 passed on that starting HEAD. The branch was 622 commits ahead of main and 0 behind.
+
+A fresh read-only source inventory reconfirmed 8 live project migrations versus 27 repository migrations (19 branch-only), all 9 public application tables empty, all 36 managed/ephemeral data counts zero, and the four required extensions at the recorded versions. The source remains eligible for the documented CLI logical-backup row-count gate, but no owner-controlled backup or successful isolated restoration exists. No isolated Supabase branch is available. No production mutation occurred.
+
+**Organization V1 remains in progress. Analytics, AI Assistant, Research Agent, Adaptive Scheduling, and production hardening remain queued.** The current blocker is owner-controlled backup and isolated restoration, not missing application-side checklist tests. The next action is the private owner export, manifest verification, isolated restore, customization/conflict review, isolated application of the 19 branch-only migrations, and authenticated two-owner PostgREST acceptance. Do not apply branch-only migrations to production or merge PR #11.
+
+---
+
 # Latest verified checkpoint — checklist reconciliation report determinism and repeatability (2026-11-21)
 
 **Implementation/test HEAD:** `bc7aded35e8451e544f262bc64b7780aa4bf530a` — [CI #539 passed on this exact commit](https://github.com/mohith-krishnaa/personal-os/actions/runs/44908479254).  
