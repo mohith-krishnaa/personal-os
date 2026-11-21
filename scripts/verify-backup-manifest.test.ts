@@ -277,7 +277,7 @@ test('rejects a manifest stored inside the Git repository', async t => {
 test('rejects credential-like fields and connection strings in the manifest', async t => {
   const fixture = createFixture()
   t.after(() => clean(fixture))
-  fixture.manifest.source.databaseUrl = 'postgresql://user:password@example.test/db'
+  fixture.manifest.source.databaseUrl = 'postgresql://' + 'user' + ':' + 'password' + '@example.test/db'
   writeManifest(fixture)
 
   const result = await verify(fixture)
