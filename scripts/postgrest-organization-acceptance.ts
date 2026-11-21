@@ -44,7 +44,7 @@ function assertPublicKey(key: string) {
     /^[A-Za-z0-9_-]+$/.test(segment) && segment.length % 4 !== 1
 
   if (parts.length !== 3 || parts.some((part) => !isBase64UrlSegment(part))) {
-    throw new Error('The configured Supabase API key must be a structurally valid three-part legacy anon JWT or an sb_publishable_ key.')
+    throw new Error('The configured Supabase API key must be a publishable key or a legacy anon JWT with three valid base64url segments.')
   }
 
   const decodeJsonObject = (segment: string, label: string): Record<string, unknown> => {

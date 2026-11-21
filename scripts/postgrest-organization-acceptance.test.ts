@@ -80,14 +80,6 @@ test('rejects a conflicting application Supabase URL', () => {
   assert.throws(() => loadAcceptanceConfig(env, ['--execute']), /different project/)
 })
 
-test('accepts a structurally valid legacy anon JWT key', () => {
-  const env = validEnvironment()
-  const key = legacyJwtKey({ role: 'anon' })
-  env.PERSONAL_OS_ACCEPTANCE_ANON_KEY = key
-  const config = loadAcceptanceConfig(env, ['--execute'])
-  assert.equal(config.anonKey, key)
-})
-
 test('rejects a legacy JWT with a malformed header', () => {
   const env = validEnvironment()
   const payload = Buffer.from(JSON.stringify({ role: 'anon' })).toString('base64url')
@@ -236,12 +228,12 @@ test('rejects an unexpected event type or entity identity', () => {
 })
 
 
-test('accepts a legacy anon JWT key', () => {
+test('accepts a structurally valid legacy anon JWT key', () => {
   const env = validEnvironment()
-  const payload = Buffer.from(JSON.stringify({ role: 'anon' })).toString('base64url')
-  env.PERSONAL_OS_ACCEPTANCE_ANON_KEY = 'header.' + payload + '.signature'
+  const key = legacyJwtKey({ role: 'anon' })
+  env.PERSONAL_OS_ACCEPTANCE_ANON_KEY = key
   const config = loadAcceptanceConfig(env, ['--execute'])
-  assert.equal(config.anonKey, env.PERSONAL_OS_ACCEPTANCE_ANON_KEY)
+  assert.equal(config.anonKey, key)
 })
 
 test('rejects an unrecognized opaque API key', () => {
@@ -258,14 +250,12 @@ test('rejects an empty publishable-key prefix', () => {
 
 test('rejects a legacy JWT without an anon role claim', () => {
   const env = validEnvironment()
-  const payload = Buffer.from(JSON.stringify({ sub: 'anonymous' })).toString('base64url')
-  env.PERSONAL_OS_ACCEPTANCE_ANON_KEY = 'header.' + payload + '.signature'
+  env.PERSONAL_OS_ACCEPTANCE_ANON_KEY = legacyJwtKey({ sub: 'anonymous' })
   assert.throws(() => loadAcceptanceConfig(env, ['--execute']), /not an anon key/)
 })
 
 test('rejects an authenticated JWT', () => {
   const env = validEnvironment()
-  const payload = Buffer.from(JSON.stringify({ role: 'authenticated' })).toString('base64url')
-  env.PERSONAL_OS_ACCEPTANCE_ANON_KEY = 'header.' + payload + '.signature'
+  env.PERSONAL_OS_ACCEPTANCE_ANON_KEY = legacyJwtKey({ role: 'authenticated' })
   assert.throws(() => loadAcceptanceConfig(env, ['--execute']), /not an anon key/)
 })
