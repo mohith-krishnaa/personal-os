@@ -1,3 +1,53 @@
+# Latest verified checkpoint — PostgREST acceptance key-class validation (2026-11-21)
+
+**Implementation/test HEAD:** `c84dd038d3a4c4dd4253c0d7ca03931be823d92b` — [CI #513 passed on this exact commit](https://github.com/mohith-krishnaa/personal-os/actions/runs/44880004720).  
+**Starting HEAD:** `aeec41826b246abc8fc83d9ad1ab04af1d68cd88` — [CI #512 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44875025509).
+
+## Repository reconciliation
+
+- Branch: `feature/organization-v1`; current implementation/test HEAD: `c84dd038d3a4c4dd4253c0d7ca03931be823d92b`.
+- Main HEAD: `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`; branch comparison: 592 commits ahead, 0 behind.
+- PR #11 is open and unmerged; its head matches `c84dd038d3a4c4dd4253c0d7ca03931be823d92b`. It contains 117 changed files.
+- PR #12 is an open, superseded draft targeting the feature branch.
+- Repository migration count remains 27; no migration was added.
+- The remote diff for this task contains exactly three files: the PostgREST acceptance harness, its unit tests, and the acceptance runbook. No local checkout is attached, so local working-tree cleanliness cannot be independently certified.
+
+## Bounded change
+
+The acceptance harness previously returned early for every API key that was not a three-part JWT. That meant an arbitrary opaque string could pass the local key-classification gate, even though Supabase would still reject it server-side.
+
+The gate now accepts only:
+- a non-empty `sb_publishable_...` key; or
+- a legacy JWT whose decoded `role` claim is exactly `anon`.
+
+It rejects `sb_secret_...`, malformed JWTs, unknown opaque strings, empty publishable prefixes, JWTs with no role, and JWTs with any role other than `anon`. This is a format/role preflight, not cryptographic key verification; Supabase validates the key server-side.
+
+Five regression tests were added. The runbook now documents the accepted formats and limitation. No application runtime behavior, database schema, RLS policy, or migration changed.
+
+## Verification
+
+CI #513 passed on the exact implementation/test commit `c84dd038d3a4c4dd4253c0d7ca03931be823d92b`:
+- PostgREST acceptance preflight: 26/26 passed.
+- PostgreSQL 17 migration replay: 27/27 passed.
+- Organization/RLS assertions and task-hierarchy concurrency: passed.
+- Application tests: 187/187 passed.
+- TypeScript typecheck: passed.
+- Production build: passed.
+- npm install audit: 0 vulnerabilities.
+- No lint script is configured.
+
+The workflow emitted the existing Node `punycode` deprecation and local PostgreSQL trust-authentication warning. Expected negative-test SQL errors were matched by the test runner; the workflow completed successfully.
+
+## Production and acceptance boundary
+
+No production Supabase query or mutation was performed in this task. The last verified live baseline remains 8 applied migrations versus 27 in the repository (19 branch-only); it was not refreshed here. No production DDL/DML, migration, RLS/role/project-setting change, backup, restore, or PR merge occurred.
+
+Organization V1 remains incomplete. Still required: owner-controlled complete schema/data/roles backup; successful isolated restoration; extension, roles, default ACL, database settings, Auth trigger, Vault, and `ensure_rls` verification; checklist conflict disposition on the restored copy; and authenticated two-owner PostgREST acceptance. The fail-closed `ensure_rls` candidate still requires an explicit owner decision and isolated-target testing. Analytics remains queued.
+
+**Next task:** owner-controlled complete backup and isolated restoration. If those artifacts remain unavailable, continue a different bounded Organization audit; do not repeat unavailable backup attempts or start Analytics.
+
+---
+
 # Latest verified checkpoint — isolated fail-closed ensure_rls candidate (2026-11-21)
 
 **Implementation/test HEAD:** `da37b785571cb97154cdc06f4448aa595a8cfce4` — [CI #510 passed on this exact HEAD](https://github.com/mohith-krishnaa/personal-os/actions/runs/44874851618).

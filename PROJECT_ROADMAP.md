@@ -1,3 +1,19 @@
+# Latest verified roadmap checkpoint — PostgREST acceptance key-class validation (2026-11-21)
+
+## Organization V1 — active, not accepted
+
+The isolated two-owner PostgREST acceptance harness now has a strict public-key format/role gate: it accepts a non-empty `sb_publishable_...` key or a legacy JWT with `role=anon`; it rejects secret keys, malformed JWTs, unknown opaque strings, missing roles, and all non-anon JWT roles. Five regression tests cover the accepted and rejected formats. The runbook explains that this is a local key-classification check, not cryptographic verification.
+
+Implementation/test HEAD: `c84dd038d3a4c4dd4253c0d7ca03931be823d92b`; [CI #513 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44880004720). CI evidence: 26/26 PostgREST preflight tests, 27/27 PostgreSQL 17 migrations replayed, Organization/RLS and task-hierarchy checks passed, 187/187 application tests, typecheck, production build, and npm audit with 0 vulnerabilities. No lint script is configured.
+
+The branch is `feature/organization-v1`, 592 commits ahead and 0 behind main (`2b42dd17796b75dca79434a81d4e1f0cbf0fa043`). PR #11 is open and unmerged with the implementation/test HEAD; PR #12 remains an open superseded draft. No migration or production change was made. The last verified production ledger is still 8 applied versions versus 27 repository migrations (19 branch-only); it was not refreshed during this task.
+
+**Acceptance gates remain open:** complete owner-controlled schema/data/roles backup; successful isolated restoration; extension/role/default-ACL/database-setting/Auth-trigger/Vault/`ensure_rls` verification; checklist conflict disposition; and authenticated two-owner PostgREST acceptance. The fail-closed `ensure_rls` candidate still requires an explicit owner decision and isolated-target testing. Analytics, AI Assistant, Research Agent, Adaptive Scheduling, and production hardening remain queued behind Organization acceptance.
+
+**Next task:** complete the owner-controlled backup and isolated restore. If the owner action remains unavailable, continue a distinct bounded Organization audit without repeating unavailable export attempts.
+
+---
+
 # Latest verified roadmap checkpoint — fail-closed ensure_rls candidate (2026-11-21)
 
 ## Organization V1 — active, not accepted

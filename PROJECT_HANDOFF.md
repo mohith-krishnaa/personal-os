@@ -1,3 +1,55 @@
+# Latest handoff — PostgREST acceptance key-class validation (2026-11-21)
+
+## Exact resume point
+
+- Branch: `feature/organization-v1`.
+- Implementation/test HEAD: `c84dd038d3a4c4dd4253c0d7ca03931be823d92b`; [CI #513 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44880004720).
+- Starting HEAD: `aeec41826b246abc8fc83d9ad1ab04af1d68cd88`; [CI #512 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44875025509).
+- Main: `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`; branch is 592 commits ahead and 0 behind.
+- PR #11 is open, unmerged, and its head matches the implementation/test HEAD; 117 changed files.
+- PR #12 is an open superseded draft.
+- Repository migrations: 27. The last verified production ledger: 8 versions, 19 branch-only; not refreshed in this task.
+
+## Completed in this checkpoint
+
+The PostgREST acceptance harness now accepts only a non-empty `sb_publishable_...` key or a legacy JWT with `role=anon`. It rejects secret-key prefixes, malformed JWTs, unknown opaque strings, empty publishable prefixes, missing role claims, and non-anon JWT roles. The check classifies format/role only; it does not cryptographically validate the key.
+
+Added five tests to `scripts/postgrest-organization-acceptance.test.ts` and clarified `docs/operations/organization-v1-postgrest-acceptance.md`. No migrations or runtime product behavior changed.
+
+## Exact CI evidence
+
+CI #513 passed on `c84dd038d3a4c4dd4253c0d7ca03931be823d92b`:
+- PostgREST acceptance preflight 26/26.
+- PostgreSQL 17 replay 27/27.
+- Organization/RLS and task hierarchy checks passed.
+- Application tests 187/187.
+- Typecheck and production build passed.
+- npm audit reported 0 vulnerabilities.
+- No lint script is configured.
+
+Existing non-failing Node `punycode` deprecation and local PostgreSQL trust-authentication warnings remain. Expected SQL errors from negative tests were handled by assertions.
+
+## Production and rollout boundary
+
+No production Supabase query or mutation occurred in this task. Production remains read-only. Do not apply migrations, change RLS/roles, deploy the fail-closed `ensure_rls` candidate, or merge PR #11.
+
+Still required:
+1. Owner-controlled complete schema/data/roles backup.
+2. Offline manifest verification and successful restore into a separate isolated Supabase project.
+3. Extensions, roles/memberships, default ACLs, database settings, Vault, Auth trigger, `ensure_rls`, and reminder function verification.
+4. Checklist reconciliation conflict disposition on the restored copy.
+5. Apply the 19 branch-only migrations only to that isolated target.
+6. Authenticated two-owner PostgREST acceptance.
+7. Separate explicit owner decision on fail-closed `ensure_rls` behavior.
+
+The isolated acceptance harness has not been run. Unit tests and disposable PostgreSQL replay are not live PostgREST acceptance evidence. There is no attached local checkout, so local working-tree cleanliness is not independently certified.
+
+## Next action
+
+Owner-controlled complete backup and isolated restoration. If the owner-controlled artifacts remain unavailable, perform another distinct bounded Organization audit; do not retry unavailable backup tooling or move to Analytics.
+
+---
+
 # Latest handoff — fail-closed ensure_rls candidate prepared (2026-11-21)
 
 ## Exact resume point
