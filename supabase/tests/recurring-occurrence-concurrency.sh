@@ -60,6 +60,11 @@ SET LOCAL request.jwt.claim.sub = '$owner_id';
 UPDATE public.tasks
 SET status = 'COMPLETED', completed_at = now(), updated_at = now()
 WHERE id = '$root_id' AND user_id = auth.uid() AND status <> 'COMPLETED';
+COMMIT;
+
+BEGIN;
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claim.sub = '$owner_id';
 INSERT INTO public.tasks (
   id, user_id, recurrence_parent_id, recurrence_rule, due_at, title
 )
@@ -77,21 +82,23 @@ COMMIT;
 SQL
 first_pid=$!
 
+first_ready='0'
 for attempt in $(seq 1 100); do
-  if grep -Fq "$winner_id" "$tmpdir/first.out"; then
+  first_ready="$(psql -X -A -t -v ON_ERROR_STOP=1 -c "SELECT count(*) FROM pg_stat_activity WHERE application_name = 'personal-os-recurring-completion-first' AND state = 'active' AND wait_event = 'PgSleep'" | tr -d '[:space:]')"
+  if [[ "$first_ready" == '1' ]]; then
     break
   fi
   if ! kill -0 "$first_pid" 2>/dev/null; then
     wait "$first_pid" || true
-    echo "The first recurring completion worker exited before inserting its occurrence."
+    echo "The first recurring completion worker exited before holding its occurrence transaction open."
     cat "$tmpdir/first.out"
     exit 1
   fi
   sleep 0.05
 done
 
-if ! grep -Fq "$winner_id" "$tmpdir/first.out"; then
-  echo "The first recurring completion worker did not acquire the occurrence key."
+if [[ "$first_ready" != '1' ]]; then
+  echo "The first recurring completion worker did not reach the in-transaction sleep after inserting its occurrence."
   cat "$tmpdir/first.out"
   exit 1
 fi
@@ -104,6 +111,11 @@ SET LOCAL request.jwt.claim.sub = '$owner_id';
 UPDATE public.tasks
 SET status = 'COMPLETED', completed_at = now(), updated_at = now()
 WHERE id = '$root_id' AND user_id = auth.uid() AND status <> 'COMPLETED';
+COMMIT;
+
+BEGIN;
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claim.sub = '$owner_id';
 DO \$retry\$
 DECLARE
   v_constraint text;
