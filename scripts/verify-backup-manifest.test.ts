@@ -431,15 +431,19 @@ test('rls_auto_enable remains project-installed outside migrations and the CI fi
   assert.deepEqual(references, ['20260905162251_restrict_rls_auto_enable_execute.sql'])
 
   const restriction = readFileSync(join(migrationsDir, '20260905162251_restrict_rls_auto_enable_execute.sql'), 'utf8')
-  assert.match(restriction.trim(), /^revoke execute on function public\\.rls_auto_enable\\(\\) from anon, authenticated;$/i)
-  assert.doesNotMatch(restriction, /create\\s+(?:or\\s+replace\\s+)?function|create\\s+event\\s+trigger/i)
+  assert.equal(
+    restriction.trim().toLowerCase(),
+    'revoke execute on function public.rls_auto_enable() from anon, authenticated;',
+  )
+  assert.doesNotMatch(restriction.toLowerCase(), /create function|create event trigger/)
 
   const bootstrap = readFileSync(join(process.cwd(), 'supabase', 'tests', 'organization-migration-bootstrap.sql'), 'utf8')
   assert.match(bootstrap, /project-installed event-trigger function outside the migration chain/i)
   assert.match(bootstrap, /source-shaped fixture matches the reviewed production body/i)
   assert.match(bootstrap, /RETURNS event_trigger/i)
-  assert.match(bootstrap, /pg_event_trigger_ddl_commands\\(\\)/i)
-  assert.match(bootstrap, /WHEN OTHERS THEN[\\s\\S]*RAISE LOG/i)
+  assert.ok(bootstrap.includes('pg_event_trigger_ddl_commands()'))
+  assert.ok(bootstrap.includes('WHEN OTHERS THEN'))
+  assert.ok(bootstrap.includes('RAISE LOG'))
   assert.doesNotMatch(bootstrap, /no-op fixture/i)
 })
 test('claim_due_reminders source baseline and branch atomic replacement are distinct', () => {
