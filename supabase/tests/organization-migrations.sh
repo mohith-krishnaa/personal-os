@@ -380,7 +380,7 @@ fi
 
 echo "Verifying fail-closed ensure_rls candidate rejects a missing isolated-target attestation"
 set +e
-fail_closed_target_output="$( 
+fail_closed_target_output="$(
   psql -X -v ON_ERROR_STOP=1 -A -t 2>&1 \
     -c "BEGIN; SET ROLE postgres" \
     -f supabase/operations/apply-ensure-rls-fail-closed.sql
@@ -395,7 +395,7 @@ fi
 
 echo "Verifying fail-closed ensure_rls candidate rejects missing owner approval"
 set +e
-fail_closed_approval_output="$( 
+fail_closed_approval_output="$(
   psql -X -v ON_ERROR_STOP=1 -A -t 2>&1 \
     -c "BEGIN; SET ROLE postgres; SET app.personal_os_restore_target = 'isolated'" \
     -f supabase/operations/apply-ensure-rls-fail-closed.sql
@@ -410,7 +410,7 @@ fi
 
 echo "Verifying fail-closed ensure_rls candidate rejects a non-postgres SUPERUSER"
 set +e
-fail_closed_role_output="$( 
+fail_closed_role_output="$(
   psql -X -v ON_ERROR_STOP=1 -A -t 2>&1 \
     -c "BEGIN; SET ROLE supabase_admin; SET app.personal_os_restore_target = 'isolated'; SET app.personal_os_fail_closed_rls_approval = 'owner-approved'" \
     -f supabase/operations/apply-ensure-rls-fail-closed.sql
