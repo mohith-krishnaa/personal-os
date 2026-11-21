@@ -1,3 +1,49 @@
+# Latest verified checkpoint — subtask retry and activity-event idempotency (2026-11-21)
+
+**Implementation/test HEAD:** `0e9bd766acd6e0a25758de808d3f76ce8301c458` — [CI #526 passed on this exact commit](https://github.com/mohith-krishnaa/personal-os/actions/runs/44898421863).
+
+## Continuity and repository recovery
+
+- Personal-OS Builder was enabled at recovery.
+- Recorded last run: `ad8ef932-9524-8328-9eac-287ec8149d77`, started `2026-11-21T11:14:25.986607Z`, status `in_progress`.
+- Latest stored result: run `c203f32f-9e14-8331-abdb-f8ffa19bbe07`, created `2026-11-21T10:30:20.281579Z`. It predates the recorded last-run start and was treated as the prior completed tab-scoped task-create retry checkpoint, not as this run's result. The `in_progress` state was not treated as proof of worker liveness.
+- Starting branch `feature/organization-v1` was at `73e5f7798461d5e4129949bd665721ef182be930`, matching PR #11. Main was `2b42dd17796b75dca79434a81d4e1f0cbf0fa043`.
+- PR #11 was open, unmerged and mergeable; PR #12 was an open superseded draft.
+- Repository migration count remained 27. No migration was added.
+- No local checkout is attached; local working-tree cleanliness cannot be independently certified.
+
+## Subtask retry and event audit
+
+- `createSubtask` uses the shared owner-scoped `(user_id, client_request_id)` idempotency path. Its canonical payload hash includes `kind: SUBTASK`, parent task ID, requested project ID (null when omitted), normalized title, priority, due time and estimated minutes.
+- A same-owner/same-request/same-payload retry returns the existing row before rechecking mutable parent/project state. A request-key reuse with a different parent produces a hash mismatch. New requests still verify parent ownership and require the child project to match the parent's project.
+- The task activity trigger maps non-recurring subtask INSERTs to `TASK_CREATED`. Event insertion is in the same PostgreSQL statement transaction. A losing `ON CONFLICT DO NOTHING` request does not fire a second AFTER INSERT event.
+- Added application tests for same-payload retry resolution and different-parent rejection. Extended SQL migration replay assertions for sequential duplicate subtask creation and exactly one `TASK_CREATED` event. Converted the two-session concurrency regression to create competing subtasks under one owner/parent and verify one winning row, preserved parent/owner, and exactly one event.
+- Updated `docs/architecture/task-create-idempotency.md` with the subtask contract.
+
+## Verification — CI #526
+
+- PostgREST acceptance preflight: 33/33 passed.
+- Full repository migration replay: 27/27 passed; the migration runner also executed the sequential subtask event assertion, two-session concurrent subtask retry, and migration reapplication checks.
+- Task hierarchy concurrency: passed.
+- Application tests: 201/201 passed.
+- TypeScript typecheck: passed.
+- Production build: passed.
+- npm install audit: 0 vulnerabilities.
+- No lint script is configured.
+
+Four commits were added after the starting HEAD, changing exactly four expected files: `src/lib/subtasks.test.ts`, `supabase/tests/task-create-idempotency.sql`, `supabase/tests/task-create-idempotency-concurrency.sh`, and `docs/architecture/task-create-idempotency.md`. A credential-pattern scan of those files returned zero matches.
+
+## Production and acceptance boundary
+
+No production Supabase query or mutation occurred in this task. The last recorded live baseline remains 8 applied migration versions versus 27 repository migrations (19 branch-only); it was not refreshed here. No production DDL/DML, migration, RLS/role/project-setting change, backup, restore, or PR merge occurred.
+
+Organization V1 remains incomplete. Still required: owner-controlled complete schema/data/roles backup; successful isolated restoration; extension, role/membership, default-ACL, database-setting, Vault, Auth-trigger, `ensure_rls`, and reminder-function verification; restored-copy checklist conflict disposition; authenticated two-owner PostgREST acceptance; and the separate owner decision on the fail-closed `ensure_rls` candidate.
+
+## Next action
+
+Owner-controlled complete backup and isolated restoration remain the primary gate. Verify the backup manifest, restore into a separate isolated Supabase project, then run the customization/migration/checklist/PostgREST acceptance sequence there. Do not apply branch-only migrations to production, deploy the fail-closed candidate, or merge PR #11.
+---
+
 # Latest verified checkpoint — tab-scoped task-create retry continuity (2026-11-21)
 
 **Implementation/test HEAD:** `5e8152f41a3760c2f0a74430e3e1ba5d1a6b846b` — [CI #524 passed on this exact commit](https://github.com/mohith-krishnaa/personal-os/actions/runs/44894326887).  
