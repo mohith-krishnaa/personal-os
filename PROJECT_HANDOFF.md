@@ -39,7 +39,7 @@ The existing restore-customization-inventory.sql was statically screened after s
 
 ## Changes and verification
 
-This checkpoint is documentation-only. No application source, migration, RLS policy, production data, or project setting changed. CI #542 passed on the inspected starting HEAD efa652759cbfd8ed21f3d47d2441a82fd518e684; the new documentation checkpoint requires its own workflow result. No local application tests, migration replay, typecheck, lint, or production build were run because no checkout/toolchain is attached.
+This checkpoint is documentation-only. No application source, migration, RLS policy, production data, or project setting changed. CI #542 passed on inspected source HEAD efa652759cbfd8ed21f3d47d2441a82fd518e684. Documentation checkpoint commit 74d4ac681159f8aa6a1ba126c0b04d87d0ef076b passed CI #543 (workflow run 45972190162) on that exact HEAD. This follow-up is based on HEAD ed5d865da6cc5675d5b44b019deb617b0ee97068; its own workflow result must be checked independently. No local application tests, migration replay, typecheck, lint, or production build were run because no checkout/toolchain is attached.
 
 No production DDL/DML, migration, RLS/role/project-setting change, backup, restoration, or PR merge occurred.
 
