@@ -109,6 +109,7 @@ export type UpdateTaskInput = {
   title: string
   priority: TaskPriority
   estimated_minutes: number | null
+  actual_minutes: number | null
   due_at: string | null
   scheduled_start: string | null
   scheduled_end: string | null
@@ -127,6 +128,7 @@ export async function updateTaskForUser(
   if (!userId) throw new Error('Unauthorized')
   const title = input.title.trim(); if (!title) throw new Error('Task title is required.')
   if (input.estimated_minutes != null && (!Number.isFinite(input.estimated_minutes) || input.estimated_minutes <= 0)) throw new Error('Estimated minutes must be greater than zero.')
+  if (input.actual_minutes != null && (!Number.isInteger(input.actual_minutes) || input.actual_minutes < 0)) throw new Error('Actual minutes must be a non-negative whole number.')
   if (input.scheduled_start && input.scheduled_end && input.scheduled_end <= input.scheduled_start) throw new Error('Scheduled end must be after scheduled start.')
   validateRecurrenceInput(input)
   if (input.recurrence_rule && !input.due_at) throw new Error('Recurring tasks need a due date/time to calculate the next occurrence.')
@@ -149,6 +151,7 @@ export async function updateTaskForUser(
     title,
     priority: input.priority,
     estimated_minutes: input.estimated_minutes,
+    actual_minutes: input.actual_minutes,
     due_at: input.due_at,
     scheduled_start: input.scheduled_start,
     scheduled_end: input.scheduled_end,
@@ -266,3 +269,4 @@ export async function setTaskStatus(id: string, status: TaskStatus) {
   if (!user) throw new Error('Unauthorized')
   return setTaskStatusForUser(supabase, user.id, id, status)
 }
+

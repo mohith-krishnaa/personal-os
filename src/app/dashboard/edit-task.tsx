@@ -16,6 +16,7 @@ export default function EditTask({ task }: { task: Task }) {
   const [title, setTitle] = useState(task.title)
   const [priority, setPriority] = useState<TaskPriority>(task.priority)
   const [minutes, setMinutes] = useState(task.estimated_minutes?.toString() ?? '')
+  const [actualMinutes, setActualMinutes] = useState(task.actual_minutes?.toString() ?? '')
   const [dueAt, setDueAt] = useState(localValue(task.due_at))
   const [start, setStart] = useState(localValue(task.scheduled_start))
   const [end, setEnd] = useState(localValue(task.scheduled_end))
@@ -25,7 +26,7 @@ export default function EditTask({ task }: { task: Task }) {
   async function save() {
     setSaving(true); setError('')
     try {
-      await updateTaskAction(task.id, { title, priority, estimated_minutes: minutes ? Number(minutes) : null, due_at: dueAt ? new Date(dueAt).toISOString() : null, scheduled_start: start ? new Date(start).toISOString() : null, scheduled_end: end ? new Date(end).toISOString() : null })
+      await updateTaskAction(task.id, { title, priority, estimated_minutes: minutes ? Number(minutes) : null, actual_minutes: actualMinutes ? Number(actualMinutes) : null, due_at: dueAt ? new Date(dueAt).toISOString() : null, scheduled_start: start ? new Date(start).toISOString() : null, scheduled_end: end ? new Date(end).toISOString() : null })
       setOpen(false)
     } catch (err) { setError(err instanceof Error ? err.message : 'Could not update task.') }
     finally { setSaving(false) }
@@ -36,7 +37,8 @@ export default function EditTask({ task }: { task: Task }) {
     <input value={title} onChange={e => setTitle(e.target.value)} aria-label="Task title" style={{ background: '#111419', color: '#f4f4f5', border: '1px solid #303640', borderRadius: 8, padding: 8 }} />
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
       <select value={priority} onChange={e => setPriority(e.target.value as TaskPriority)} aria-label="Priority" style={{ background: '#111419', color: '#f4f4f5', border: '1px solid #303640', borderRadius: 8, padding: 8 }}><option value="LOW">Low</option><option value="MEDIUM">Medium</option><option value="HIGH">High</option></select>
-      <input type="number" min="1" value={minutes} onChange={e => setMinutes(e.target.value)} placeholder="Minutes" aria-label="Estimated minutes" style={{ background: '#111419', color: '#f4f4f5', border: '1px solid #303640', borderRadius: 8, padding: 8 }} />
+      <input type="number" min="1" value={minutes} onChange={e => setMinutes(e.target.value)} placeholder="Estimated minutes" aria-label="Estimated minutes" style={{ background: '#111419', color: '#f4f4f5', border: '1px solid #303640', borderRadius: 8, padding: 8 }} />
+      <input type="number" min="0" step="1" value={actualMinutes} onChange={e => setActualMinutes(e.target.value)} placeholder="Actual minutes" aria-label="Actual minutes spent" style={{ background: '#111419', color: '#f4f4f5', border: '1px solid #303640', borderRadius: 8, padding: 8 }} />
       <input type="datetime-local" value={dueAt} onChange={e => setDueAt(e.target.value)} aria-label="Due date" style={{ background: '#111419', color: '#f4f4f5', border: '1px solid #303640', borderRadius: 8, padding: 8 }} />
       <input type="datetime-local" value={start} onChange={e => setStart(e.target.value)} aria-label="Scheduled start" style={{ background: '#111419', color: '#f4f4f5', border: '1px solid #303640', borderRadius: 8, padding: 8 }} />
       <input type="datetime-local" value={end} onChange={e => setEnd(e.target.value)} aria-label="Scheduled end" style={{ background: '#111419', color: '#f4f4f5', border: '1px solid #303640', borderRadius: 8, padding: 8 }} />
@@ -45,3 +47,4 @@ export default function EditTask({ task }: { task: Task }) {
     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}><button type="button" onClick={() => setOpen(false)} style={{ background: 'transparent', color: '#8b949e', border: '1px solid #303640', borderRadius: 8, padding: 8 }}>Cancel</button><button onClick={() => void save()} disabled={saving || !title.trim()} style={{ background: '#f4f4f5', color: '#090a0c', border: 0, borderRadius: 8, padding: 8, fontWeight: 700 }}>{saving ? 'Saving…' : 'Save'}</button></div>
   </div>
 }
+
