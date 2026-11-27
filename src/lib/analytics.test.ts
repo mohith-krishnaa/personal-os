@@ -39,6 +39,7 @@ test('review buckets completed tasks and progress by date and excludes period bo
   assert.equal(review.actualMinutes, 36)
   assert.equal(review.previousCompleted, 1)
   assert.equal(review.previousProgress, 2)
+  assert.equal(review.previousCreated, 2)
 })
 
 test('insights avoid estimating time accuracy without three comparable tasks', () => {

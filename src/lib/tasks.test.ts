@@ -647,7 +647,6 @@ function validTaskCreatePayload() {
     title: 'New task',
     priority: 'MEDIUM',
     estimated_minutes: null,
-    actual_minutes: null,
     due_at: null,
     scheduled_start: null,
     scheduled_end: null,
