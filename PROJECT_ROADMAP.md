@@ -1,3 +1,23 @@
+# Latest verified checkpoint — zero-cost isolated validation and foreign-key index hardening (2026-11-27)
+
+**Branch/HEAD:** `feature/organization-v1` / `791f5f42f90969a5f76406ba2ad897c486ee8816`.  
+**PR #11:** open, unmerged, mergeable.  
+**Exact-head CI:** [CI #547 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/45985791253) on `791f5f42f90969a5f76406ba2ad897c486ee8816`: PostgREST safety preflight, PostgreSQL migration replay, Organization/RLS and hierarchy checks, application tests, typecheck, and production build all passed.
+
+## No-cost test work
+
+A separate `personal-os-acceptance` Supabase project was created in the existing Free-plan organization at a quoted cost of $0/month. It is a clean test project, **not a production backup or restored copy**. All 28 repository migrations were replayed there. The test project's 11 public application tables have RLS enabled and zero rows. The source project's required `public.rls_auto_enable()` function was read from production read-only and recreated only on the test project to satisfy baseline migration 8.
+
+Supabase security advisors report no lints on the test project. Its performance advisor no longer reports unindexed foreign keys after adding the three indexes in migration `20261127103347_index_foreign_key_columns.sql`. Remaining unused-index findings are informational on an empty database; they need real workload evidence before index removal.
+
+## Production and acceptance boundary
+
+The production source remains healthy, with 8 project migrations applied and all 9 public application tables empty. No production schema, data, settings, backup, or restore was changed or attempted. The no-cost test project does not satisfy the separate complete-backup/restore gate, and the authenticated two-owner PostgREST acceptance harness remains unexecuted. PR #11 must remain unmerged until those acceptance conditions are met.
+
+**Next:** continue using free isolated verification; complete the owner-controlled backup/restore and checklist-conflict review, then run the authenticated two-owner acceptance on a verified restored copy. Keep production read-only.
+
+---
+
 # Latest verified checkpoint — Organization V1 backup gate remains open (2026-11-27)
 
 Inspected branch feature/organization-v1 at efa652759cbfd8ed21f3d47d2441a82fd518e684; PR #11 remains open, unmerged, mergeable, and points to that exact starting HEAD. The branch is 626 commits ahead of main and 0 behind. CI #542 passed on that exact source HEAD. Documentation checkpoint commit 74d4ac681159f8aa6a1ba126c0b04d87d0ef076b passed CI #543 (workflow run 45972190162) on its exact HEAD. This follow-up documentation commit requires independent CI verification. PR #12 remains an open superseded draft.
@@ -1364,3 +1384,4 @@ Organization remains the active milestone. The full local migration replay now f
 - Production rollout remains blocked on an owner-controlled complete schema/data/roles backup successfully restored in isolation, followed by authenticated two-user PostgREST CRUD/isolation tests. The available Supabase connector exposes no backup/export workflow. No production migration, DDL, DML, RLS change, backup/restore, or PR merge was performed.
 
 **Next action:** verify CI #299 on the exact code head. If it passes, retain this assertion/preflight improvement and continue the Organization recovery gate; if it fails, inspect the failing step and fix only the regression introduced by this commit. Do not start Analytics or alter production before the Organization acceptance gates pass.
+

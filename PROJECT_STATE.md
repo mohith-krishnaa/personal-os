@@ -1,3 +1,26 @@
+# Latest verified checkpoint — zero-cost isolated validation and foreign-key index hardening (2026-11-27)
+
+**Branch/HEAD:** `feature/organization-v1` / `791f5f42f90969a5f76406ba2ad897c486ee8816`.  
+**PR #11:** open, unmerged, mergeable.  
+**Exact-head CI:** [CI #547 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/45985791253) on `791f5f42f90969a5f76406ba2ad897c486ee8816`: PostgREST safety preflight, PostgreSQL migration replay, Organization/RLS and hierarchy checks, application tests, typecheck, and production build all passed.
+
+## No-cost test work
+
+A separate `personal-os-acceptance` Supabase project was created in the existing Free-plan organization at a quoted cost of $0/month. It is a clean test project, **not a production backup or restored copy**. All 28 repository migrations were replayed there. The test project's 11 public application tables have RLS enabled and zero rows. The source project's required `public.rls_auto_enable()` function was read from production read-only and recreated only on the test project to satisfy baseline migration 8.
+
+Supabase security advisors report no lints on the test project. Its performance advisor no longer reports unindexed foreign keys after adding the three indexes in migration `20261127103347_index_foreign_key_columns.sql`. Remaining unused-index findings are informational on an empty database; they need real workload evidence before index removal.
+
+## Production and acceptance boundary
+
+The production source remains healthy, with 8 project migrations applied and all 9 public application tables empty. No production schema, data, settings, backup, or restore was changed or attempted. The no-cost test project does not satisfy the separate complete-backup/restore gate, and the authenticated two-owner PostgREST acceptance harness remains unexecuted. PR #11 must remain unmerged until those acceptance conditions are met.
+
+**Next:** continue using free isolated verification; complete the owner-controlled backup/restore and checklist-conflict review, then run the authenticated two-owner acceptance on a verified restored copy. Keep production read-only.
+
+---
+
+Warning: truncated output (original token count: 67087)
+Total output lines: 2012
+
 # Latest verified checkpoint — fresh source inventory and owner backup gate (2026-11-27)
 
 **Inspected branch/HEAD:** feature/organization-v1 / efa652759cbfd8ed21f3d47d2441a82fd518e684.  
@@ -945,340 +968,7 @@ Non-failing CI warnings: Node's `punycode` deprecation notice and npm's install-
 
 ## Legacy checklist deprecation decision
 
-1. **Keep the current compatibility state.** Current application runtime uses canonical `checklist_items`; retain legacy owner-scoped writes until external-client usage can be measured. Do not add dual-write or synchronization behavior.
-2. **Observe only after an approved rollout creates the table in the target environment.** Inventory deployed clients and observe PostgREST/API logs for legacy SELECT/INSERT/UPDATE/DELETE over an owner-approved window. Keep the exact window and evidence private; synthetic acceptance-harness traffic is not client telemetry.
-3. **Freeze writes separately.** Only after zero observed use, conflict-report disposition, and owner sign-off, use a reviewed forward migration to restrict legacy INSERT/UPDATE/DELETE while retaining SELECT/export for a defined rollback and retention window. Re-run two-owner RLS tests and the conflict report.
-4. **Preserve rollback.** Keep the table and read/export path during the rollback window. If an old client is found, restore the prior write policy through a reviewed forward migration; do not rewrite migration history.
-5. **Remove later, separately.** Drop the legacy table only in a later migration after retention, rollback, export, and owner-approval criteria are satisfied. Do not combine write freeze and table removal.
-
-## Safety boundary and next action
-
-No production query, DDL/DML, migration, RLS change, backup, restore, or PR merge was performed. The complete owner-controlled schema/data/roles backup and successful isolated restoration remain outstanding, followed by restored-copy checklist conflict disposition and authenticated two-owner PostgREST acceptance. The last recorded live baseline is not freshly revalidated.
-
-**Next owner action:** create the complete backup and restore it into a separate isolated project; verify the eight-version source baseline, reviewed Auth trigger/extensions/roles/RLS/Vault requirements, then apply the 19 branch-only migrations only to that isolated target, review the conflict report, and execute the PostgREST harness. Do not retry an unavailable export or use production as a test target. If the owner gate remains unavailable, continue a different bounded Organization audit rather than repeating this completed legacy-caller scan.
-
----
-
-# Previous checkpoint — checklist reconciliation operator disposition audit (2026-11-21)
-
-**Implementation/test HEAD:** `44cde434c6507f1c492b373b6d53b60f5214bb8f` — [CI #454 passed](https://github.com/mohith-krishnaa/personal-os/actions/runs/44837508847).  
-**Starting HEAD:** `818442304c8419d093d55089352cb30571ed9f6b`.  
-**Audit/test attempt:** `cdb6d6a5dc61c4d8e0a3875564cab2888b36adb2` — CI #453 exposed an outdated Owner A visibility assertion; the fixture counts were corrected in the implementation/test HEAD above.
-
-## Repository recovery
-
-- Personal-OS Builder is enabled. The latest stored automation result belonged to an older run than the recorded current run; it was not treated as the current run's result.
-- Branch: `feature/organization-v1`.
-- PR #11 remains open and unmerged. PR #12 remains an open superseded draft.
-- The actual branch head at recovery was `8184423`; CI #452 had passed on that exact documentation head.
-- No local repository checkout is attached, so local working-tree cleanliness cannot be certified. The remote diff and commit contents were inspected.
-
-## Checklist reconciliation audit and changes
-
-- `supabase/operations/checklist-reconciliation-conflicts.sql` remains SELECT-only. It now returns side-by-side legacy/canonical values for title, completion, position, created_at, and updated_at, plus per-field mismatch flags.
-- `canonical_id_collision` is explicitly an umbrella category: owner/task differences and payload-only differences are distinguished by the flags and values.
-- Added a payload-only collision fixture with the same owner, task, and ID but different title/completion/position. Migration assertions verify that the existing canonical row and legacy source both remain unchanged.
-- The report test now covers four conflicts: task-owner mismatch, cross-owner/task ID collision, payload-only ID collision, and a valid legacy-only write after one-time reconciliation. The two valid rows copied by the migration remain absent from the report.
-- The migration runner requires exactly four seeded conflict rows and checks the payload-only field mismatch shape. The Owner A RLS fixture now expects two canonical and three legacy rows after adding the new scenario.
-- No migration was added. Repository migration count remains 27; the last recorded live ledger is 8, leaving 19 branch-only migrations. Live state was not rechecked during this static audit.
-
-## CI #454 — implementation/test verification
-
-- PostgREST safety preflight: **21/21 passed**.
-- PostgreSQL 17 migration replay: **27/27 passed**; checklist reconciliation report and four conflict fixtures passed.
-- Task hierarchy concurrency: passed.
-- Application tests: **151/151 passed**.
-- TypeScript typecheck: passed.
-- Production build: passed.
-- npm audit: **0 vulnerabilities**.
-- No lint script is configured.
-- CI #453 failed because Owner A's expected canonical/legacy checklist visibility counts were not updated for the new payload-only fixture. The assertions were corrected to 2 canonical and 3 legacy rows; CI #454 passed.
-
-## Production and acceptance boundary
-
-No production Supabase query, DDL, DML, migration, RLS modification, backup, restore, or PR merge was performed in this task. The last recorded live baseline remains 8 migrations versus 27 in the branch, but it was not freshly queried here.
-
-Still required: owner-controlled complete schema/data/roles backup; successful isolated restoration including reviewed Auth trigger, extensions, roles, RLS and Vault requirements; checklist conflict disposition against that restored copy; authenticated two-owner PostgREST acceptance; and explicit approval before any production schema change.
-
-## Next safe task
-
-While the owner-controlled restore remains unavailable, audit every remaining legacy `task_checklist_items` write path and client caller. Establish a safe deprecation/cutover plan and identify whether any supported client still writes the legacy table. Do not add automatic synchronization, disable legacy writes, change RLS, or mutate production as part of that audit. Keep Analytics queued.
-
----
-
-# Latest verified checkpoint — application-role append-only activity events (2026-11-21)
-
-**Code/test HEAD:** `03217aefdefb88fee593629f217d7efaf36d538d`  
-**Verification:** [CI #442](https://github.com/mohith-krishnaa/personal-os/actions/runs/44820579479) passed.
-
-The preceding code commit `1c428b50b681905ab983f10b4663a8dcc16827a0` failed CI #441 because `organization-migration-assertions.sql` applied a broad fixture grant after migration 26 and re-granted activity-event UPDATE/DELETE. The fixture now reapplies the intended activity-event privilege contract after its generic grants. CI #442 passed on the corrected code/test HEAD.
-
-## Verified changes
-
-- Added migration `20261121000400_activity_events_append_only.sql` (migration 26).
-- Replaced the broad `activity_events_owner FOR ALL` policy with separate authenticated owner-scoped SELECT and INSERT policies.
-- Revoked all activity-event table privileges from PUBLIC and anon; authenticated and service_role now receive SELECT/INSERT only. Neither application role has UPDATE, DELETE, or TRUNCATE.
-- The `postgres` table owner retains controlled maintenance privileges. The existing `auth.users ON DELETE CASCADE` remains, so account deletion can still remove that account's events. This is application-role append-only protection, **not** a tamper-proof or immutable audit log.
-- Added `supabase/tests/activity-event-append-only.sql` covering policy shape, owner isolation, cross-owner INSERT rejection, authenticated/service_role UPDATE/DELETE/TRUNCATE denial, anon privilege denial, owner maintenance, and Auth-account cascade.
-- Updated the migration runner to expect 26 migrations, run the new regression, and reapply migration 26 to verify idempotence. Added read-only preflight query 19.
-
-## Access and retention audit
-
-Inspected the current branch's application TypeScript modules under `src/`, root `lib/supabase` helpers, and the PostgREST acceptance scripts. No application module directly reads `activity_events` or issues UPDATE/DELETE against it. The two direct DELETE callers are test cleanup in `reminder-delivery-concurrency.sh` and `task-create-idempotency-concurrency.sh`; both default to `PGUSER=postgres` and retain owner-level cleanup access. No scheduled retention job, retention interval, archive table, or user-facing event reader is defined. No retention policy was invented in this change.
-
-## CI #442 evidence
-
-- PostgREST acceptance preflight: 17/17 passed.
-- PostgreSQL 17 migration replay: 26/26 passed; migration 26 reapplication passed.
-- Organization/RLS assertions, task hierarchy and concurrency checks, reminder delivery concurrency, task activity and deletion rollback/cascade tests, create-idempotency tests, and append-only event access tests passed.
-- Application tests: 147/147 passed.
-- TypeScript typecheck: passed.
-- Production build: passed.
-- npm audit: 0 vulnerabilities.
-- No lint script is configured.
-
-## Production remains unchanged
-
-Fresh read-only inspection on 2026-11-21 reconfirmed eight production migration-ledger versions versus 26 repository migrations (18 branch-only). Production `activity_events` still has RLS enabled, owner `postgres`, the old `FOR ALL` policy, and SELECT/INSERT/UPDATE/DELETE/TRUNCATE grants to anon, authenticated, and service_role. This is the expected pre-migration state. Migration 26 has **not** been applied to production; no production DDL/DML, RLS change, backup, restore, or PR merge occurred.
-
-Outstanding Organization acceptance gates remain: complete owner-controlled schema/data/roles backup, successful isolated restoration, restored-copy checklist conflict review, and authenticated two-owner PostgREST CRUD/isolation. Keep Analytics queued.
-
-**Next repository task:** audit the activity-event event-type/entity-ID and retry/idempotency contract before Analytics design. Do not add a retention schedule or event reader without a defined product requirement. If owner backup/restore remains unavailable, do not retry the blocked production step.
-
----
-
-> **Verified checkpoint — 2026-11-21 (transactional TASK_DELETED events).** Repository `mohith-krishnaa/personal-os`; branch `feature/organization-v1`; starting HEAD `047207c7af55422d283766459342f3e29aa0dd5d`; code/test HEAD `2ee721b051f52174fada5a803da6690ed5a9806e`; [CI #438](https://github.com/mohith-krishnaa/personal-os/actions/runs/44810205162) passed on that exact code/test HEAD. CI #436 failed after the DELETE regression itself passed because its task UUIDs collided with the existing task-create idempotency fixture (`92000000…001`). CI #437 exposed a second collision with the concurrent request winner (`93000000…001`). The delete test IDs were moved to the independently checked `94000000…` namespace after scanning all SQL test fixtures; CI #438 passed. No application behavior changed in these fixture corrections.
->
-> Added branch-only migration `20261121000300_task_delete_activity_events.sql`; repository inventory is **25 migrations**. Fresh read-only Supabase inspection reconfirmed project `gujzvkyytxsnervovvrt` is ACTIVE_HEALTHY on PostgreSQL 17.11.0.003 in `ap-southeast-1`, with **8** live migration-ledger versions and therefore **17 branch-only migrations**. The live `tasks_parent_task_id_fkey`, `tasks_user_id_fkey`, and `activity_events_user_id_fkey` retain validated `ON DELETE CASCADE`; `tasks_owner` and `activity_events_owner` remain authenticated owner-only `FOR ALL` policies. No production trigger or schema change was made.
->
-> Migration 25 replaces `public.record_task_activity_event()` as a SECURITY INVOKER function with `search_path = pg_catalog, public` and extends the task trigger to DELETE. An authenticated owner delete emits one `TASK_DELETED` snapshot event with title, status, project, parent, and recurrence-parent identifiers. Cascaded task descendants each emit their own event in the same statement transaction. Any event insertion failure rolls back the direct deletion or entire descendant cascade. The event is written only when `auth.uid() = OLD.user_id`. Service-role/admin cleanup and Auth-account cascades intentionally skip per-task DELETE events because both task and activity-event rows cascade from `auth.users`; attempting to insert a new event for an account being deleted could violate the existing FK and block account cleanup.
->
-> Added `supabase/tests/task-delete-activity-events.sql`; the migration runner expects **25** migrations, runs direct/cascade delete assertions, and reapplies migration 25 after the earlier activity-event migration. Tests cover direct delete success/failure rollback, repeat-delete behavior, three-level descendant cascade, descendant failure rolling back the full cascade, Owner A/B delete isolation, event visibility, and Auth account cleanup. Read-only preflight query **18** reports trigger/function security and all three cascade FKs. Query 18 was executed against production and returned the expected pre-deployment state: trigger absent, cascade FKs present.
->
-> CI #436/#437 failed only after the DELETE regression passed, due to fixture UUID collisions with existing idempotency tests. The unique namespace correction was verified by [CI #438](https://github.com/mohith-krishnaa/personal-os/actions/runs/44810205162): **17/17** PostgREST safety preflight tests; **25/25** PostgreSQL 17 migration replay; task DELETE rollback/cascade/owner isolation/Auth cleanup, task-create idempotency/concurrency, migration reapplication, Organization/RLS, reminder delivery, and hierarchy assertions passed; **147/147** application tests; TypeScript typecheck; production build; npm audit **0 vulnerabilities** (43 packages audited). No lint script is configured.
->
-> **Remaining:** `activity_events` remains mutable under its owner `FOR ALL` policy and is not an immutable audit log. Service-role/Auth-account cleanup intentionally does not emit `TASK_DELETED`. Task deletion removes `client_request_id`; a durable tombstone against a very late create retry after deletion is not implemented. Complete owner-controlled schema/data/roles backup, successful isolated restore, restored-copy checklist conflict review, and authenticated two-owner PostgREST acceptance remain mandatory. No production DDL/DML, migration, RLS change, backup, restore, or merge occurred. Analytics remains queued.
->
-> **Next task:** audit every `activity_events` UPDATE/DELETE caller, retention requirement, and reader before designing an append-only/immutable event contract. Keep production read-only and Analytics queued.
->
-> ---
->
-> **Verified checkpoint — 2026-11-21 (task/subtask create request idempotency).** Repository `mohith-krishnaa/personal-os`; branch `feature/organization-v1`; starting HEAD `a8f62ee5b46f92579bb3ca42cae50f45a3c7f758`. Code/test HEAD `a5cf780b089c8e9013557a05e73d6f96f36c47f5`; [CI #426](https://github.com/mohith-krishnaa/personal-os/actions/runs/44806749670) passed on that exact commit. Read-only preflight query 17 was then tightened to verify the exact ordered unique key; [CI #427](https://github.com/mohith-krishnaa/personal-os/actions/runs/44806843968) passed on preflight commit `5d63c397d57e6088c7ff1f32a7ed148a4c23d28f`. The final README architecture-summary checkpoint before this state update was `ce077a4a697bff8ec3f6b99213cabf1d4a448512`; [CI #432](https://github.com/mohith-krishnaa/personal-os/actions/runs/44807105433) passed on the preceding documentation HEAD `551dabf15c9066a603e6fdc08a3c1a8165f36118`, and [CI #433](https://github.com/mohith-krishnaa/personal-os/actions/runs/44807205535) passed on `ce077a4a697bff8ec3f6b99213cabf1d4a448512`. The state/handoff/roadmap refresh at HEAD `3ffaf1dc410ea4d1b643085f230d793a85b4242c` passed [CI #434](https://github.com/mohith-krishnaa/personal-os/actions/runs/44807436061). This record-only follow-up is verified separately on the resulting branch HEAD. PR #11 remains open/unmerged; no merge was authorized.
->
-> Added branch-only migration `20261121000200_task_create_request_idempotency.sql` (repository inventory: **24 migrations**). Fresh read-only Supabase inspection reconfirmed project `gujzvkyytxsnervovvrt` is ACTIVE_HEALTHY on PostgreSQL 17.11.0.003 in `ap-southeast-1`; the live migration ledger has exactly **8** versions; `public.tasks` has **0** rows and neither `client_request_id` nor `client_request_hash` exists. Therefore **16 migrations are branch-only**. No production DDL/DML, migration, RLS change, backup, restore, or merge occurred.
->
-> The migration adds a non-null UUID request key, a nullable SHA-256 create-payload fingerprint, a unique `(user_id, client_request_id)` constraint, a 64-character hash check, and a SECURITY INVOKER immutable-identity trigger. First-party task editor, quick-add, and subtask forms retain one client UUID for an unchanged payload; changed payloads get a new key. Server services resolve same-key retries before mutable relationship preflight, use conflict-ignore upsert for concurrent requests, compare the winning row's fingerprint, and reject key reuse with different task details. Recurrence occurrence creation continues to use its existing unique index; internal inserts receive a generated request UUID.
->
-> Added helper/service/UI regression coverage and disposable PostgreSQL assertions. CI #426/#427 verified **17/17** PostgREST safety preflight tests, **24/24** PostgreSQL 17 migration replay, task-create same-owner duplicate suppression, per-owner key reuse, immutable request metadata, hash validation, a two-session concurrent duplicate race, existing Organization/RLS/hierarchy/archive/reminder assertions, **147/147** application tests, TypeScript typecheck, production build, and npm audit with **0 vulnerabilities**. CI #425 initially failed typecheck because the dashboard quick-add caller had not yet supplied a request UUID; `src/app/dashboard/task-actions.tsx` was corrected, and CI #426 passed. No lint script is configured.
->
-> **Remaining:** task DELETE events are not captured; `activity_events` remains mutable and polymorphic, and task deletion removes the request key so a very late retry after deletion is not covered by a durable tombstone ledger. The owner-controlled complete schema/data/roles backup, successful isolated restore, checklist conflict review, and authenticated two-owner PostgREST acceptance remain rollout gates. Analytics stays queued.
->
-> **Next task:** design and test atomic `TASK_DELETED` events for direct task deletion and descendant cascades, including rollback, owner isolation, and event persistence. Keep production read-only.
-
-> **Verified checkpoint — 2026-11-21 (transactional task activity events).** Repository `mohith-krishnaa/personal-os`; branch `feature/organization-v1`; starting HEAD `431f311281bb432f2d722d671c9ad515ad27d275`; implementation commit `daf399d7f09feea92f30e8b0e3429916f1d55400`; final code/test HEAD `e288c55768bca52e906d51fd6b9580f3ba0cff33`. CI #408 passed on that exact code HEAD. Documentation checkpoints `7ff05d1` (CI #409), `f19cf15` (CI #410), and `014bd50e4a4d4835927daa762cf1cc53c615b545` (CI #411) passed on their exact commits. This is the latest fully CI-verified branch checkpoint before the current documentation-only checkpoint. PR #11 is open, unmerged, non-draft, and mergeable; PR #12 remains an open superseded draft.
->
-> Added branch-only migration `20261121000100_durable_task_activity_events.sql`. A SECURITY INVOKER `AFTER INSERT OR UPDATE` trigger writes `TASK_CREATED`, `TASK_UPDATED`, `TASK_COMPLETED`, `TASK_STATUS_CHANGED`, and `TASK_RECURRENCE_GENERATED` events inside the same PostgreSQL statement transaction. If event insertion fails, the task INSERT/UPDATE rolls back. No-op updates and recurring-root self-link initialization do not emit duplicate events. The existing recurrence unique index remains the occurrence idempotency guard.
->
-> Removed the application-side task activity-event inserts from `src/lib/tasks.ts`; the database trigger now covers task and subtask inserts, task updates/status changes, and recurrence occurrence inserts at the database boundary. Extracted `setTaskStatusForUser` so a repeated COMPLETED request retries a missing recurrence occurrence after a previous occurrence INSERT/event transaction rolled back. Existing reminder delivery remains on its separate atomic RPC.
->
-> Disposable-PostgreSQL fault-injection tests cover TASK_CREATED, TASK_UPDATED, TASK_COMPLETED, and TASK_RECURRENCE_GENERATED failures. They verify statement rollback, successful retry, no-op update behavior, recurrence uniqueness/source metadata, SECURITY INVOKER/search_path/EXECUTE grants, and Owner A/B event isolation. Read-only preflight query 16 reports the trigger contract; the migration runner expects 23 migrations and reapplies the new migration.
->
-> CI #407 initially failed TypeScript typecheck because the new status-test mock read an optional `error` property from a discriminated plan union. The mock was corrected. CI #408 passed: PostgREST safety preflight **17/17**; PostgreSQL 17 migration replay **23/23**; task activity fault-injection/retry, migration reapplication, Organization/RLS, archive, hierarchy, and concurrency assertions; application tests **133/133**; typecheck; production build; npm audit **0 vulnerabilities**. CI #409, #410, and #411 also passed on their exact documentation checkpoints. No lint script is configured.
->
-> **Remaining consistency gaps:** task-create request idempotency is not implemented, so a client retry can still create a second task row and a second truthful TASK_CREATED event. DELETE events are not captured. `activity_events` remains owner-scoped but mutable (`FOR ALL` RLS), polymorphic without an entity FK, and not an immutable audit log. No historical event backfill was added. Analytics must not interpret event counts as user-intent counts or infer that a missing event means no task deletion.
->
-> Fresh read-only production inspection reconfirmed eight migration-ledger versions, nine public application tables with RLS enabled and zero rows, no task activity trigger, no `client_request_id` column, the `activity_events_owner` FOR ALL policy, and authenticated/service_role INSERT privileges. The branch has 23 migrations, so 15 are branch-only. No production DDL/DML, migration, RLS change, backup, restore, or PR merge occurred. Owner-controlled complete schema/data/roles backup, successful isolated restore, restored-copy checklist conflict review, and authenticated two-owner PostgREST acceptance remain outstanding.
->
-> The remote diff changes 13 files relative to the starting HEAD (6 implementation/test/migration files and 7 documentation files). No unrelated file or secret was introduced. No local checkout is attached, so local working-tree cleanliness cannot be certified.
->
-> **Next action:** add stable client-generated request IDs for task and subtask creation, persist a per-owner unique request key, and test same-request retries plus concurrent duplicate submissions. Keep Analytics queued until create idempotency, delete-event semantics, and Organization's isolated production acceptance gates are resolved.
----
-
-> **Verified checkpoint — 2026-11-20 (owner-scoped task update service coverage).** Starting PR head `0c9b9b979a53cdf78701f2f51c0f0d3c95f3f560`; code/test head `44ecc05f9b62a10175f9b7f608c1ff0636b1dbc3`; [CI #403](https://github.com/mohith-krishnaa/personal-os/actions/runs/44782848704) passed on the exact code/test head. PR #11 remains open, unmerged, and mergeable; PR #12 remains an open superseded draft.
->
-> Extracted the authenticated update implementation into `updateTaskForUser(supabase, userId, id, input)`; the public `updateTask` entry point still creates the server Supabase client, resolves `auth.getUser()`, rejects unauthenticated callers, and delegates with the authenticated owner ID. Validation order and update behavior are preserved. No server action contract changed.
->
-> Added seven direct service-path tests covering missing-owner rejection before database access; omitted relationship fields staying out of the patch; explicit `null` clearing only the named relationship; preserving the other relationship while changing a parent; owner-scoped current-row, parent/project preflight, and final UPDATE filters; requiring an ACTIVE owner project for a new assignment; rejecting an ARCHIVED project before any UPDATE or activity-event insert; and an explicit update-column allowlist that ignores spoofed `id`, `user_id`, `status`, `created_at`, and `recurrence_parent_id` input properties. The task application suite increased from 125 to **132 tests**.
->
-> CI #403 passed: PostgREST safety preflight **17/17**; full PostgreSQL 17 replay of all **22/22** repository migrations plus Organization/RLS, archive, FK and hierarchy/concurrency assertions; application tests **132/132** with 0 failures; TypeScript typecheck; production build; npm install audited 43 packages with **0 vulnerabilities**. No lint script is configured.
->
-> No migration, RLS policy, database trigger, production query/write, or production schema change was made. The branch diff from the starting head contains only `src/lib/tasks.ts` and `src/lib/tasks.test.ts`. The automation environment has no attached local checkout, so local working-tree cleanliness cannot be certified.
->
-> The last recorded live Supabase baseline remains eight applied migration versions versus 22 in the branch, but it was not freshly queried in this run. Complete owner-controlled schema/data/roles backup, successful isolated restore, restored-copy checklist conflict review, and authenticated two-owner PostgREST acceptance remain outstanding. Do not start Analytics or alter production before those gates pass.
->
-> **Next action:** audit `updateTask` failure semantics end-to-end—owner-scoped current-row lookup errors, final UPDATE errors, and the separate best-effort `TASK_UPDATED` activity insert. Establish the intended consistency contract before changing behavior; add focused tests only for a demonstrated defect.
-
----
-
-> **Verified checkpoint — 2026-11-20 (runtime task/project relationship audit and authorization-error propagation).** Repository: `mohith-krishnaa/personal-os`; branch: `feature/organization-v1`; starting HEAD `eb8610888b21b4d158de068a7b33f2d7610b0c22`; code/test HEAD `065d114a2047ad0794618e5b43eb570c0f4c05cb`; [CI #400](https://github.com/mohith-krishnaa/personal-os/actions/runs/44773159878) passed on that exact code/test HEAD. PR #11 remains open and unmerged; PR #12 remains an open superseded draft.
->
-> Audited the runtime project/task callers: `createTask` derives `user_id` from the authenticated user, validates owner-scoped parent/project links and requires ACTIVE for new project assignments; `updateTask` first reads the current task under `id + user_id`, resolves omitted versus explicit-null relationship fields, validates the resulting links, builds an explicit update allowlist, and constrains the UPDATE by both task ID and owner; subtask server actions authenticate before passing the owner ID to `createSubtask`, which verifies parent ownership, same-project consistency, and ACTIVE-project eligibility before inserting with that owner; `listSubtasks` verifies the parent and filters children by both owner and parent; project create/update paths derive or verify the authenticated owner and owner-scope mutations. The UI callers display caught `Error.message` values. The database triggers remain authoritative for direct PostgREST writes and race conditions.
->
-> Found a real error-handling defect: task relationship preflight and subtask parent/project lookups converted **every** Supabase lookup error into “Parent task not found” or “Project not found.” This concealed SQLSTATE 42501 authorization failures and operational errors. Added `throwIfUnexpectedLookupError`: PostgREST `PGRST116` still becomes the owner-safe generic not-found result; SQLSTATE `42501` becomes a safe `Error` message (“You are not authorized to access the requested task or project.”) with the code retained; other PostgREST error objects are converted to `Error` instances with their message/code so client components do not fall back to generic “could not” text. Both task-link preflight and subtask create/list lookups use the helper.
->
-> Added six regression tests across `src/lib/tasks.test.ts` and `src/lib/subtasks.test.ts` for parent/project authorization errors, error propagation through subtask create/list, and the PGRST116 owner-safe not-found case. No application API contract, migration, database function, trigger, or RLS policy changed; repository migration count remains 22.
->
-> CI #398 and #399 failed because the newly inserted direct-self-parenting test header in `tasks.test.ts` was missing its opening block brace; the test file failed to parse at line 198, so typecheck/build were skipped. The syntax was corrected in commit `065d114a2047ad0794618e5b43eb570c0f4c05cb`. [CI #400](https://github.com/mohith-krishnaa/personal-os/actions/runs/44773159878) then passed on the corrected code/test HEAD: PostgREST safety preflight **17/17**; full PostgreSQL 17/22-migration replay and Organization/RLS assertions passed; hierarchy/concurrency checks passed; application tests **125/125**; TypeScript typecheck passed; production build passed; npm install audit reported **0 vulnerabilities**. No lint script is configured.
->
-> This run did not inspect or mutate production Supabase. The last verified production checkpoint remains eight live migration-ledger entries versus 22 branch migrations; that state was not refreshed here. No production DDL/DML, migration, RLS change, backup, restore, or PR merge occurred. The complete owner-controlled schema/data/roles backup, successful isolated restore, restored-copy checklist conflict review, and authenticated two-owner PostgREST acceptance remain outstanding. Local working-tree cleanliness cannot be certified because no local checkout is attached; the remote diff from the starting HEAD contains only the four task/subtask source and test files.
->
-> **Next action:** add focused unit coverage around the actual `updateTask` service path (owner-scoped current-row read, explicit-null versus omitted relationship patch, and owner-scoped UPDATE allowlist) without introducing a migration. If the owner-controlled backup is still unavailable, keep production read-only and do not start Analytics.
-
----
-
-> **Verified checkpoint — 2026-11-20 (Organization migration dependency and FK-contract audit).** Repository: `mohith-krishnaa/personal-os`; branch: `feature/organization-v1`; code/test HEAD `b91e63bddb1decace36be78b3849dce02133fb9b`; [CI #396](https://github.com/mohith-krishnaa/personal-os/actions/runs/44762846651) passed on that exact HEAD. PR #11 remains open and unmerged; PR #12 remains an open superseded draft.
-
-> Fresh read-only Supabase inspection: project `gujzvkyytxsnervovvrt` is ACTIVE_HEALTHY on PostgreSQL 17.11.0.003 in `ap-southeast-1`. The live migration ledger has exactly eight versions: 20260829182309, 20260830085036, 20260830103327, 20260830114218, 20260830120132, 20260830123420, 20260830141616, and 20260905162251. The branch contains 22 numbered SQL migrations, so 14 remain branch-only. All nine live public tables have RLS enabled and currently report zero rows.
-
-> The live legacy schema matches the expected eight-version baseline: `projects.title/status` exist while `projects.name` is absent; `goals.unit/target` are absent; both checklist tables are absent; task/project/goal/reminder/notification FKs exist with the expected targets and delete actions; `notifications_reminder_unique` is a valid unique index on `notifications(reminder_id)`. The six baseline FKs inspected are validated, MATCH SIMPLE, NOT DEFERRABLE, and use ON UPDATE NO ACTION. The custom `auth.users.on_auth_user_created` trigger exists. `rls_auto_enable()` is SECURITY DEFINER with `search_path=pg_catalog`, and effective EXECUTE is denied to PUBLIC/anon/authenticated and granted to service_role. Installed extensions: pg_stat_statements 1.11, pgcrypto 1.3, supabase_vault 0.3.1, uuid-ossp 1.1.
-
-> The 14 branch-only migrations were reviewed in timestamp order against those exact ledger versions and live catalog contracts. No missing prerequisite or dependency-order inversion was found. The migration replay script counts 22 files, replays them lexicographically, seeds legacy checklist fixtures after the legacy table is created and before reconciliation, and runs the read-only conflict report after replay.
-
-> The audit found a fail-closed gap: the project/task FK guard and the reminder/notification migration verified ON DELETE and target columns but did not require the baseline ON UPDATE NO ACTION action when recognizing the old single-column FK. A noncanonical ON UPDATE CASCADE constraint could therefore be accepted as the expected legacy contract and then replaced with a different default action. The live baseline itself is canonical; this was a migration-guard weakness, not a detected live-schema mismatch.
-
-> Corrected `20261119000300_ensure_project_task_foreign_keys.sql` and `20261120000200_enforce_reminder_notification_ownership.sql` to require ON UPDATE NO ACTION when matching the legacy contracts. Updated preflight query 11 to report and match the expected update action. Added rollback-only negative tests that install NOT VALID ON UPDATE CASCADE variants for project/task, reminder/task, and notification/reminder FKs and require the guards to fail closed. Migration count remains 22; no new migration was added.
-
-> [CI #396](https://github.com/mohith-krishnaa/personal-os/actions/runs/44762846651) passed on code/test HEAD `b91e63bddb1decace36be78b3849dce02133fb9b`: acceptance preflight 17/17; PostgreSQL 17 migration replay 22/22; Organization/RLS, archive lifecycle, hierarchy/concurrency, and the new noncanonical ON UPDATE rejection cases passed; application tests 119/119; typecheck and production build passed; npm install audited 43 packages and reported 0 vulnerabilities. The workflow has no lint step. Expected SQL errors from the negative tests were matched by the runner and the step passed.
-
-> No production DDL/DML, migration, RLS change, backup, restore, or PR merge occurred. The complete owner-controlled schema/data/roles backup, successful isolated restore, restored-copy checklist conflict review, and live two-owner PostgREST acceptance remain outstanding. The static audit and CI replay do not replace those owner gates.
-
-> **Next action:** owner-controlled complete backup and isolated restore, then apply the 14 branch-only migrations only to that isolated target, review the checklist conflict report, and execute the authenticated two-owner PostgREST harness. If the owner action is still unavailable, do not retry production operations; continue with a static audit of runtime task/project create/update callers against the active-project and ownership triggers. Keep Analytics queued.
-
----
-
-> **Verified checkpoint — 2026-11-20 (owner backup/restore and checklist reconciliation audit).** Repository: mohith-krishnaa/personal-os; branch: feature/organization-v1; inspected starting HEAD: 0632d89c17c67a66fea01d880f5de2b45748e8c3. CI #392 passed on that exact starting HEAD. PR #11 is open, unmerged, and its head matches the branch; PR #12 remains an open superseded draft. This run changes documentation only; the new documentation commit must receive its own CI result.
->
-> Fresh read-only Supabase inspection: project gujzvkyytxsnervovvrt is ACTIVE_HEALTHY on PostgreSQL 17.11.0.003 in ap-southeast-1. The live migration ledger contains exactly eight versions (20260829182309, 20260830085036, 20260830103327, 20260830114218, 20260830120132, 20260830123420, 20260830141616, 20260905162251); the branch has 22 migrations, 14 pending relative to that ledger. No production DDL/DML, migration, RLS change, backup, restore, or merge occurred.
->
-> Read-only source snapshot: all nine public application tables have zero rows; auth.users=0; storage.buckets=0; storage.objects=0; vault.secrets=0. auth.schema_migrations has 84 platform-managed rows and storage.migrations has 81; these are provider metadata, not application records to copy into a new project. Installed non-plpgsql extensions are pg_stat_statements 1.11, pgcrypto 1.3, supabase_vault 0.3.1, and uuid-ossp 1.1. There are no deployed Edge Functions and no RLS policies in auth/storage.
->
-> The restore audit found one custom managed-schema object that the default Supabase CLI dump omits: auth.users.on_auth_user_created invokes public.handle_new_user(). The function is SECURITY INVOKER with search_path=public and inserts public.profiles. Its trigger DDL is in the already-applied baseline migration 20260829182309_create_personal_os_core.sql, so it must be explicitly restored/verified on the isolated copy; a schema diff against that same eight-migration baseline may not emit it. The other 11 non-internal auth/storage triggers are Storage platform triggers owned by supabase_storage_admin and must not be copied manually.
->
-> The existing backup instructions were incomplete: they assumed supabase link from the repository despite no supabase/config.toml, did not preserve the supabase_migrations history separately, and did not call out the auth trigger, installed extensions, Vault root-key boundary, or Storage object bytes. The preflight and PostgREST runbooks now specify the exact artifact set, isolated restore sequence, evidence manifest, migration-history check, conflict report review, and harness gate.
->
-> No backup was created. The automation container has no repository checkout, Docker, Supabase CLI, pg_dump, or psql; the connected Supabase tools expose read-only inspection but no backup-export action. The last recorded Dashboard check says the Free Plan has no scheduled backups; recheck billing at the time of the owner action. Analytics remains queued.
->
-> **Next owner action:** from a private owner-controlled workstation, create roles/schema/data and migration-history exports; capture the custom auth.users trigger and any managed-schema customizations; record SHA-256 hashes and a source manifest; restore to a separate isolated Supabase project; verify extension versions, exact eight-version history, row counts, RLS/catalog contracts, and the auth trigger; then apply only the 14 branch-only migrations to that isolated target, run the checklist conflict report, and execute the two-owner PostgREST harness. Never use production for these tests.
-
----
-
-> **Verified checkpoint — 2026-11-20 (isolated two-owner PostgREST acceptance harness and fail-fast CI preflight).** Repository: \`mohith-krishnaa/personal-os\`; branch: \`feature/organization-v1\`; code/CI commit \`be2b4657777522b8687e5bdad7f09482d166e49c\`; [CI #391](https://github.com/mohith-krishnaa/personal-os/actions/runs/44745594557) passed on that exact commit. The preceding implementation commit \`994b80e148932d195e40ecffbbe5ed75a56955ac\` passed [CI #389](https://github.com/mohith-krishnaa/personal-os/actions/runs/44745116701), and the documentation checkpoint \`f9abdc74213492e722587bc15f072e2cf75a7336\` passed [CI #390](https://github.com/mohith-krishnaa/personal-os/actions/runs/44745373172). PR #11 remains open and unmerged.
-
-> Added \`scripts/postgrest-organization-acceptance.ts\`, its safety-gate tests, and the [isolated PostgREST acceptance runbook](docs/operations/organization-v1-postgrest-acceptance.md). The live harness uses two distinct password-authenticated sessions and only the isolated project's anon/publishable key; JWT service-role and \`sb_secret_\` keys are rejected. It verifies both owners' project/task/subtask CRUD, canonical \`checklist_items\` and legacy \`task_checklist_items\` CRUD, reciprocal cross-owner SELECT/INSERT/UPDATE/DELETE restrictions, cross-owner project/task/parent associations, and parent-delete cascades. Cleanup is limited to IDs returned by this run's inserts and proceeds child-first.
-
-> The environment gate requires \`--execute\`, three explicit isolated-target/backup-restore attestations, a project ref matching the URL, two distinct test emails, and either a standard HTTPS Supabase project URL or the exact local loopback endpoint. The known production ref \`gujzvkyytxsnervovvrt\` is permanently blocked; custom domains, path/query URLs, conflicting \`NEXT_PUBLIC_SUPABASE_URL\`/\`SUPABASE_URL\`, and service/secret keys are refused. The confirmation variables are operator attestations, not proof of backup completeness or restore success.
-
-> The first implementation CI #386 failed TypeScript typecheck because the default \`ReturnType<typeof createClient>\` inferred a \`never\` schema; migration replay, hierarchy concurrency, and 116/116 tests had passed. The fix explicitly instantiates the Supabase client generic, makes cleanup child-first, and uses \`pathToFileURL\` for cross-platform CLI detection. [CI #387](https://github.com/mohith-krishnaa/personal-os/actions/runs/44744569497) passed with 118/118 tests; [CI #388](https://github.com/mohith-krishnaa/personal-os/actions/runs/44744843739) passed on the documentation checkpoint; [CI #389](https://github.com/mohith-krishnaa/personal-os/actions/runs/44745116701) passed with symmetric subtask CRUD and secret-key-prefix coverage; [CI #390](https://github.com/mohith-krishnaa/personal-os/actions/runs/44745373172) passed on the next documentation checkpoint.
-
-> Added \`npm run test:acceptance:preflight\` and a CI step that runs the **17 safety-gate tests before PostgreSQL client installation and migration replay**. The same tests remain in the full application suite. [CI #391](https://github.com/mohith-krishnaa/personal-os/actions/runs/44745594557) passed: preflight **17/17**; PostgreSQL 17 replay **22/22 migrations**; Organization/RLS, archive, hierarchy and concurrency assertions passed; full application tests **119/119**; TypeScript typecheck and production build passed; npm install audited 43 packages and reported **0 vulnerabilities**. No lint script is configured.
-
-> No migration, schema, RLS policy, production data, or live Supabase endpoint was changed or queried in this harness-preparation run. Repository migration count remains **22**. The authenticated PostgREST harness has **not** been executed: no owner-verified complete schema/data/roles backup and isolated restore is available in this run, and no isolated test-user credentials were supplied. Unit tests exercise the safety gate only; they are not evidence of live PostgREST isolation.
-
-> **Next owner action:** create a complete owner-controlled schema/data/roles backup; restore it into a separate isolated project; verify the restore and checklist reconciliation conflict report; create two disposable confirmed Auth users; then run the documented harness. Do not use production. Keep Analytics queued until Organization's production acceptance gates are genuinely satisfied.
-
-> ---
-
-> **Verified checkpoint — 2026-11-20 (isolated two-owner PostgREST acceptance harness prepared).** Repository: \`mohith-krishnaa/personal-os\`; branch: \`feature/organization-v1\`; final implementation/test commit \`994b80e148932d195e40ecffbbe5ed75a56955ac\`; [CI #389](https://github.com/mohith-krishnaa/personal-os/actions/runs/44745116701) passed on that exact commit. The preceding documentation checkpoint \`50f48930f7e5c355006c6cac2843ea93ce15733a\` also passed [CI #388](https://github.com/mohith-krishnaa/personal-os/actions/runs/44744843739). PR #11 remains open and unmerged.
-
-> Added \`scripts/postgrest-organization-acceptance.ts\`, \`scripts/postgrest-organization-acceptance.test.ts\`, and the [isolated PostgREST acceptance runbook](docs/operations/organization-v1-postgrest-acceptance.md). The live harness uses two distinct password-authenticated sessions and only the isolated project's anon/publishable key; JWT service-role and \`sb_secret_\` keys are rejected. It verifies both owners' project/task/subtask CRUD, canonical \`checklist_items\` and legacy \`task_checklist_items\` CRUD, reciprocal cross-owner SELECT/INSERT/UPDATE/DELETE restrictions, cross-owner project/task/parent associations, and parent-delete cascades. Both owners' subtasks now have explicit read/update/delete coverage. Cleanup is restricted to IDs returned by this run's inserts and deletes child-first.
-
-> The environment gate requires \`--execute\`, three explicit isolated-target/backup-restore attestations, a project ref matching the URL, two distinct test emails, and either a standard HTTPS Supabase project URL or the exact local loopback endpoint. The known production ref \`gujzvkyytxsnervovvrt\` is permanently blocked; custom domains, path/query URLs, conflicting \`NEXT_PUBLIC_SUPABASE_URL\`/\`SUPABASE_URL\`, and service/secret keys are refused. The confirmation variables are operator attestations, not proof of backup completeness or restore success.
-
-> [CI #386](https://github.com/mohith-krishnaa/personal-os/actions/runs/44744300279) initially failed TypeScript typecheck because the default \`ReturnType<typeof createClient>\` inferred a \`never\` schema; migration replay, hierarchy concurrency, and 116/116 tests had passed. The fix explicitly instantiates the Supabase client generic, makes cleanup child-first, and uses \`pathToFileURL\` for cross-platform CLI detection. [CI #387](https://github.com/mohith-krishnaa/personal-os/actions/runs/44744569497) passed with 118/118 tests; [CI #388](https://github.com/mohith-krishnaa/personal-os/actions/runs/44744843739) passed on its documentation checkpoint; [CI #389](https://github.com/mohith-krishnaa/personal-os/actions/runs/44745116701) passed on the final implementation: PostgreSQL 17 replay **22/22 migrations**; Organization/RLS, archive, hierarchy and concurrency assertions passed; **119/119 application tests passed**; TypeScript typecheck and production build passed; npm install audited 43 packages and reported **0 vulnerabilities**. No lint script is configured.
-
-> No migration, schema, RLS policy, production data, or live Supabase endpoint was changed or queried in this harness-preparation run. Repository migration count remains **22**. The authenticated PostgREST harness has **not** been executed: no owner-verified complete schema/data/roles backup and isolated restore is available in this run, and no isolated test-user credentials were supplied. Unit tests exercise the safety gate only; they are not evidence of live PostgREST isolation.
-
-> **Next owner action:** create a complete owner-controlled schema/data/roles backup; restore it into a separate isolated project; verify the restore and checklist reconciliation conflict report; create two disposable confirmed Auth users; then run the documented harness. Do not use production. Keep Analytics queued until Organization's production acceptance gates are genuinely satisfied.
-
-> ---
-
-> **Verified checkpoint — 2026-11-20 (isolated two-owner PostgREST acceptance harness prepared).** Repository: \`mohith-krishnaa/personal-os\`; branch: \`feature/organization-v1\`; implementation commit \`278ba73b7efe5400f931c12197cc46c8c5f57093\` initially passed migration replay and 116 application tests but failed TypeScript typecheck because the Supabase client's default generic resolved its schema to \`never\`. Corrected in \`c9c24e2635d18336121f85cffb1ecfe9cccfc7d4\`; [CI #387](https://github.com/mohith-krishnaa/personal-os/actions/runs/44744569497) passed on that exact code/test commit. PR #11 remains open and unmerged.
-
-> Added \`scripts/postgrest-organization-acceptance.ts\` and its preflight tests. The live harness uses two separate password-authenticated sessions and only the isolated project's anon/publishable key; JWT service-role keys and \`sb_secret_\` keys are rejected. It exercises project, task, subtask, canonical \`checklist_items\`, and legacy \`task_checklist_items\` CRUD; reciprocal cross-owner SELECT/INSERT/UPDATE/DELETE restrictions; cross-owner project/parent/task associations; and parent-delete checklist/task cascade behavior. Cleanup is limited to IDs returned by this run's inserts and proceeds child-first.
-
-> The environment gate requires \`--execute\`, explicit isolated-target and restored-backup attestations, a matching project ref, two different test emails, and an HTTPS standard Supabase project URL (or the exact local loopback endpoint). The known production ref \`gujzvkyytxsnervovvrt\` is permanently blocked; custom domains and conflicting \`NEXT_PUBLIC_SUPABASE_URL\`/\`SUPABASE_URL\` values are refused. No service-role key is accepted or used. The confirmation variables are operator attestations, not proof of a backup or restore.
-
-> [CI #386](https://github.com/mohith-krishnaa/personal-os/actions/runs/44744300279) exposed the initial type mismatch after migration replay, hierarchy concurrency, and 116/116 tests passed; typecheck failed and build was skipped. The fix instantiated the Supabase client generic explicitly, made cleanup child-first, and used \`pathToFileURL\` for cross-platform CLI detection. Two additional safety tests cover generic URL mismatch and path/query rejection. [CI #387](https://github.com/mohith-krishnaa/personal-os/actions/runs/44744569497) passed: PostgreSQL 17 replay **22/22 migrations**; Organization/RLS, archive, hierarchy and concurrency assertions passed; **118/118 application tests passed**; TypeScript typecheck and production build passed; npm install audited 43 packages and reported **0 vulnerabilities**. No lint script is configured.
-
-> No migration, schema, RLS policy, production data, or live Supabase endpoint was changed or queried in this harness-preparation run. Repository migration count remains **22**. The authenticated PostgREST harness has **not** been executed: there is no owner-verified complete schema/data/roles backup and isolated restore available in this run, and no isolated test-user credentials were supplied. Unit tests only verify the preflight gate; they are not evidence of live PostgREST isolation.
-
-> **Next owner action:** create a complete owner-controlled backup of schema, data, and roles; restore it into a separate isolated project; verify the restore and checklist reconciliation conflict report; create two disposable confirmed Auth users; then run the documented harness. Do not use production. Keep Analytics queued until Organization's production acceptance gates are genuinely satisfied.
-
-> ---
-
-> **Verified checkpoint — 2026-11-20 (reminder delivery route contract).** Repository: `mohith-krishnaa/personal-os`; branch: `feature/organization-v1`; code/test commit: `b49dfe13a175fee78bd20f7c34a5c651633ac812`; [CI #384](https://github.com/mohith-krishnaa/personal-os/actions/runs/44734936277) passed. PR #11 remains open and unmerged.
->
-> Extracted the reminder delivery request logic into `src/lib/reminder-delivery-handler.ts`, with the route exporting the same handler for GET and POST. `getReminderWorkerSecret()` preserves the existing precedence (`REMINDER_WORKER_SECRET`, then `CRON_SECRET`). No deployed secret values were read or committed. The existing `vercel.json` cron still targets `/api/reminders/deliver` every five minutes.
->
-> Added `src/lib/reminder-delivery-handler.test.ts` to `npm test`. Both GET and POST are tested for missing configuration, missing/wrong credentials, no admin-client creation before authorization, exactly one `claim_due_reminders({ p_limit: 100 })` RPC on success, response count mapping, empty claims, returned RPC errors, and rejected RPC promises. Thrown transport/client errors return a generic HTTP 500 without exposing the thrown detail or worker token.
->
-> The first test attempt [CI #381](https://github.com/mohith-krishnaa/personal-os/actions/runs/44734618309) failed because the generated authorization regex contained a double-escaped whitespace token; corrected in `aae5007aa31b18b2e4ec84ee2efa42443c0dc49d`. [CI #382](https://github.com/mohith-krishnaa/personal-os/actions/runs/44734660774) then exposed a test-fixture bug: passing `undefined` activated the harness default secret, so the missing-secret case was not actually missing; corrected in `c391ac9bbeb4e206f1f5dd3f0ec62c929010b7a0`. [CI #383](https://github.com/mohith-krishnaa/personal-os/actions/runs/44734731617) passed migration replay and all 102 application tests but failed typecheck because `ProcessEnv` did not overlap with the narrow environment object type. The resolver now accepts `Record<string, string | undefined>`.
->
-> [CI #384](https://github.com/mohith-krishnaa/personal-os/actions/runs/44734936277) passed on the exact code/test commit `b49dfe13a175fee78bd20f7c34a5c651633ac812`: PostgreSQL 17 replayed **22/22 migrations**; Organization/RLS, archive, task hierarchy, and concurrency checks passed; **102/102 application tests passed**; TypeScript typecheck and production build passed. npm install audited 43 packages and reported **0 vulnerabilities**; the existing install-script allowlist warning remains. No lint script is configured.
->
-> No database migration, application schema, RLS policy, or production record changed in this task. Repository migration count remains **22**. No production Supabase operation was performed; the last verified live checkpoint remains 8 migration-ledger entries versus 22 in the branch, but live state was not rechecked during this route-only task. Production rollout remains blocked on a complete owner-controlled schema/data/roles backup, successful isolated restore, restored-copy checklist conflict review, and authenticated two-user PostgREST CRUD/isolation testing.
->
-> **Next task:** prepare an isolated-environment authenticated two-user PostgREST acceptance harness and explicit environment preflight. It must refuse production project URLs, require an explicitly supplied isolated/restored target, test owner-scoped CRUD and cross-user denial, and never apply migrations or write to production. Keep Analytics queued.
->
-> ---
->
-> **Verified checkpoint — 2026-11-20 (atomic reminder delivery).** Repository: `mohith-krishnaa/personal-os`; branch: `feature/organization-v1`; code/test commit: `2953e1eb29955d2464b2e565e80b41ad16a85510`; [CI #378](https://github.com/mohith-krishnaa/personal-os/actions/runs/44727301882) passed. PR #11 remains open and unmerged.
->
-> A fresh read-only Supabase inspection found project `gujzvkyytxsnervovvrt` ACTIVE_HEALTHY on PostgreSQL 17.11.0.003, with 8 live migration-ledger entries and 9 public tables with RLS enabled. The live `claim_due_reminders(integer)` is still the older SECURITY DEFINER function: it locks due reminders with `FOR UPDATE SKIP LOCKED`, marks them delivered, and inserts the activity event, but it does not create the notification. Its execution is granted to `service_role` only. No production write was attempted.
->
-> The branch worker previously performed notification upsert, delivered-marker update, and activity-event insert as separate PostgREST requests. If the final event insert failed after the delivered marker committed, the next run excluded that reminder and could not repair the missing event. The existing SQL claim function was not called by the route and did not create notifications.
->
-> Added local-only migration `20261120000300_atomic_reminder_delivery.sql`, which replaces the claim function without changing its signature. Each claimed reminder now creates or safely reuses its matching notification, inserts `REMINDER_DELIVERED`, and only then sets `delivered_at` inside the same RPC transaction. An existing notification is reused only when its owner and task match; its read state is preserved. Any notification/event/update failure aborts the RPC statement and rolls back all writes, leaving the reminder retryable. The function remains SECURITY DEFINER with `search_path = pg_catalog, public`; EXECUTE is revoked from PUBLIC/anon/authenticated and granted only to service_role.
->
-> `src/app/api/reminders/deliver/route.ts` retains its existing bearer-secret check and now calls only `claim_due_reminders(p_limit => 100)`; it no longer makes separate notification, reminder, and activity-event writes. The repository's `vercel.json` schedules this endpoint every five minutes; deployed secret configuration was not inspected.
->
-> Added disposable-PostgreSQL fault-injection assertions for notification-insert and activity-event-insert failures, proving all writes roll back and retries succeed. Tests also verify an existing notification is reused without clearing `read_at`, repeated delivery produces no duplicate event/notification, and the RPC remains service_role-only. A separate two-session test proves Worker B completes with zero claims while Worker A holds the row lock, then exactly one notification, event, and delivered marker exist after Worker A commits. The migration is reapplied in CI to verify idempotence. Read-only preflight query 15 reports the function/security/locking contract.
->
-> [CI #378](https://github.com/mohith-krishnaa/personal-os/actions/runs/44727301882) passed on the exact code/test commit: PostgreSQL 17 replayed **22/22 migrations**; the new migration reapplication, injected notification/event failure rollback and retry cases, existing-notification reuse, duplicate-call idempotency, two-session `SKIP LOCKED` concurrency, Organization/RLS, archive lifecycle, and hierarchy/project concurrency checks passed; **90/90 application tests passed**; TypeScript typecheck and production build passed. npm install audited 43 packages and reported **0 vulnerabilities**; the existing `esbuild@0.28.2` install-script allowlist warning remains. No lint script is configured.
->
-> Repository migration count is **22**: 8 versions match the live ledger and 14 are branch-only (11 Organization/related, 1 Progress compatibility, 2 RLS performance). The new migration and route change are not deployed. No production DDL/DML, migration, RLS change, backup, restore, or PR merge occurred. Production rollout still requires a complete owner-controlled schema/data/roles backup, successful isolated restore, restored-copy checklist conflict review, and authenticated two-user PostgREST CRUD/isolation.
->
-> **Next task:** add route-level tests for the reminder endpoint's bearer-secret rejection, successful RPC result mapping, and RPC error handling; verify the cron route/secret contract without reading or exposing secret values. Keep Analytics queued until Organization acceptance is genuinely complete.
->
-> ---
->
-> **Verified checkpoint — 2026-11-20 (reminder/notification owner-link integrity).** Repository: `mohith-krishnaa/personal-os`; branch: `feature/organization-v1`; code/test commit: `8fbf83e18fa15dc60a9a8bc8ab58563738d00df0`; PR #11 remains open and unmerged.
->
-> Fresh read-only Supabase inspection confirms project `gujzvkyytxsnervovvrt` is ACTIVE_HEALTHY on PostgreSQL 17.11.0.003, with 8 live migration-ledger entries and 9 public tables with RLS enabled. Live `reminders_owner_insert/update` and `notifications_owner_update` policies check `auth.uid() = user_id` only. Live `reminders.task_id`, `notifications.reminder_id`, and `notifications.task_id` are single-column foreign keys. These contracts admit cross-owner reminder/task and notification/reminder/task associations through direct authenticated SQL/PostgREST if a caller supplies its own `user_id` with another owner's existing UUID. No production write was attempted.
->
-> Added local-only migration `20261120000200_enforce_reminder_notification_ownership.sql`. It fails closed if existing rows contain mismatched owners or reminder/task pairs, adds the supporting unique keys `tasks(id,user_id)` and `reminders(id,user_id,task_id)`, and replaces the weak single-column reminder/task and notification/reminder foreign keys with composite owner-aware keys. Existing `ON DELETE CASCADE` behavior is preserved; the notification's task must match its reminder's task, and a reminder task cannot be changed while a notification references it. RLS policies and application runtime code were not changed.
->
-> Extended `supabase/tests/organization-migration-assertions.sql` for Owner A and Owner B under `SET ROLE authenticated`: same-owner reminder INSERT and task reassignment succeed; cross-owner reminder INSERT/UPDATE fails; same-owner notification pair reassignment and read-state updates succeed; cross-owner task/reminder references and mismatched same-owner pairs fail without changing prior links. A `service_role` fixture verifies valid worker inserts still succeed while BYPASSRLS does not bypass the composite constraints. The migration runner now expects **21 migrations**, reapplies the migration to verify idempotence, and proves unexpected additional foreign keys fail closed. Read-only preflight queries 13–14 report the new FK and supporting unique-key contracts.
->
-> [CI #375](https://github.com/mohith-krishnaa/personal-os/actions/runs/44719688076) passed on the exact code/test commit: PostgreSQL 17 replayed **21/21 migrations**; authenticated Owner A/B reminder/notification ownership assertions, service-role integrity assertions, migration reapplication, unexpected-FK negative tests, Organization/RLS, archive lifecycle, and hierarchy/project concurrency checks passed; **90/90 application tests passed**; TypeScript typecheck and production build passed. npm install reported **0 vulnerabilities**. No lint script is configured.
->
-> The first code/test attempt `0336eef34d4dfffd7bc498d896aadfbc1af31128` failed CI #374 because Owner A's negative notification UPDATE reused Owner B's reminder that already had a notification; the pre-existing `notifications_reminder_unique` index correctly rejected the duplicate before the new composite FK was evaluated. The test fixture was corrected by adding unused foreign-owner reminder IDs (`810...005` and `810...006`) and targeting those IDs, so the regression now isolates the composite owner FK. No production data was involved. Corrected code/test commit `8fbf83e18fa15dc60a9a8bc8ab58563738d00df0` passed CI #375. Documentation checkpoint `4329dc2c88a528d2caaacba88ddd5dafaf34866d` passed CI #376 on the exact documentation HEAD.
->
-> The live project remains at 8 migrations versus 21 in the branch (13 branch-only: 10 Organization/related, 1 Progress compatibility, 2 RLS performance). The new migration has not been applied to production. No production DDL/DML, migration, RLS change, backup, restore, or PR merge occurred. The live schema/policy evidence is read-only; the disposable PostgreSQL authenticated-role tests are not a live PostgREST test.
->
-> **Next task:** audit the reminder delivery worker's service-role notification upsert and retry/claim behavior against the new composite FK contract; keep the valid worker path covered and verify duplicate delivery remains idempotent. Production rollout remains blocked on a complete owner-controlled schema/data/roles backup, successful isolated restore, restored-copy checklist conflict review, and authenticated two-user PostgREST CRUD/isolation.
-
-> ---
->
-> **Verified checkpoint — 2026-11-20 (authenticated hierarchy-cycle rejection on UPDATE).** Repository: `mohith-krishnaa/personal-os`; branch: `feature/organization-v1`; corrected code/test commit: `2af3b4615241c28fbbad8f10f7458bbe1aa76b5b`; PR #11 remains open and unmerged.
->
-> Extended `supabase/tests/organization-migration-assertions.sql` with authenticated-role cycle tests for both owners. Owner A creates a three-level same-project chain, attempts to reparent its root beneath the descendant, requires the exact `Task hierarchy cannot contain cycles.` check violation, and verifies the original root NULL parent plus both existing descendant links remain unchanged. Owner B repeats the same attack inside its own project and verifies its root/child links remain intact. The tests run under `SET ROLE authenticated` with each owner's JWT subject and RLS enabled; no superuser bypass is used.
->
-> The first test commit `041f56b8e04786b5f9dd9065edc512a05f3afa30` failed CI #367 because the Owner B PL/pgSQL block used `error_message` without declaring it. The workflow log identified the exact error (`"error_message" is not a known variable`). Corrected in `2af3b4615241c28fbbad8f10f7458bbe1aa76b5b` by declaring the diagnostic variable in Owner B's block. [CI #368](https://github.com/mohith-krishnaa/personal-os/actions/runs/44701628837) passed on the corrected commit: all **20/20 migrations** replayed in PostgreSQL 17; Organization/RLS and authenticated Owner A/B assertions passed; project archive lifecycle, hierarchy and two-session concurrency checks passed; **90/90 application tests passed**; TypeScript typecheck and production build passed. npm install reported **0 vulnerabilities**; the existing esbuild install-script allowlist warning remains. No lint script is configured.
->
-> No migration, runtime application code, RLS policy, or production record changed; repository migration count remains 20. Production Supabase was not accessed during this test-only run. The last verified read-only production checkpoint remains 8 live migration-ledger entries versus 20 repository migrations; complete owner-controlled schema/data/roles backup and isolated restore, restored-copy checklist conflict review, and authenticated two-user PostgREST CRUD/isolation remain mandatory rollout gates. No production DDL/DML, migration, RLS change, backup, restore, or PR merge occurred.
->
-> **Next task:** audit authenticated task deletion/cascade semantics. Inspect every task-delete caller and the `tasks.parent_task_id ON DELETE CASCADE` contract first; verify that deleting an owned parent removes only its intended descendant chain, unrelated tasks remain, and cross-owner deletes remain blocked by RLS. Do not change deletion behavior unless a concrete mismatch is found. Keep Analytics queued until Organization production acceptance is genuinely complete.
->
-> ---
->
-> **Verified checkpoint — 2026-11-20 (authenticated parent-task reassignment).** Repository: `mohith-krishnaa/personal-os`; branch: `feature/organization-v1`; code/test commit: `0a4bd7e623cee437580d425d0fb71e5758febb47`; PR #11 remains open and unmerged.
->
-> Extended `supabase/tests/organization-migration-assertions.sql` to exercise `parent_task_id` UPDATEs under the actual disposable-database `authenticated` role with RLS enabled. Owner A can reparent a task to another parent in the same owned project; a parent from another project owned by A is rejected with the exact same-project check violation; a parent hidden by RLS because it belongs to Owner B is rejected with insufficient privilege. Both rejected updates must preserve the original parent link. After Owner A's project is archived, the existing task can still be reparented within that historical project without changing its project link. The reciprocal Owner B cross-owner attempt also verifies its previous NULL parent remains unchanged.
->
-> [CI #364](https://github.com/mohith-krishnaa/personal-os/actions/runs/44694065363) passed on the exact code/test commit. The workflow replayed all **20/20 repository migrations** in disposable PostgreSQL 17; Organization/RLS, authenticated Owner A/B and anonymous denial assertions passed; project archive lifecycle, task hierarchy and two-session concurrency checks passed; **90/90 application tests passed**; TypeScript typecheck and production build passed; npm install reported **0 vulnerabilities**. The configured workflow has no separate `npm audit` step, and no lint script is configured.
->
-> No migration, application runtime code, RLS policy, or production record changed; the repository remains at 20 migration files. Fresh read-only Supabase inspection found the project ACTIVE_HEALTHY on PostgreSQL 17.11.0.003 with **8 live migration-ledger entries** and 9 public application tables with RLS enabled. Live `projects.title/status` and `tasks.project_id/parent_task_id` exist; `projects.name` and user-defined triggers on `projects`/`tasks` remain absent. These tests run on disposable PostgreSQL and are not live PostgREST verification. No production DDL/DML, migration, RLS change, backup, restore, or PR merge occurred.
+1. **Keep the current compatibility state.** Curren…17087 tokens truncated…greSQL 17.11.0.003 with **8 live migration-ledger entries** and 9 public application tables with RLS enabled. Live `projects.title/status` and `tasks.project_id/parent_task_id` exist; `projects.name` and user-defined triggers on `projects`/`tasks` remain absent. These tests run on disposable PostgreSQL and are not live PostgREST verification. No production DDL/DML, migration, RLS change, backup, restore, or PR merge occurred.
 >
 > **Next task:** add authenticated-role UPDATE coverage for hierarchy-cycle rejection: attempt to reparent a parent beneath its descendant, require the exact cycle check violation, and verify the prior parent relationship remains unchanged. Keep Analytics queued until Organization production acceptance is genuinely complete.
 >
@@ -2009,3 +1699,4 @@ Next safe action: create private schema/data/role exports, restore-test them in 
 - Production rollout remains blocked on an owner-controlled complete schema/data/roles backup successfully restored in isolation, followed by authenticated two-user PostgREST CRUD/isolation tests. The available Supabase connector exposes no backup/export workflow. No production migration, DDL, DML, RLS change, backup/restore, or PR merge was performed.
 
 **Next action:** owner-controlled complete schema/data/roles backup and successful isolated restore, then checklist conflict review and authenticated two-user PostgREST CRUD/isolation testing. CI #302 and #303 are already successful; do not repeat them. Keep production read-only and Analytics queued.
+
