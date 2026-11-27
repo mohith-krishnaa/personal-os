@@ -99,8 +99,10 @@ export function buildAnalyticsReview(
     }
   })
   const byDate = new Map(buckets.map(bucket => [bucket.date, bucket]))
-  const inCurrent = (value: string) => value >= bounds.start.toISOString() && value < bounds.end.toISOString()
-  const inPrevious = (value: string) => value >= bounds.previousStart.toISOString() && value < bounds.previousEnd.toISOString()
+  const inRange = (value: string, start: Date, end: Date) => {
+    const timestamp = Date.parse(value)
+    return Number.isFinite(timestamp) && timestamp >= start.getTime() && timestamp < end.getTime()
+  }
 
   let completed = 0
   let created = 0
@@ -117,7 +119,7 @@ export function buildAnalyticsReview(
 
   for (const task of tasks) {
     if (task.status === 'COMPLETED' && task.completed_at) {
-      if (inCurrent(task.completed_at)) {
+      if (inRange(task.completed_at, bounds.start, bounds.end)) {
         completed += 1
         const bucket = byDate.get(isoDay(new Date(task.completed_at)))
         if (bucket) bucket.completed += 1
@@ -128,10 +130,10 @@ export function buildAnalyticsReview(
           trackedPlannedMinutes += task.estimated_minutes
           trackedActualMinutes += task.actual_minutes
         }
-      } else if (inPrevious(task.completed_at)) previousCompleted += 1
+      } else if (inRange(task.completed_at, bounds.previousStart, bounds.previousEnd)) previousCompleted += 1
     }
-    if (inCurrent(task.created_at)) created += 1
-    else if (inPrevious(task.created_at)) previousCreated += 1
+    if (inRange(task.created_at, bounds.start, bounds.end)) created += 1
+    else if (inRange(task.created_at, bounds.previousStart, bounds.previousEnd)) previousCreated += 1
   }
 
   for (const entry of progressEntries) {

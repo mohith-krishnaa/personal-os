@@ -23,6 +23,8 @@ test('review buckets completed tasks and progress by date and excludes period bo
     { id: 'before', status: 'COMPLETED', completed_at: '2026-11-22T23:59:59.000Z', created_at: '2026-11-22T12:00:00.000Z', estimated_minutes: 10, actual_minutes: 12 },
     { id: 'previous', status: 'COMPLETED', completed_at: '2026-11-20T12:00:00.000Z', created_at: '2026-11-19T12:00:00.000Z', estimated_minutes: 20, actual_minutes: 25 },
     { id: 'current', status: 'COMPLETED', completed_at: '2026-11-23T09:00:00.000Z', created_at: '2026-11-23T08:00:00.000Z', estimated_minutes: 30, actual_minutes: 36 },
+    { id: 'utc-offset-boundary', status: 'COMPLETED', completed_at: '2026-11-23T00:00:00+00:00', created_at: '2026-11-23T00:00:00+00:00', estimated_minutes: null, actual_minutes: null },
+    { id: 'period-end-boundary', status: 'COMPLETED', completed_at: '2026-11-30T00:00:00+00:00', created_at: '2026-11-30T00:00:00+00:00', estimated_minutes: null, actual_minutes: null },
     { id: 'not-done', status: 'TODO', completed_at: null, created_at: '2026-11-24T12:00:00.000Z', estimated_minutes: 15, actual_minutes: null },
   ], [
     { goal_id: 'goal-a', goal_title: 'Read', unit: 'pages', value: 2, occurred_on: '2026-11-16' },
@@ -32,10 +34,10 @@ test('review buckets completed tasks and progress by date and excludes period bo
   ], bounds)
 
   assert.equal(review.buckets.length, 7)
-  assert.equal(review.buckets[0].completed, 1)
+  assert.equal(review.buckets[0].completed, 2)
   assert.equal(review.buckets[0].progress, 2)
-  assert.equal(review.completed, 1)
-  assert.equal(review.created, 2)
+  assert.equal(review.completed, 2)
+  assert.equal(review.created, 3)
   assert.equal(review.plannedMinutes, 30)
   assert.equal(review.actualMinutes, 36)
   assert.equal(review.previousCompleted, 2)
