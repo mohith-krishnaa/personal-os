@@ -38,7 +38,6 @@ export type ReviewBucket = {
   label: string
   completed: number
   progress: number
-  progressByGoal: GoalProgressSummary[]
 }
 
 export type AnalyticsReview = {
@@ -49,6 +48,7 @@ export type AnalyticsReview = {
   completed: number
   created: number
   progress: number
+  progressByGoal: GoalProgressSummary[]
   plannedMinutes: number
   actualMinutes: number
   trackedTasks: number
