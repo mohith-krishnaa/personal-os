@@ -12,7 +12,7 @@ Supabase security advisors report no lints on the test project. Its performance 
 
 ## Production and acceptance boundary
 
-The production source remains healthy, with 8 project migrations applied and all 9 public application tables empty. No production schema, data, settings, backup, or restore was changed or attempted. The no-cost test project does not satisfy the separate complete-backup/restore gate, and the authenticated two-owner PostgREST acceptance harness remains unexecuted. PR #11 must remain unmerged until those acceptance conditions are met.
+The production source remains healthy, with 8 project migrations applied and all 9 public application tables empty. Read-only advisors show no security lints, 4 unindexed foreign keys, and 14 RLS policy initialization-plan warnings. Those warnings are addressed by the unmerged feature-branch migrations and are absent on the isolated fully replayed test project; production has not received those migrations. No production schema, data, settings, backup, or restore was changed or attempted. The no-cost test project does not satisfy the separate complete-backup/restore gate, and the authenticated two-owner PostgREST acceptance harness remains unexecuted. PR #11 must remain unmerged until those acceptance conditions are met.
 
 **Next:** continue using free isolated verification; complete the owner-controlled backup/restore and checklist-conflict review, then run the authenticated two-owner acceptance on a verified restored copy. Keep production read-only.
 
