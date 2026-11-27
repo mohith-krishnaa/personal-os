@@ -1,3 +1,38 @@
+# Fresh source inventory — 2026-11-27
+
+Inspected at 2026-11-27T09:13:42.759387Z (UTC) using the existing read-only restore-customization-inventory.sql against source project gujzvkyytxsnervovvrt. The query was statically screened as a single WITH/SELECT statement before execution. It reads catalog metadata, function source hashes, role names/settings, ACLs, and row counts; it does not read secret values.
+
+## Database and migration ledgers
+
+- Project status ACTIVE_HEALTHY; PostgreSQL 17.11.0.003; region ap-southeast-1.
+- Project migration ledger: 8 versions — 20260829182309, 20260830085036, 20260830103327, 20260830114218, 20260830120132, 20260830123420, 20260830141616, 20260905162251.
+- Repository migration inventory: 27 files; 19 branch-only. No migration was added or applied.
+- Provider ledgers: auth.schema_migrations 85, realtime.schema_migrations 97, storage.migrations 81. The latest Auth version is 20261116120000; the previous recorded Auth count was 84. This is a provider-managed migration, not a project migration.
+
+## Data and extensions
+
+- All 9 public application tables returned zero rows.
+- All 36 managed/ephemeral data-table counts required by the backup manifest returned zero rows.
+- Installed non-plpgsql extensions: pg_stat_statements 1.11, pgcrypto 1.3, supabase_vault 0.3.1, uuid-ossp 1.1.
+- No non-platform custom schemas, managed-schema RLS policies, foreign servers, pg_cron, pg_net, or wrappers were found.
+- supabase_realtime has no table membership.
+
+## Customizations and privilege state
+
+- auth.users.on_auth_user_created remains present and calls public.handle_new_user(). The function is postgres-owned, not SECURITY DEFINER, with search_path=public.
+- ensure_rls remains enabled, owned by postgres, and calls SECURITY DEFINER public.rls_auto_enable() with search_path=pg_catalog. Source MD5: 99be20677b456ea8d3be47bdd44fb369. Direct EXECUTE grantees remain postgres and service_role.
+- public.claim_due_reminders(integer) remains postgres-owned SECURITY DEFINER with search_path=public. Source MD5: ac7098bd02d9fceb8713ea5cded0e0e4. Direct EXECUTE grantees remain postgres and service_role.
+- postgres is not a SUPERUSER; supabase_admin is a SUPERUSER.
+- Broad default ACLs remain in public, storage, graphql, and graphql_public. The isolated target must be reconciled against this exact source inventory. Do not blindly copy platform defaults or revoke all defaults.
+
+## Backup and restore boundary
+
+This inventory is a read-only snapshot, not a backup. The 36 zero managed-row counts make the documented CLI logical-backup route eligible under its current row-count gate at this timestamp, but roles/schema/data/project migration-history exports and a successful isolated restore remain mandatory. No owner-controlled backup artifacts were found in the Library; no isolated Supabase branches exist. The unrelated inactive yojantra project was not used. No export, restore, production DDL/DML, migration, RLS/role change, or project mutation occurred.
+
+The inventory is time-bound. Re-run it immediately before owner export and capture a new private manifest; do not reuse this snapshot's counts without rechecking.
+
+---
+
 # Supabase-managed schema and project customization restore inventory
 
 **Snapshot:** 2026-11-21 03:23 UTC  

@@ -1,3 +1,54 @@
+# Latest verified checkpoint — fresh source inventory and owner backup gate (2026-11-27)
+
+**Inspected branch/HEAD:** feature/organization-v1 / efa652759cbfd8ed21f3d47d2441a82fd518e684.  
+**Main HEAD:** 2b42dd17796b75dca79434a81d4e1f0cbf0fa043; branch comparison: 626 ahead, 0 behind.  
+**PR #11:** open, unmerged, mergeable; head matched efa652759cbfd8ed21f3d47d2441a82fd518e684; 121 changed files. No review submissions or inline review threads. PR #12 remains an open superseded draft.  
+**Exact-head CI baseline:** PR workflow #542 passed on efa652759cbfd8ed21f3d47d2441a82fd518e684. Its build job completed npm install, PostgREST preflight, PostgreSQL migration replay with RLS checks, task-hierarchy constraints, application tests, typecheck, and production build. Combined commit-status endpoint returned no separate status entries; workflow #542 is the available CI evidence.
+
+## Continuity and automation recovery
+
+- At recovery, Personal-OS Builder was actually enabled. The preceding checkpoint's statement that it had been disabled was inaccurate.
+- Recorded last run: e07831be-191c-8320-adcd-5502c0b1fb9c, status in_progress, started 2026-11-27T09:11:29.694889Z.
+- Latest stored result: run f366a9dc-2524-8331-8457-1e987877b670, created 2026-11-23T18:21:19.749042Z. It predates the recorded last-run start and was not attributed to this run.
+- Personal-OS Builder was disabled during this run and independently re-read as is_enabled=false. It remains paused pending owner backup/restore artifacts.
+- The current container is not a Git checkout; git rev-parse and git status fail because no .git directory is present. Supabase CLI, pg_dump, psql, and Docker are not installed. Local working-tree cleanliness and local test execution therefore cannot be certified.
+
+## Fresh read-only source inventory
+
+The existing restore-customization-inventory.sql was statically screened after stripping SQL comments: it begins with a WITH query, ends in a SELECT jsonb_build_object, and contains no INSERT, UPDATE, DELETE, MERGE, CREATE, ALTER, DROP, TRUNCATE, GRANT, REVOKE, CALL, or DO statement. It was executed read-only against source project gujzvkyytxsnervovvrt at 2026-11-27T09:13:42.759387Z.
+
+- Project status ACTIVE_HEALTHY; PostgreSQL 17.11.0.003; region ap-southeast-1.
+- Project migration ledger remains exactly 8 versions: 20260829182309, 20260830085036, 20260830103327, 20260830114218, 20260830120132, 20260830123420, 20260830141616, 20260905162251.
+- Repository migration inventory remains 27 files; 19 branch-only migrations. No migration was added or applied.
+- All 9 public application tables are empty. All 36 managed/ephemeral row-count keys are zero in this snapshot.
+- Required extensions remain pg_stat_statements 1.11, pgcrypto 1.3, supabase_vault 0.3.1, and uuid-ossp 1.1.
+- Provider migration ledgers: Auth 85, Realtime 97, Storage 81, project ledger 8. Auth increased from the previously recorded 84 to 85; latest Auth version is 20261116120000. This is provider-managed history, not an additional project migration.
+- No non-platform custom schemas, managed-schema RLS policies, foreign servers, pg_cron, pg_net, or wrappers were found. The supabase_realtime publication has no table membership.
+- The custom auth.users.on_auth_user_created trigger remains present and calls public.handle_new_user(). The ensure_rls event trigger remains enabled and postgres-owned, calling SECURITY DEFINER public.rls_auto_enable() with search_path=pg_catalog; source fingerprint remains 99be20677b456ea8d3be47bdd44fb369.
+- public.claim_due_reminders(integer) remains postgres-owned SECURITY DEFINER with search_path=public; source fingerprint ac7098bd02d9fceb8713ea5cded0e0e4; direct EXECUTE grants remain postgres and service_role.
+- postgres is not a SUPERUSER; supabase_admin is a SUPERUSER. Role memberships and settings were captured by the inventory query.
+- Broad default ACL entries remain across public, storage, graphql, and graphql_public. Reconcile them on the isolated target against the saved source inventory; do not blindly copy provider defaults or revoke every default privilege.
+
+## Backup and isolated-restore gate
+
+- A fresh Library listing/search found no Personal-OS backup manifest or roles/schema/data/migration-history dump artifacts.
+- Supabase lists only the production source and an unrelated inactive project named yojantra; no development branches exist. The inactive project was not treated as a restore target or touched.
+- Connected Supabase tools expose read-only inspection and migration listing but no export action. No backup or restore was attempted.
+- The 36 zero managed-row counts make the documented CLI logical-backup path eligible under its current row-count gate at this snapshot. They do not constitute a backup and do not prove dump completeness or restore success.
+- The manifest verifier and its 29 regression tests were audited. Its declared metadata/hash checks are appropriately documented as non-proof of dump completeness or restoration. No justified implementation defect was found; no speculative change was made.
+
+## Changes and verification
+
+This checkpoint is documentation-only. No application source, migration, RLS policy, production data, or project setting changed. CI #542 passed on the inspected starting HEAD efa652759cbfd8ed21f3d47d2441a82fd518e684; the new documentation checkpoint requires its own workflow result. No local application tests, migration replay, typecheck, lint, or production build were run because no checkout/toolchain is attached.
+
+No production DDL/DML, migration, RLS/role/project-setting change, backup, restoration, or PR merge occurred.
+
+## Next action
+
+Owner-controlled complete export of roles, schema, data, and project migration history from a private workstation; capture a fresh source inventory immediately before export; verify the offline manifest; restore into a separate isolated Supabase project; compare extensions, roles/memberships, default ACLs, role/database settings, Auth trigger, ensure_rls, and reminder-function contracts; review checklist conflicts; apply the 19 branch-only migrations only to that restored isolated target; then run authenticated two-owner PostgREST acceptance. Do not apply branch-only migrations to production, deploy the fail-closed ensure_rls candidate, or merge PR #11.
+
+---
+
 # Latest verified checkpoint — owner backup preflight revalidated (2026-11-21)
 
 **Starting branch/HEAD:** `feature/organization-v1` / `92e0fa88af8df5de58fe822e5e39051d4c048d5e`.  
