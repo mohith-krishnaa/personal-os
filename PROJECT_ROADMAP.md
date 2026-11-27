@@ -1,6 +1,6 @@
 # Latest verified checkpoint — Organization V1 backup gate remains open (2026-11-27)
 
-Inspected branch feature/organization-v1 at efa652759cbfd8ed21f3d47d2441a82fd518e684; PR #11 remains open, unmerged, mergeable, and points to that exact starting HEAD. The branch is 626 commits ahead of main and 0 behind. CI #542 passed on that exact HEAD. PR #12 remains an open superseded draft.
+Inspected branch feature/organization-v1 at efa652759cbfd8ed21f3d47d2441a82fd518e684; PR #11 remains open, unmerged, mergeable, and points to that exact starting HEAD. The branch is 626 commits ahead of main and 0 behind. CI #542 passed on that exact source HEAD. Documentation checkpoint commit 74d4ac681159f8aa6a1ba126c0b04d87d0ef076b passed CI #543 (workflow run 45972190162) on its exact HEAD. This follow-up documentation commit requires independent CI verification. PR #12 remains an open superseded draft.
 
 A fresh read-only source inventory at 2026-11-27T09:13:42.759387Z reconfirmed 8 project migrations versus 27 repository migrations (19 branch-only), all 9 public application tables empty, all 36 managed/ephemeral row counts zero, and the required extension versions unchanged. Provider Auth migration history advanced from 84 to 85 (latest version 20261116120000); Realtime remains 97, Storage 81. The custom Auth trigger and ensure_rls event trigger remain present. Broad default ACLs still require explicit isolated-target reconciliation.
 
