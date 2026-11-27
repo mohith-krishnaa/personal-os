@@ -380,6 +380,7 @@ function validTaskUpdate(): UpdateTaskInput {
     title: '  Updated task  ',
     priority: 'HIGH',
     estimated_minutes: 45,
+    actual_minutes: null,
     due_at: null,
     scheduled_start: null,
     scheduled_end: null,
@@ -444,6 +445,23 @@ test('updateTaskForUser rejects a missing owner before database access', async (
   assert.equal(fromCalls, 0)
 })
 
+test('updateTaskForUser accepts zero actual minutes and rejects invalid duration values', async () => {
+  const invalid = createUpdateTaskSupabase([])
+  await assert.rejects(
+    () => updateTaskForUser(invalid.supabase, 'owner-1', 'task-1', { ...validTaskUpdate(), actual_minutes: -1 }),
+    /Actual minutes must be a non-negative whole number/,
+  )
+  await assert.rejects(
+    () => updateTaskForUser(invalid.supabase, 'owner-1', 'task-1', { ...validTaskUpdate(), actual_minutes: 1.5 }),
+    /Actual minutes must be a non-negative whole number/,
+  )
+  assert.equal(invalid.calls.length, 0)
+
+  const valid = createUpdateTaskSupabase([{ table: 'tasks', action: 'update', data: { id: 'task-1', user_id: 'owner-1' } }])
+  await updateTaskForUser(valid.supabase, 'owner-1', 'task-1', { ...validTaskUpdate(), actual_minutes: 0 })
+  assert.equal(valid.calls[0].payload?.actual_minutes, 0)
+})
+
 test('updateTaskForUser leaves omitted relationships untouched and enforces its update allowlist', async () => {
   const { supabase, calls, remainingPlans } = createUpdateTaskSupabase([
     { table: 'tasks', action: 'update', data: { id: 'task-1', user_id: 'owner-1' } },
@@ -461,6 +479,7 @@ test('updateTaskForUser leaves omitted relationships untouched and enforces its 
 
   assert.deepEqual(calls[0].filters, [['id', 'task-1'], ['user_id', 'owner-1']])
   assert.deepEqual(Object.keys(calls[0].payload ?? {}).sort(), [
+    'actual_minutes',
     'due_at',
     'estimated_minutes',
     'priority',
@@ -784,3 +803,4 @@ test('setTaskStatusForUser rethrows a recurrence unique violation when no matchi
   ])
   assert.equal(remainingPlans(), 0)
 })
+

@@ -8,6 +8,7 @@ type TaskInput = {
   title: string
   priority?: TaskPriority
   estimated_minutes?: number | null
+  actual_minutes?: number | null
   due_at?: string | null
   scheduled_start?: string | null
   scheduled_end?: string | null
@@ -23,9 +24,10 @@ export async function addTaskAction(input: TaskInput & { client_request_id: stri
   return task
 }
 
-export async function updateTaskAction(id: string, input: TaskInput & { priority: TaskPriority; estimated_minutes: number | null; due_at: string | null; scheduled_start: string | null; scheduled_end: string | null }) {
+export async function updateTaskAction(id: string, input: TaskInput & { priority: TaskPriority; estimated_minutes: number | null; actual_minutes: number | null; due_at: string | null; scheduled_start: string | null; scheduled_end: string | null }) {
   const task = await updateTask(id, input)
   revalidatePath('/dashboard')
+  revalidatePath('/dashboard/analytics')
   return task
 }
 
@@ -35,3 +37,4 @@ export async function toggleTaskAction(id: string, currentStatus: TaskStatus) {
   revalidatePath('/dashboard')
   return task
 }
+
