@@ -1,4 +1,14 @@
-# Current migration inventory — 2026-11-21
+# Latest migration inventory — 2026-11-27
+
+The branch contains **28 migrations**. The latest verified production ledger contains **8 applied versions**, leaving **20 branch-only migrations**. Migration 28, `20261127103347_index_foreign_key_columns.sql`, adds covering indexes for the `notifications(reminder_id,user_id,task_id)`, `notifications(task_id)`, and `reminders(task_id,user_id)` foreign keys.
+
+The indexes were confirmed valid and ready on the isolated `personal-os-acceptance` project. Supabase's performance advisor no longer reports unindexed foreign keys after the change. The remaining unused-index notices reflect the empty test database and are informational; evaluate them against production workload before removing indexes.
+
+The migration replay runner asserts all three indexes are valid/ready and reapplies this migration to verify idempotence. Do not apply this migration to production before the separate backup, restore, conflict-review, and owner approval gates are complete.
+
+---
+
+# Migration history — 2026-11-21
 
 ## Restore prerequisite classification
 
@@ -323,3 +333,4 @@ The new trigger rejects task INSERTs and actual owner/project reassignment into 
 Local-only migration `20261120000300_atomic_reminder_delivery.sql` replaces the existing `claim_due_reminders(integer)` body without changing its signature. The function inserts or validates/reuses the unique reminder notification, inserts the activity event, then commits the delivered marker in the same transaction. It retains `FOR UPDATE SKIP LOCKED`, preserves an existing notification's read state, and raises on an existing notification whose owner/task does not match. SECURITY DEFINER uses `search_path = pg_catalog, public`; only service_role can execute it.
 
 The delivery route now calls the RPC once after its existing bearer-secret check. CI #378 passed the full **22/22** PostgreSQL 17 replay, reapplication of the new migration, fault-injected rollback/retry tests for notification and activity-event failures, existing-notification reuse, duplicate-call idempotency, two-session SKIP LOCKED concurrency, **90/90** application tests, typecheck, and production build. This migration remains branch-only and must not be applied to production before the complete owner-controlled backup and isolated restore gates are satisfied.
+

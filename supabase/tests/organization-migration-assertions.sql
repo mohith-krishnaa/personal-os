@@ -627,6 +627,49 @@ BEGIN
 END
 $assert_reminder_notification_ownership$;
 
+DO $assert_foreign_key_indexes$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_index i
+    JOIN pg_class idx ON idx.oid = i.indexrelid
+    WHERE i.indrelid = 'public.notifications'::regclass
+      AND idx.relname = 'notifications_reminder_owner_task_idx'
+      AND i.indisvalid AND i.indisready
+      AND pg_get_indexdef(i.indexrelid) =
+        'CREATE INDEX notifications_reminder_owner_task_idx ON public.notifications USING btree (reminder_id, user_id, task_id)'
+  ) THEN
+    RAISE EXCEPTION 'The valid notifications reminder/owner/task foreign-key index is missing.';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_index i
+    JOIN pg_class idx ON idx.oid = i.indexrelid
+    WHERE i.indrelid = 'public.notifications'::regclass
+      AND idx.relname = 'notifications_task_id_idx'
+      AND i.indisvalid AND i.indisready
+      AND pg_get_indexdef(i.indexrelid) =
+        'CREATE INDEX notifications_task_id_idx ON public.notifications USING btree (task_id)'
+  ) THEN
+    RAISE EXCEPTION 'The valid notifications.task_id foreign-key index is missing.';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_index i
+    JOIN pg_class idx ON idx.oid = i.indexrelid
+    WHERE i.indrelid = 'public.reminders'::regclass
+      AND idx.relname = 'reminders_task_owner_idx'
+      AND i.indisvalid AND i.indisready
+      AND pg_get_indexdef(i.indexrelid) =
+        'CREATE INDEX reminders_task_owner_idx ON public.reminders USING btree (task_id, user_id)'
+  ) THEN
+    RAISE EXCEPTION 'The valid reminders task/owner foreign-key index is missing.';
+  END IF;
+END
+$assert_foreign_key_indexes$;
+
 -- Simulate a legacy malformed canonical row whose owner matches the caller
 -- but whose task belongs to the other owner. SELECT RLS must hide it. whose owner matches the caller
 -- but whose task belongs to the other owner. SELECT RLS must hide it.
@@ -2549,3 +2592,4 @@ $anonymous$;
 RESET ROLE;
 
 SELECT 'Organization migration replay, authenticated isolation, and anonymous denial checks passed.' AS result;
+

@@ -127,13 +127,15 @@ where schemaname = 'public'
   and tablename in ('projects', 'tasks', 'checklist_items', 'task_checklist_items')
 order by tablename, indexname;
 
--- 9. Expected foreign-key index status (Organization plus the related reminder FK).
+-- 9. Expected foreign-key index status (Organization plus reminder/notification FKs).
 with expected_indexes(table_name, column_name, index_name) as (
   values
     ('tasks', 'project_id', 'tasks_project_id_idx'),
     ('tasks', 'parent_task_id', 'tasks_parent_task_id_idx'),
     ('projects', 'goal_id', 'projects_goal_id_idx'),
-    ('notifications', 'task_id', 'notifications_task_id_idx')
+    ('notifications', 'task_id', 'notifications_task_id_idx'),
+    ('notifications', 'reminder_id,user_id,task_id', 'notifications_reminder_owner_task_idx'),
+    ('reminders', 'task_id,user_id', 'reminders_task_owner_idx')
 )
 select
   e.table_name,
@@ -690,3 +692,4 @@ SELECT
   session_user = 'postgres' AS session_authenticated_as_postgres,
   current_user = 'postgres' AS current_role_postgres,
   coalesce((SELECT rolsuper FROM pg_roles WHERE rolname = 'postgres'), false) AS postgres_is_superuser;
+

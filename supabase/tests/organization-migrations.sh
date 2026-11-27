@@ -10,7 +10,7 @@ export PGDATABASE="${PGDATABASE:-personal_os_migration_test}"
 psql -X -v ON_ERROR_STOP=1 -c 'select 1' >/dev/null
 psql -X -v ON_ERROR_STOP=1 -f supabase/tests/organization-migration-bootstrap.sql
 
-expected_migrations=27
+expected_migrations=28
 actual_migrations="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | wc -l | tr -d ' ')"
 
 if [[ "$actual_migrations" -ne "$expected_migrations" ]]; then
@@ -37,6 +37,8 @@ if [[ "$applied_migrations" -ne "$expected_migrations" ]]; then
 fi
 
 psql -X -v ON_ERROR_STOP=1 -f supabase/tests/organization-migration-assertions.sql
+echo "Reapplying foreign-key coverage indexes migration to verify idempotence"
+psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261127103347_index_foreign_key_columns.sql
 echo "Verifying isolated Auth trigger restore script rejects an unapproved target"
 if psql -X -v ON_ERROR_STOP=1 -f supabase/operations/restore-auth-user-trigger.sql >/dev/null 2>&1; then
   echo "ERROR: Auth trigger restore script accepted a missing isolated-target attestation" >&2
@@ -519,3 +521,4 @@ if [[ "$post_rollback_ensure_rls_state" != '99be20677b456ea8d3be47bdd44fb369|0' 
 fi
 
 echo "Verified fail-closed candidate tests leave the disposable migration baseline unchanged after rollback."
+
