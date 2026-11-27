@@ -1,0 +1,508 @@
+import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import test from 'node:test'
+import {
+  EXPECTED_SOURCE_PROJECT_REF,
+  REQUIRED_EMPTY_MANAGED_ROW_COUNT_KEYS,
+  REQUIRED_EXTENSION_NAMES,
+  REQUIRED_ROW_COUNT_KEYS,
+  REQUIRED_SOURCE_MIGRATIONS,
+  verifyBackupManifest,
+} from './verify-backup-manifest'
+
+const repositoryCommit = 'a'.repeat(40)
+const repositoryVersions = [...REQUIRED_SOURCE_MIGRATIONS, '20261121000500'].sort()
+const artifactDefinitions = [
+  { path: 'roles.sql', commandId: 'roles', content: '-- roles export\n' },
+  { path: 'schema.sql', commandId: 'schema', content: '-- schema export\n' },
+  { path: 'data.sql', commandId: 'data', content: '-- data export\n' },
+  { path: 'migration-history-schema.sql', commandId: 'migration-history-schema', content: '-- migration schema export\n' },
+  { path: 'migration-history-data.sql', commandId: 'migration-history-data', content: '-- migration history data export\n' },
+]
+
+type Fixture = {
+  baseDir: string
+  repoRoot: string
+  migrationsDir: string
+  privateDir: string
+  artifactsDir: string
+  manifestPath: string
+  manifest: Record<string, any>
+}
+
+function hash(content: string) {
+  return createHash('sha256').update(content).digest('hex')
+}
+
+function createFixture(): Fixture {
+  const baseDir = mkdtempSync(join(tmpdir(), 'personal-os-backup-manifest-'))
+  const repoRoot = join(baseDir, 'repo')
+  const migrationsDir = join(repoRoot, 'supabase', 'migrations')
+  const privateDir = join(baseDir, 'private')
+  const artifactsDir = join(privateDir, 'artifacts')
+  const manifestPath = join(privateDir, 'manifest.json')
+
+  mkdirSync(migrationsDir, { recursive: true })
+  mkdirSync(artifactsDir, { recursive: true })
+
+  for (const version of repositoryVersions) {
+    writeFileSync(join(migrationsDir, version + '_fixture.sql'), '-- fixture migration\n')
+  }
+
+  const commands = artifactDefinitions.map(artifact => ({
+    id: artifact.commandId,
+    targetProjectRef: EXPECTED_SOURCE_PROJECT_REF,
+    targetLineVerified: true,
+    exitCode: 0,
+  }))
+
+  const artifacts = artifactDefinitions.map(artifact => {
+    writeFileSync(join(artifactsDir, artifact.path), artifact.content)
+    return {
+      path: artifact.path,
+      commandId: artifact.commandId,
+      sizeBytes: Buffer.byteLength(artifact.content),
+      sha256: hash(artifact.content),
+    }
+  })
+
+  const rowCounts = Object.fromEntries(REQUIRED_ROW_COUNT_KEYS.map(key => [key, 0]))
+  const manifest: Record<string, any> = {
+    formatVersion: 1,
+    source: {
+      projectRef: EXPECTED_SOURCE_PROJECT_REF,
+      region: 'ap-southeast-1',
+      postgresVersion: '17.11.0.003',
+      supabaseCliVersion: '3.2.0',
+      postgresClientVersion: 'psql (PostgreSQL) 17.6',
+      exportedAtUtc: '2026-11-21T02:00:00.000Z',
+      repositoryCommit,
+      appliedMigrationVersions: [...REQUIRED_SOURCE_MIGRATIONS],
+      repositoryMigrationVersions: [...repositoryVersions],
+      extensions: REQUIRED_EXTENSION_NAMES.map(name => ({ name, version: '1.0' })),
+      rowCounts,
+    },
+    commands,
+    artifacts,
+  }
+
+  writeFileSync(manifestPath, JSON.stringify(manifest, null, 2))
+  return { baseDir, repoRoot, migrationsDir, privateDir, artifactsDir, manifestPath, manifest }
+}
+
+function writeManifest(fixture: Fixture) {
+  writeFileSync(fixture.manifestPath, JSON.stringify(fixture.manifest, null, 2))
+}
+
+async function verify(fixture: Fixture, overrides: Partial<Parameters<typeof verifyBackupManifest>[0]> = {}) {
+  return verifyBackupManifest({
+    manifestPath: fixture.manifestPath,
+    artifactsDir: fixture.artifactsDir,
+    migrationsDir: fixture.migrationsDir,
+    repoRoot: fixture.repoRoot,
+    expectedCommit: repositoryCommit,
+    ...overrides,
+  })
+}
+
+function clean(fixture: Fixture) {
+  rmSync(fixture.baseDir, { recursive: true, force: true })
+}
+
+test('verifies all required dump artifacts and migration inventories', async t => {
+  const fixture = createFixture()
+  t.after(() => clean(fixture))
+
+  const result = await verify(fixture)
+  assert.equal(result.ok, true, result.errors.join(' '))
+  assert.equal(result.artifactsVerified, 5)
+  assert.equal(result.sourceMigrationCount, 8)
+  assert.equal(result.repositoryMigrationCount, repositoryVersions.length)
+})
+
+test('rejects a missing required artifact', async t => {
+  const fixture = createFixture()
+  t.after(() => clean(fixture))
+  rmSync(join(fixture.artifactsDir, 'roles.sql'))
+
+  const result = await verify(fixture)
+  assert.equal(result.ok, false)
+  assert.match(result.errors.join(' '), /roles\.sql/)
+})
+
+test('rejects an artifact whose byte size differs from the manifest', async t => {
+  const fixture = createFixture()
+  t.after(() => clean(fixture))
+  writeFileSync(join(fixture.artifactsDir, 'roles.sql'), '-- changed size with different length\n')
+
+  const result = await verify(fixture)
+  assert.equal(result.ok, false)
+  assert.match(result.errors.join(' '), /byte size/)
+})
+
+test('rejects an artifact whose SHA-256 differs from the manifest', async t => {
+  const fixture = createFixture()
+  t.after(() => clean(fixture))
+  writeFileSync(join(fixture.artifactsDir, 'roles.sql'), '-- other export\n')
+
+  const result = await verify(fixture)
+  assert.equal(result.ok, false)
+  assert.match(result.errors.join(' '), /SHA-256/)
+})
+
+test('rejects a non-zero export command exit status', async t => {
+  const fixture = createFixture()
+  t.after(() => clean(fixture))
+  fixture.manifest.commands[0].exitCode = 1
+  writeManifest(fixture)
+
+  const result = await verify(fixture)
+  assert.equal(result.ok, false)
+  assert.match(result.errors.join(' '), /exitCode 0/)
+})
+
+test('rejects a command whose recorded Target line was not verified', async t => {
+  const fixture = createFixture()
+  t.after(() => clean(fixture))
+  fixture.manifest.commands[0].targetLineVerified = false
+  writeManifest(fixture)
+
+  const result = await verify(fixture)
+  assert.equal(result.ok, false)
+  assert.match(result.errors.join(' '), /Target line/)
+})
+
+test('rejects a command targeting a different project', async t => {
+  const fixture = createFixture()
+  t.after(() => clean(fixture))
+  fixture.manifest.commands[0].targetProjectRef = 'abcdefghijklmnopqrst'
+  writeManifest(fixture)
+
+  const result = await verify(fixture)
+  assert.equal(result.ok, false)
+  assert.match(result.errors.join(' '), /Target line/)
+})
+
+test('rejects a source migration inventory that differs from the live baseline', async t => {
+  const fixture = createFixture()
+  t.after(() => clean(fixture))
+  fixture.manifest.source.appliedMigrationVersions.pop()
+  writeManifest(fixture)
+
+  const result = await verify(fixture)
+  assert.equal(result.ok, false)
+  assert.match(result.errors.join(' '), /appliedMigrationVersions/)
+})
+
+test('rejects a repository migration inventory that differs from the checkout', async t => {
+  const fixture = createFixture()
+  t.after(() => clean(fixture))
+  fixture.manifest.source.repositoryMigrationVersions.pop()
+  writeManifest(fixture)
+
+  const result = await verify(fixture)
+  assert.equal(result.ok, false)
+  assert.match(result.errors.join(' '), /repositoryMigrationVersions/)
+})
+
+test('rejects a migration filename outside the required version format', async t => {
+  const fixture = createFixture()
+  t.after(() => clean(fixture))
+  writeFileSync(join(fixture.migrationsDir, 'not-a-version.sql'), '-- invalid\n')
+
+  const result = await verify(fixture)
+  assert.equal(result.ok, false)
+  assert.match(result.errors.join(' '), /Migration filename/)
+})
+
+test('rejects unsafe artifact paths', async t => {
+  const fixture = createFixture()
+  t.after(() => clean(fixture))
+  fixture.manifest.artifacts[0].path = '../roles.sql'
+  writeManifest(fixture)
+
+  const result = await verify(fixture)
+  assert.equal(result.ok, false)
+  assert.match(result.errors.join(' '), /safe relative paths/)
+})
+
+test('rejects symbolic links in artifact paths', async t => {
+  const fixture = createFixture()
+  t.after(() => clean(fixture))
+  const original = join(fixture.artifactsDir, 'roles.sql')
+  const outside = join(fixture.privateDir, 'outside.sql')
+  writeFileSync(outside, '-- outside artifact\n')
+  rmSync(original)
+  symlinkSync(outside, original)
+
+  const result = await verify(fixture)
+  assert.equal(result.ok, false)
+  assert.match(result.errors.join(' '), /Symbolic links|symbolic link/)
+})
+
+test('rejects artifacts stored inside the Git repository', async t => {
+  const fixture = createFixture()
+  t.after(() => clean(fixture))
+  const inRepo = join(fixture.repoRoot, 'private-backup')
+  mkdirSync(inRepo)
+  for (const artifact of artifactDefinitions) {
+    writeFileSync(join(inRepo, artifact.path), artifact.content)
+  }
+
+  const result = await verify(fixture, { artifactsDir: inRepo })
+  assert.equal(result.ok, false)
+  assert.match(result.errors.join(' '), /outside the Git repository/)
+})
+
+test('rejects a manifest stored inside the Git repository', async t => {
+  const fixture = createFixture()
+  t.after(() => clean(fixture))
+  const inRepoManifest = join(fixture.repoRoot, 'manifest.json')
+  writeFileSync(inRepoManifest, JSON.stringify(fixture.manifest))
+
+  const result = await verify(fixture, { manifestPath: inRepoManifest })
+  assert.equal(result.ok, false)
+  assert.match(result.errors.join(' '), /private manifest/)
+})
+
+test('rejects credential-like fields and connection strings in the manifest', async t => {
+  const fixture = createFixture()
+  t.after(() => clean(fixture))
+  fixture.manifest.source.databaseUrl = 'postgresql://' + 'user' + ':' + 'password' + '@example.test/db'
+  writeManifest(fixture)
+
+  const result = await verify(fixture)
+  assert.equal(result.ok, false)
+  assert.match(result.errors.join(' '), /credential material|credential-like field name/)
+})
+
+test('rejects incomplete row-count inventory', async t => {
+  const fixture = createFixture()
+  t.after(() => clean(fixture))
+  delete fixture.manifest.source.rowCounts['vault.secrets']
+  writeManifest(fixture)
+
+  const result = await verify(fixture)
+  assert.equal(result.ok, false)
+  assert.match(result.errors.join(' '), /rowCounts/)
+})
+
+test('rejects non-zero data in Supabase-managed schemas omitted by the CLI dump', async t => {
+  const fixture = createFixture()
+  t.after(() => clean(fixture))
+
+  for (const key of REQUIRED_EMPTY_MANAGED_ROW_COUNT_KEYS) {
+    fixture.manifest.source.rowCounts[key] = 1
+    writeManifest(fixture)
+    const result = await verify(fixture)
+    assert.equal(result.ok, false, key + ' must block the CLI logical backup path')
+    assert.match(result.errors.join(' '), /must be zero for the CLI logical backup path/)
+    fixture.manifest.source.rowCounts[key] = 0
+  }
+})
+
+test('read-only customization inventory covers every required row count', () => {
+  const inventorySql = readFileSync(join(process.cwd(), 'supabase/operations/restore-customization-inventory.sql'), 'utf8')
+  for (const key of REQUIRED_ROW_COUNT_KEYS) {
+    assert.ok(inventorySql.includes("'" + key + "'"), key + ' is missing from the SQL inventory')
+  }
+
+  const executableSql = inventorySql.replace(/^--.*$/gm, '')
+  assert.doesNotMatch(executableSql, /\\b(insert|update|delete|merge|create|alter|drop|truncate|grant|revoke)\\b/i)
+})
+
+test('Auth trigger restore requires explicit isolated-target attestation', () => {
+  const restoreSql = readFileSync(join(process.cwd(), 'supabase/operations/restore-auth-user-trigger.sql'), 'utf8')
+  const executableRestoreSql = restoreSql.replace(/^--.*$/gm, '')
+  assert.ok(executableRestoreSql.includes("current_setting('app.personal_os_restore_target', true)"))
+  assert.ok(executableRestoreSql.includes("IS DISTINCT FROM 'isolated'"))
+  assert.doesNotMatch(executableRestoreSql, /SET app\\.personal_os_restore_target/i)
+
+  const migrationRunner = readFileSync(join(process.cwd(), 'supabase/tests/organization-migrations.sh'), 'utf8')
+  assert.ok(migrationRunner.includes('if psql -X -v ON_ERROR_STOP=1 -f supabase/operations/restore-auth-user-trigger.sql'))
+  assert.ok(migrationRunner.includes("SET app.personal_os_restore_target = 'isolated'"))
+})
+
+test('rejects a manifest tied to a different Git commit', async t => {
+  const fixture = createFixture()
+  t.after(() => clean(fixture))
+
+  const result = await verify(fixture, { expectedCommit: 'b'.repeat(40) })
+  assert.equal(result.ok, false)
+  assert.match(result.errors.join(' '), /current Git HEAD/)
+})
+
+test('rejects unsupported restore claims instead of treating backup verification as restore proof', async t => {
+  const fixture = createFixture()
+  t.after(() => clean(fixture))
+  fixture.manifest.restoreStatus = 'verified'
+  writeManifest(fixture)
+
+  const result = await verify(fixture)
+  assert.equal(result.ok, false)
+  assert.match(result.errors.join(' '), /unsupported field/)
+})
+
+test('rejects a source project ref other than the configured production source', async t => {
+  const fixture = createFixture()
+  t.after(() => clean(fixture))
+  fixture.manifest.source.projectRef = 'abcdefghijklmnopqrst'
+  writeManifest(fixture)
+
+  const result = await verify(fixture)
+  assert.equal(result.ok, false)
+  assert.match(result.errors.join(' '), /source.projectRef/)
+})
+
+test('rejects non-zero and non-integer row counts', async t => {
+  const fixture = createFixture()
+  t.after(() => clean(fixture))
+  fixture.manifest.source.rowCounts['public.tasks'] = -1
+  writeManifest(fixture)
+
+  const result = await verify(fixture)
+  assert.equal(result.ok, false)
+  assert.match(result.errors.join(' '), /non-negative safe integer/)
+})
+
+test('rejects an extension inventory that omits a required extension', async t => {
+  const fixture = createFixture()
+  t.after(() => clean(fixture))
+  fixture.manifest.source.extensions.pop()
+  writeManifest(fixture)
+
+  const result = await verify(fixture)
+  assert.equal(result.ok, false)
+  assert.match(result.errors.join(' '), /required non-plpgsql extension/)
+})
+
+test('rejects a malformed export timestamp', async t => {
+  const fixture = createFixture()
+  t.after(() => clean(fixture))
+  fixture.manifest.source.exportedAtUtc = '2026-11-21T02:00:00+05:30'
+  writeManifest(fixture)
+
+  const result = await verify(fixture)
+  assert.equal(result.ok, false)
+  assert.match(result.errors.join(' '), /canonical UTC ISO timestamp/)
+})
+
+test('rejects duplicate artifact paths', async t => {
+  const fixture = createFixture()
+  t.after(() => clean(fixture))
+  fixture.manifest.artifacts[1].path = 'roles.sql'
+  writeManifest(fixture)
+
+  const result = await verify(fixture)
+  assert.equal(result.ok, false)
+  assert.match(result.errors.join(' '), /wrong export command|duplicate path/)
+})
+
+
+test('rejects symbolic links in the repository migration inventory', async t => {
+  const fixture = createFixture()
+  t.after(() => clean(fixture))
+  const target = join(fixture.migrationsDir, repositoryVersions[0] + '_fixture.sql')
+  symlinkSync(target, join(fixture.migrationsDir, '20261122000000_linked.sql'))
+
+  const result = await verify(fixture)
+  assert.equal(result.ok, false)
+  assert.match(result.errors.join(' '), /Migration SQL entries must be regular files/)
+})
+
+
+test('rls_auto_enable remains project-installed outside migrations and the CI fixture mirrors its source body', () => {
+  const migrationsDir = join(process.cwd(), 'supabase', 'migrations')
+  const migrationFiles = readdirSync(migrationsDir).filter(file => file.endsWith('.sql')).sort()
+  const references = migrationFiles.filter(file =>
+    readFileSync(join(migrationsDir, file), 'utf8').includes('rls_auto_enable'),
+  )
+  assert.deepEqual(references, ['20260905162251_restrict_rls_auto_enable_execute.sql'])
+
+  const restriction = readFileSync(join(migrationsDir, '20260905162251_restrict_rls_auto_enable_execute.sql'), 'utf8')
+  assert.equal(
+    restriction.trim().toLowerCase(),
+    'revoke execute on function public.rls_auto_enable() from anon, authenticated;',
+  )
+  assert.doesNotMatch(restriction.toLowerCase(), /create function|create event trigger/)
+
+  const bootstrap = readFileSync(join(process.cwd(), 'supabase', 'tests', 'organization-migration-bootstrap.sql'), 'utf8')
+  assert.match(bootstrap, /project-installed event-trigger function outside the migration chain/i)
+  assert.match(bootstrap, /source-shaped fixture matches the reviewed production body/i)
+  assert.match(bootstrap, /RETURNS event_trigger/i)
+  assert.ok(bootstrap.includes('pg_event_trigger_ddl_commands()'))
+  assert.ok(bootstrap.includes('WHEN OTHERS THEN'))
+  assert.ok(bootstrap.includes('RAISE LOG'))
+  assert.doesNotMatch(bootstrap, /no-op fixture/i)
+  assert.match(bootstrap, /CREATE ROLE supabase_admin NOLOGIN SUPERUSER/i)
+
+  const restoreScript = readFileSync(join(process.cwd(), 'supabase', 'operations', 'restore-ensure-rls-event-trigger.sql'), 'utf8')
+  assert.ok(restoreScript.includes("session_user IS DISTINCT FROM 'postgres'"))
+  assert.ok(restoreScript.includes("current_user IS DISTINCT FROM 'postgres'"))
+  assert.doesNotMatch(restoreScript, /AND\s+rolsuper|ALTER EVENT TRIGGER ensure_rls OWNER TO postgres/)
+  assert.ok(restoreScript.includes('Supautils'))
+
+  const preflight = readFileSync(join(process.cwd(), 'supabase', 'operations', 'organization-v1-preflight.sql'), 'utf8')
+  assert.ok(preflight.includes('AS public_execute'))
+  assert.ok(preflight.includes('acl.grantee = 0'))
+  assert.ok(preflight.includes("session_user = 'postgres'"))
+  assert.ok(preflight.includes("current_user = 'postgres'"))
+  assert.ok(preflight.includes('AS postgres_is_superuser'))
+
+  const runner = readFileSync(join(process.cwd(), 'supabase', 'tests', 'organization-migrations.sh'), 'utf8')
+  assert.ok(runner.includes('SET ROLE supabase_admin'))
+  assert.ok(runner.includes('SET ROLE postgres'))
+  assert.ok(runner.includes('rejects a superuser role other than postgres'))
+  assert.ok(runner.includes("SET app.personal_os_restore_target = 'isolated'"))
+  assert.ok(runner.includes("expected_restore_executor_line='ensure_rls_restore_executor|t|t|t'"))
+  assert.ok(runner.includes('ROLLBACK'))
+  assert.ok(runner.includes('-c "ROLLBACK"\n)"\nexpected_ensure_rls_line'))
+  const behaviorTest = readFileSync(join(process.cwd(), 'supabase', 'tests', 'restore-ensure-rls-event-trigger.sql'), 'utf8')
+  assert.ok(behaviorTest.includes("session_user IS DISTINCT FROM 'postgres'"))
+  assert.ok(behaviorTest.includes("current_user IS DISTINCT FROM 'postgres'"))
+  assert.doesNotMatch(behaviorTest, /AND\s+rolsuper/)
+  assert.ok(behaviorTest.includes('SAVEPOINT ensure_rls_exception_path'))
+  assert.ok(behaviorTest.includes('ROLLBACK TO SAVEPOINT ensure_rls_exception_path'))
+})
+
+test('restore customization inventory records event-trigger tags and function fingerprints without exposing bodies', () => {
+  const inventory = readFileSync(
+    join(process.cwd(), 'supabase', 'operations', 'restore-customization-inventory.sql'),
+    'utf8',
+  )
+  assert.ok(inventory.includes('e.evttags'))
+  assert.ok(inventory.includes('md5(p.prosrc) AS source_md5'))
+  assert.ok(inventory.includes('rolcanlogin'))
+  assert.ok(!inventory.includes('p.prosrc AS source_body'))
+})
+
+test('claim_due_reminders source baseline and branch atomic replacement are distinct', () => {
+  const sourceMigrationVersions: readonly string[] = REQUIRED_SOURCE_MIGRATIONS
+  assert.ok(sourceMigrationVersions.includes('20260830123420'))
+  assert.ok(!sourceMigrationVersions.includes('20261120000300'))
+
+  const migrationsDir = join(process.cwd(), 'supabase', 'migrations')
+  const sourceBaseline = readFileSync(join(migrationsDir, '20260830123420_atomize_reminder_delivery_claim.sql'), 'utf8')
+  const branchReplacement = readFileSync(join(migrationsDir, '20261120000300_atomic_reminder_delivery.sql'), 'utf8')
+
+  assert.match(sourceBaseline, /set search_path\s*=\s*public/i)
+  assert.match(sourceBaseline, /update public\.reminders/i)
+  assert.match(sourceBaseline, /insert into public\.activity_events/i)
+  assert.doesNotMatch(sourceBaseline, /insert into public\.notifications/i)
+
+  assert.match(branchReplacement, /set search_path\s*=\s*pg_catalog,\s*public/i)
+  assert.match(branchReplacement, /insert into public\.notifications/i)
+  assert.match(branchReplacement, /insert into public\.activity_events/i)
+  assert.match(branchReplacement, /update public\.reminders/i)
+})

@@ -45,7 +45,7 @@ Behavior modeling, workload prediction, intelligent scheduling, and continuous i
 ## Architecture Principles
 
 - PostgreSQL as the source of truth
-- Activity events preserved for historical analysis
+- Task INSERT/UPDATE/DELETE activity events are written transactionally by a postgres-owned SECURITY DEFINER trigger with an explicit authenticated-owner guard; authenticated clients have owner-scoped SELECT only and cannot directly INSERT arbitrary activity history. `service_role` remains a trusted backend SELECT/INSERT role, and reminder delivery writes through its existing postgres-owned SECURITY DEFINER RPC. Task/subtask creation uses per-owner client request IDs and payload fingerprints for same-request retries; `TASK_DELETED` covers authenticated owner-context deletes and descendants, while service-role/Auth-account cleanup intentionally skips per-task delete events. The postgres owner and Auth-account cascade can still remove rows, so this is not tamper-proof; no retention policy or generic event idempotency key is defined.
 - Deterministic business logic for scheduling and constraints
 - AI operates through validated tools rather than direct database access
 - User approval for consequential external or bulk actions
@@ -53,7 +53,7 @@ Behavior modeling, workload prediction, intelligent scheduling, and continuous i
 
 ## Verified status
 
-The current verified baseline on `main` includes the core productivity foundation, **Recurring Tasks V1**, and **Reminders V1**. Progress & Streaks V1 is the current engineering focus. The project-state checkpoint documents the merged work, CI verification, ownership boundaries, and remaining timezone/DST limitations.
+The current verified baseline on `main` includes core productivity, **Recurring Tasks V1**, **Reminders V1**, and **Progress & Streaks V1**. **Organization V1** is implemented on `feature/organization-v1` in open PR #11, but it is not merged. Fresh read-only inspection reconfirmed eight applied core migrations; the branch contains **27 migrations total**, with **19 branch-only migrations**. The branch includes Organization ownership/RLS, checklist reconciliation, reminder/notification owner-link constraints, atomic reminder delivery, transactional task INSERT/UPDATE/DELETE activity events, per-owner task/subtask create-request idempotency, migration 26's append-only application-role access, and migration 27's trusted event-writer boundary. CI #445 passed on the fail-closed migration/preflight follow-up; final checkpoint HEAD `c179e331f75ba3a490043eb0b90c047a89ca0a3b` passed CI #448. `TASK_DELETED` is emitted for authenticated owner-context deletes and descendant cascades; service-role/Auth-account cleanup is intentionally excluded. These changes are not deployed. Authenticated users can only SELECT activity events; trusted task triggers and reminder RPCs write events, while service_role remains a trusted backend writer. The postgres owner and Auth-account cascade can still remove rows, so this is not a tamper-proof immutable audit log; no retention policy or generic event idempotency key is defined. The isolated two-owner PostgREST harness is prepared but has not been executed. Production rollout remains blocked by the owner-controlled complete backup/isolated-restore gate, checklist conflict review, authenticated API acceptance, and explicit migration approval. Analytics remains queued. See `PROJECT_STATE.md`, `PROJECT_HANDOFF.md`, and `docs/operations/organization-v1-preflight.md` for the current checkpoint.
 
 The V1 recurrence implementation includes daily, weekly, and monthly rules, next-occurrence generation, validation, activity events, and idempotency protection. Reminders include owner-scoped data access, upcoming-reminder queries, an in-app channel contract, authenticated delivery, durable notifications, and dashboard UI.
 
@@ -67,6 +67,7 @@ The repository uses Next.js and includes scripts for development, production bui
 npm install
 npm run dev
 npm run test
+npm run typecheck
 npm run build
 ```
 
@@ -74,6 +75,9 @@ npm run build
 
 - `PROJECT_STATE.md` is the canonical verified checkpoint for current implementation status.
 - `PROJECT_ROADMAP.md` describes longer-term direction and may lag behind merged work; verify it against the actual repository and CI before making claims.
+- `docs/architecture/organization-v1.md` records Organization ownership boundaries, compatibility decisions, and production rollout gates.
+- `docs/operations/organization-v1-preflight.md` records live schema evidence, migration reconciliation, the Free Plan backup gate, and the safe rollout sequence.
+- `supabase/operations/organization-v1-preflight.sql` is a read-only SQL checklist for rechecking the live schema and policies.
 
 ## License
 
