@@ -10,8 +10,19 @@ export type AnalyticsTask = {
 }
 
 export type AnalyticsProgressEntry = {
+  goal_id: string
+  goal_title: string
+  unit: string
   value: number
   occurred_on: string
+}
+
+export type GoalProgressSummary = {
+  goalId: string
+  title: string
+  unit: string
+  value: number
+  entries: number
 }
 
 export type ReviewBounds = {
@@ -27,6 +38,7 @@ export type ReviewBucket = {
   label: string
   completed: number
   progress: number
+  progressByGoal: GoalProgressSummary[]
 }
 
 export type AnalyticsReview = {
@@ -101,6 +113,7 @@ export function buildAnalyticsReview(
   let previousCreated = 0
   let previousProgress = 0
   let progress = 0
+  const progressByGoal = new Map<string, GoalProgressSummary>()
 
   for (const task of tasks) {
     if (task.status === 'COMPLETED' && task.completed_at) {
@@ -124,10 +137,17 @@ export function buildAnalyticsReview(
   for (const entry of progressEntries) {
     const bucket = byDate.get(entry.occurred_on)
     if (bucket) {
-      progress += entry.value
-      bucket.progress += entry.value
+      progress += 1
+      bucket.progress += 1
+      const current = progressByGoal.get(entry.goal_id)
+      if (current) {
+        current.value += entry.value
+        current.entries += 1
+      } else {
+        progressByGoal.set(entry.goal_id, { goalId: entry.goal_id, title: entry.goal_title, unit: entry.unit, value: entry.value, entries: 1 })
+      }
     } else if (entry.occurred_on >= isoDay(bounds.previousStart) && entry.occurred_on < isoDay(bounds.previousEnd)) {
-      previousProgress += entry.value
+      previousProgress += 1
     }
   }
 
@@ -139,6 +159,7 @@ export function buildAnalyticsReview(
     completed,
     created,
     progress,
+    progressByGoal: [...progressByGoal.values()].sort((a, b) => a.title.localeCompare(b.title)),
     plannedMinutes,
     actualMinutes,
     trackedTasks,

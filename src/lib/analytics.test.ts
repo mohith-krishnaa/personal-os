@@ -25,21 +25,26 @@ test('review buckets completed tasks and progress by date and excludes period bo
     { id: 'current', status: 'COMPLETED', completed_at: '2026-11-23T09:00:00.000Z', created_at: '2026-11-23T08:00:00.000Z', estimated_minutes: 30, actual_minutes: 36 },
     { id: 'not-done', status: 'TODO', completed_at: null, created_at: '2026-11-24T12:00:00.000Z', estimated_minutes: 15, actual_minutes: null },
   ], [
-    { value: 2, occurred_on: '2026-11-16' },
-    { value: 3, occurred_on: '2026-11-23' },
-    { value: 4, occurred_on: '2026-11-30' },
+    { goal_id: 'goal-a', goal_title: 'Read', unit: 'pages', value: 2, occurred_on: '2026-11-16' },
+    { goal_id: 'goal-a', goal_title: 'Read', unit: 'pages', value: 3, occurred_on: '2026-11-23' },
+    { goal_id: 'goal-b', goal_title: 'Run', unit: 'km', value: 4, occurred_on: '2026-11-23' },
+    { goal_id: 'goal-a', goal_title: 'Read', unit: 'pages', value: 5, occurred_on: '2026-11-30' },
   ], bounds)
 
   assert.equal(review.buckets.length, 7)
   assert.equal(review.buckets[0].completed, 1)
-  assert.equal(review.buckets[0].progress, 3)
+  assert.equal(review.buckets[0].progress, 2)
   assert.equal(review.completed, 1)
   assert.equal(review.created, 2)
   assert.equal(review.plannedMinutes, 30)
   assert.equal(review.actualMinutes, 36)
-  assert.equal(review.previousCompleted, 1)
-  assert.equal(review.previousProgress, 2)
+  assert.equal(review.previousCompleted, 2)
+  assert.equal(review.previousProgress, 1)
   assert.equal(review.previousCreated, 2)
+  assert.deepEqual(review.progressByGoal, [
+    { goalId: 'goal-a', title: 'Read', unit: 'pages', value: 3, entries: 1 },
+    { goalId: 'goal-b', title: 'Run', unit: 'km', value: 4, entries: 1 },
+  ])
 })
 
 test('insights avoid estimating time accuracy without three comparable tasks', () => {
